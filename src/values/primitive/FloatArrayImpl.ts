@@ -1,7 +1,6 @@
 import { ValueType } from '@/api/ValueType';
-import { ArrayEquals } from '../ArrayEquals';
-import { FloatArray } from '../FloatArray';
-import { GdsValue } from '../GdsValue';
+import { FloatArray } from '../abstract/FloatArray';
+import { ArrayEquals } from './ArrayEquals';
 
 /**
  * Implementation of FloatArray that stores an array of float values.
@@ -84,15 +83,9 @@ export class FloatArrayImpl implements FloatArray {
    * @returns true if objects are equal
    */
   public equals(o: unknown): boolean {
-    if (this === o) return true;
-
-    if (o instanceof FloatArrayImpl) {
-      return this.equalsFloats(o.value);
-    } else if (o instanceof GdsValue) {
-      return ArrayEquals.floatAndObject(this.value, o.asObject());
-    }
-
-    return false;
+    return (
+      o != null && ArrayEquals.floatAndObject(this.value, (o as any).value)
+    );
   }
 
   /**
@@ -183,6 +176,6 @@ export class FloatArrayImpl implements FloatArray {
    * @returns String representation
    */
   public toString(): string {
-    return `FloatArray[${Array.from(this.value).join(', ')}]`;
+    return `FloatArray[${Array.from(this.value).join(", ")}]`;
   }
 }

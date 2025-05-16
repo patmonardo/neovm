@@ -103,7 +103,7 @@ export namespace ValueTypeUtils {
       case ValueType.UNKNOWN:
         return "Unknown";
       default:
-      const _exhaustiveCheck: never = type;
+        const _exhaustiveCheck: never = type;
         return `Unknown Type (${type}) is a ${_exhaustiveCheck} ValueType`;
     }
   }

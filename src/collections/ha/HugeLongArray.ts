@@ -1,6 +1,5 @@
 import { HugeCursor } from '../cursor/HugeCursor';
 import { HugeArrays } from '../HugeArrays';
-import { ArrayUtil } from '../ArrayUtil';
 import { PageUtil } from '../PageUtil';
 import { Estimate } from '../../mem/Estimate';
 
@@ -18,7 +17,7 @@ export interface LongUnaryOperator {
  * It is implemented by paging of smaller long-arrays (BigInt64Array[]) to support very large collections.
  * If the provided size is small enough, an optimized view of a single BigInt64Array might be used.
  */
-export abstract class HugeLongArray extends HugeArray<BigInt64Array, number, HugeLongArray> {
+export abstract class HugeLongArray extends HugeArrays<LongArray, number, HugeLongArray> {
   /**
    * Estimate memory usage for an array of the given size
    */
@@ -29,19 +28,19 @@ export abstract class HugeLongArray extends HugeArray<BigInt64Array, number, Hug
 
     if (size <= HugeArrays.MAX_ARRAY_LENGTH) {
       // Single array implementation
-      return Estimate.sizeOfInstance(16) + Estimate.sizeOfBigInt64Array(size);
+      return Estimate.sizeOfInstance("16bit") + Estimate.sizeOfLongArray(size);
     }
 
     // Paged implementation
-    const instanceSize = Estimate.sizeOfInstance(32);
+    const instanceSize = Estimate.sizeOfInstance("32bit");
     const numPages = HugeArrays.numberOfPages(size);
 
     let memoryUsed = Estimate.sizeOfObjectArray(numPages);
-    const pageBytes = Estimate.sizeOfBigInt64Array(HugeArrays.PAGE_SIZE);
+    const pageBytes = Estimate.sizeOfLongArray(HugeArrays.PAGE_SIZE);
     memoryUsed += (numPages - 1) * pageBytes;
 
     const lastPageSize = HugeArrays.exclusiveIndexOfPage(size);
-    memoryUsed += Estimate.sizeOfBigInt64Array(lastPageSize);
+    memoryUsed += Estimate.sizeOfLongArray(lastPageSize);
 
     return instanceSize + memoryUsed;
   }
@@ -262,12 +261,12 @@ export class SingleHugeLongArray extends HugeLongArray {
   }
 
   public sizeOf(): number {
-    return Estimate.sizeOfBigInt64Array(this.size);
+    return Estimate.sizeOfLongArray(this.size);
   }
 
   public release(): number {
     if (this.page) {
-      const freed = Estimate.sizeOfBigInt64Array(this.size);
+      const freed = Estimate.sizeOfLongArray(this.size);
       this.page = null;
       return freed;
     }
@@ -382,11 +381,11 @@ export class PagedHugeLongArray extends HugeLongArray {
   static memoryUsed(pages: BigInt64Array[], size: number): number {
     const numPages = pages.length;
     let memoryUsed = Estimate.sizeOfObjectArray(numPages);
-    const pageBytes = Estimate.sizeOfBigInt64Array(HugeArrays.PAGE_SIZE);
+    const pageBytes = Estimate.sizeOfLongArray(HugeArrays.PAGE_SIZE);
     memoryUsed += pageBytes * (numPages - 1);
 
     const lastPageSize = HugeArrays.exclusiveIndexOfPage(size);
-    memoryUsed += Estimate.sizeOfBigInt64Array(lastPageSize);
+    memoryUsed += Estimate.sizeOfLongArray(lastPageSize);
     return memoryUsed;
   }
 

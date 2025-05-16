@@ -34,7 +34,7 @@ export class ArrayLayout {
     // position 0 is the result of a left-biased miss (needle is smaller than the smallest entry).
     // the actual values are stored 1-based
     const dest = new Array<number>(length + 1);
-    dest[0] = -1n;
+    dest[0] = -1;
     this.eytzinger(length, input, dest, offset, 1);
     return dest;
   }
@@ -59,7 +59,7 @@ export class ArrayLayout {
     // position 0 is the result of a left-biased miss (needle is smaller than the smallest entry).
     // the actual values are stored 1-based
     const dest = new Array<number>(input.length + 1);
-    dest[0] = -1n;
+    dest[0] = -1;
     const secondaryDest = new Array<number>(secondary.length);
 
     this.eytzingerWithSecondary(input.length, input, dest, 0, 1, secondary, secondaryDest);

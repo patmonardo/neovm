@@ -1,8 +1,8 @@
-import { GraphAdapter } from "./GraphAdapter";
+import { NodeLabel } from "@/projection/NodeLabel";
+import { RelationshipType } from "@/projection/RelationshipType";
 import { CSRGraph } from "./CSRGraph";
-import { NodeLabel } from "../NodeLabel"; // Adjust path as needed
-import { RelationshipType } from "../RelationshipType"; // Adjust path as needed
-import { Topology } from "./Topology"; // Adjust path as needed
+import { GraphAdapter } from "./GraphAdapter";
+import { Topology } from "./Topology";
 
 /**
  * An abstract adapter for CSRGraph instances.

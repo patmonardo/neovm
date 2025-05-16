@@ -1,5 +1,5 @@
 import { ValueType } from '@/api/ValueType';
-import { IntegralValue } from '../IntegralValue';
+import { IntegralValue } from '../abstract/IntegralValue';
 
 /**
  * Implementation of IntegralValue that stores a long (number) value.
@@ -50,13 +50,7 @@ export class LongValueImpl implements IntegralValue {
    * @returns true if objects are equal
    */
   public equals(o: unknown): boolean {
-    if (this === o) return true;
-
-    if (o instanceof IntegralValue) {
-      return this.value === o.longValue();
-    }
-
-    return false;
+    return o != null && this.value === (o as any).value;
   }
 
   /**
@@ -65,10 +59,15 @@ export class LongValueImpl implements IntegralValue {
    * @returns Hash code
    */
   public hashCode(): number {
-    // Convert number to number for hashing
-    // This will lose precision for very large values but maintains
-    // similar hash behavior as Java for common values
-    return Number((this.value & 0xFFFFFFFF) ^ (this.value >> 32));
+    // Use BigInt for proper 64-bit handling
+    const bigValue = BigInt(this.value);
+    // Need to use BigInt literals with the 'n' suffix
+    const lower32 = bigValue & 0xFFFFFFFFn;
+    const upper32 = bigValue >> 32n;
+    const hashBigInt = lower32 ^ upper32;
+
+    // Convert back to number (safe since hash is always 32-bit)
+    return Number(hashBigInt);
   }
 
   /**

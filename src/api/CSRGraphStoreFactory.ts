@@ -6,14 +6,14 @@ import { RelationshipType } from "../RelationshipType"; // Placeholder
 import { DatabaseInfo, DatabaseLocation, ImmutableDatabaseInfo } from "./DatabaseInfo"; // Assuming ImmutableDatabaseInfo for builder
 import { GraphStoreFactory } from "./GraphStoreFactory";
 import { GraphLoaderContext } from "./GraphLoaderContext";
-import { MutableGraphSchema } from "./schema/MutableGraphSchema"; // Placeholder
+import { MutableGraphSchema } from "./schema/primitive/MutableGraphSchema"; // Placeholder
 import { HugeIntArray } from "../collections/ha/HugeIntArray"; // Placeholder
 import { HugeLongArray } from "../collections/ha/HugeLongArray"; // Placeholder
 import { GraphProjectConfig } from "../config/GraphProjectConfig"; // Placeholder
 import { GraphDimensions } from "../core/GraphDimensions"; // Placeholder
 import { IdMapBehaviorServiceProvider } from "../core/IdMapBehaviorServiceProvider"; // Placeholder
 import { HugeGraph } from "../core/huge/HugeGraph"; // Placeholder
-import { AdjacencyBuffer } from "../core/loading/AdjacencyBuffer"; // Placeholder
+import { AdjacencyBuffer } from "../core/5/AdjacencyBuffer"; // Placeholder
 import { AdjacencyListBehavior } from "../core/loading/AdjacencyListBehavior"; // Placeholder
 import { CSRGraphStore } from "../core/loading/CSRGraphStore"; // Placeholder
 import { Capabilities } from "../core/loading/Capabilities"; // Placeholder

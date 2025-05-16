@@ -1,4 +1,4 @@
-import { Direction } from '@/api/schema/Direction';
+import { Direction } from '@/api/schema/abstract/Direction';
 
 /**
  * Utility class for manipulating raw values through bit operations.
@@ -14,7 +14,7 @@ export class RawValues {
    * @returns combination of head and tail as a number
    */
   public static combineIntInt(head: number, tail: number): number {
-    return (BigInt(head) << 32n) | (BigInt(tail) & 0xFFFFFFFFn);
+    return Number((BigInt(head) << 32n) | (BigInt(tail) & 0xFFFFFFFFn));
   }
 
   /**
@@ -44,7 +44,7 @@ export class RawValues {
    * @returns the most significant 4 bytes as int
    */
   public static getHead(combinedValue: number): number {
-    return Number(combinedValue >> 32n);
+    return Number(BigInt(combinedValue) >> 32n);
   }
 
   /**
@@ -54,7 +54,7 @@ export class RawValues {
    * @returns the least significant 4 bytes as int
    */
   public static getTail(combinedValue: number): number {
-    return Number(combinedValue & 0xFFFFFFFFn);
+    return Number(BigInt(combinedValue) & 0xFFFFFFFFn);
   }
 
   /**

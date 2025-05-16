@@ -1,4 +1,5 @@
 import { HugeCursor } from '../cursor/HugeCursor';
+import { HugeArray } from './HugeArray';
 import { HugeArrays } from '../HugeArrays';
 import { Estimate } from '../../mem/Estimate';
 

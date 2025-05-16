@@ -6,7 +6,8 @@ import { TsSpecBuilder } from './TsSpecBuilder';
 import { TsMemberBuilder } from './TsMemberBuilder';
 import {
     // Import your decorator names and option types
-    CONFIGURATION_DECORATOR_NAME, ConfigurationDecoratorOptions,
+    CONFIGURATION_DECORATOR_NAME,
+     ConfigurationDecoratorOptions,
     IGNORE_DECORATOR_NAME,
     KEY_DECORATOR_NAME, KeyDecoratorOptions,
     PARAMETER_DECORATOR_NAME,

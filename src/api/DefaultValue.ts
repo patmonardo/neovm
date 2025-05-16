@@ -1,254 +1,355 @@
 import { ValueType } from "./ValueType";
+import { ValueConversion } from "./ValueConversion";
+import { DefaultValueUtil } from "./DefaultValueUtil";
 
-/**
- * Represents default values for graph properties.
- * Provides type-safe access to default values for different value types.
- */
+// Helper for simulating Java's Class.getSimpleName() for error messages
+function getClassName(value: any): string {
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+  if (value.constructor && value.constructor.name) {
+    if (value.constructor.name === 'Number' && Number.isInteger(value)) return 'Long';
+    if (value.constructor.name === 'Number') return 'Double';
+    return value.constructor.name;
+  }
+  return typeof value;
+}
+
 export class DefaultValue {
-  // Static default values for each type
-  private static readonly DEFAULT_LONG = 0n;
-  private static readonly DEFAULT_DOUBLE = 0.0;
-  private static readonly DEFAULT_FLOAT = 0.0;
-  private static readonly DEFAULT_STRING = "";
-  private static readonly DEFAULT_BOOLEAN = false;
-  // Assuming array defaults are empty arrays of the correct type
-  private static readonly DEFAULT_LONG_ARRAY: readonly number[] = Object.freeze([]);
-  private static readonly DEFAULT_DOUBLE_ARRAY: readonly number[] = Object.freeze([]);
-  private static readonly DEFAULT_FLOAT_ARRAY: readonly number[] = Object.freeze([]);
-  private static readonly DEFAULT_STRING_ARRAY: readonly string[] = Object.freeze([]);
+  public static readonly INTEGER_DEFAULT_FALLBACK: number = -2147483648;
+  public static readonly LONG_DEFAULT_FALLBACK: number = 0;
+  public static readonly FLOAT_DEFAULT_FALLBACK: number = Number.NaN;
+  public static readonly DOUBLE_DEFAULT_FALLBACK: number = Number.NaN;
 
+  private readonly _value: any | null;
+  private readonly _isUserDefined: boolean;
 
-  public readonly isUserDefined: boolean;
+  // Initialize DEFAULT first
+  public static readonly DEFAULT: DefaultValue = new DefaultValue(null, false);
 
-  /**
-   * Creates a default value for the specified value type.
-   *
-   * @param valueType The value type
-   * @param value Optional explicit default value
-   * @param isUserDefined True if this default value was explicitly set by a user.
-   */
-  constructor(
-    private readonly valueType: ValueType,
-    private readonly value?: any,
-    isUserDefined: boolean = false // Default to false if not specified
-  ) {
-    this.isUserDefined = isUserDefined;
+  // Then initialize other static fallbacks that depend on DEFAULT's methods
+  // These are private to the class as per Java's GDS structure (often not directly exposed)
+  private static readonly DOUBLE_ARRAY_DEFAULT_FALLBACK: Float64Array | null =
+    DefaultValue.DEFAULT.doubleArrayValue();
+  private static readonly LONG_ARRAY_DEFAULT_FALLBACK: number[] | null =
+    DefaultValue.DEFAULT.longArrayValue();
+  private static readonly FLOAT_ARRAY_DEFAULT_FALLBACK: Float32Array | null =
+    DefaultValue.DEFAULT.floatArrayValue();
+
+  private constructor(value: any | null, isUserDefined: boolean) {
+    if (value === undefined) value = null;
+    this._value = value;
+    this._isUserDefined = isUserDefined;
   }
 
-  /**
-   * Gets the default value as the appropriate type.
-   */
-  public get<T>(): T {
-    if (this.isUserDefined && this.value !== undefined) {
-      // If user-defined, return the stored value, even if it's null
-      // (unless it was constructed with undefined, which means use type default)
-      return this.value as T;
-    }
-    if (!this.isUserDefined && this.value !== undefined) {
-        // This case could happen if DefaultValue.DEFAULT is constructed with a specific value
-        // but isUserDefined is false.
-        return this.value as T;
-    }
-
-
-    // Return type-appropriate system default
-    switch (this.valueType) {
-      case ValueType.LONG:
-        return DefaultValue.DEFAULT_LONG as unknown as T;
-      case ValueType.DOUBLE:
-        return DefaultValue.DEFAULT_DOUBLE as unknown as T;
-      case ValueType.FLOAT:
-        return DefaultValue.DEFAULT_FLOAT as unknown as T;
-      case ValueType.STRING:
-        return DefaultValue.DEFAULT_STRING as unknown as T;
-      case ValueType.BOOLEAN:
-        return DefaultValue.DEFAULT_BOOLEAN as unknown as T;
-      case ValueType.LONG_ARRAY:
-        return DefaultValue.DEFAULT_LONG_ARRAY as unknown as T;
-      case ValueType.DOUBLE_ARRAY:
-        return DefaultValue.DEFAULT_DOUBLE_ARRAY as unknown as T;
-      case ValueType.FLOAT_ARRAY:
-        return DefaultValue.DEFAULT_FLOAT_ARRAY as unknown as T;
-      case ValueType.STRING_ARRAY:
-        return DefaultValue.DEFAULT_STRING_ARRAY as unknown as T;
-      default:
-        // For unknown or complex types without a specific system default,
-        // returning null or undefined might be appropriate if value is also undefined.
-        // Or throw, as it currently does.
-        if (this.value !== undefined) return this.value as T; // Fallback for types not listed if value exists
-        throw new Error(
-          `No system default value for type: ${ValueType[this.valueType]}`
-        );
-    }
+  public isUserDefined(): boolean {
+    return this._isUserDefined;
   }
 
-  /**
-   * Returns whether this default value is considered "null-like".
-   * This checks the actual resolved value.
-   */
+  public longValue(): number {
+    if (this._value === null || this._value === undefined) {
+      return DefaultValue.LONG_DEFAULT_FALLBACK;
+    }
+    if (typeof this._value === "number") {
+      if (Number.isNaN(this._value)) return DefaultValue.LONG_DEFAULT_FALLBACK;
+      return ValueConversion.exactDoubleToLong(this._value);
+    }
+    throw this.getInvalidTypeException("Long");
+  }
+
+  public doubleValue(): number {
+    if (
+      this._value === DefaultValue.LONG_DEFAULT_FALLBACK &&
+      typeof this._value === "number"
+    ) {
+      return DefaultValue.DOUBLE_DEFAULT_FALLBACK;
+    }
+    if (this._value === null || this._value === undefined) {
+      return DefaultValue.DOUBLE_DEFAULT_FALLBACK;
+    }
+    if (typeof this._value === "number") {
+      if (Number.isInteger(this._value)) {
+        return ValueConversion.exactLongToDouble(this._value);
+      }
+      return this._value;
+    }
+    throw this.getInvalidTypeException("Double");
+  }
+
+  public floatValue(): number {
+    if (
+      this._value === DefaultValue.LONG_DEFAULT_FALLBACK &&
+      typeof this._value === "number"
+    ) {
+      return DefaultValue.FLOAT_DEFAULT_FALLBACK;
+    }
+    if (this._value === null || this._value === undefined) {
+      return DefaultValue.FLOAT_DEFAULT_FALLBACK;
+    }
+    if (typeof this._value === "number") {
+      if (Number.isInteger(this._value)) {
+        return ValueConversion.exactLongToFloat(this._value);
+      }
+      return ValueConversion.notOverflowingDoubleToFloat(this._value);
+    }
+    throw this.getInvalidTypeException("Float");
+  }
+
+  public booleanValue(): boolean {
+    if (this._value === null || this._value === undefined) return false;
+    if (typeof this._value === "boolean") return this._value;
+    throw this.getInvalidTypeException("Boolean");
+  }
+
+  public stringValue(): string | null {
+    if (this._value === null || this._value === undefined) return null;
+    return String(this._value);
+  }
+
+  public doubleArrayValue(): Float64Array | null {
+    if (this._value === null || this._value === undefined) return null;
+    if (this._value instanceof Float64Array) return this._value;
+    if (this._value instanceof Float32Array) {
+      return new Float64Array(this._value);
+    }
+    if (
+      Array.isArray(this._value) &&
+      this._value.every((item) => typeof item === "number")
+    ) {
+      const arr = this._value as number[];
+      const result = new Float64Array(arr.length);
+      for (let i = 0; i < arr.length; i++) {
+        result[i] = ValueConversion.exactLongToDouble(arr[i]);
+      }
+      return result;
+    }
+    throw this.getInvalidTypeException("double[]");
+  }
+
+  public floatArrayValue(): Float32Array | null {
+    if (this._value === null || this._value === undefined) return null;
+    if (this._value instanceof Float32Array) return this._value;
+    if (this._value instanceof Float64Array) {
+      const result = new Float32Array(this._value.length);
+      for (let i = 0; i < this._value.length; i++) {
+        result[i] = ValueConversion.notOverflowingDoubleToFloat(this._value[i]);
+      }
+      return result;
+    }
+    if (
+      Array.isArray(this._value) &&
+      this._value.every((item) => typeof item === "number")
+    ) {
+      const arr = this._value as number[];
+      const result = new Float32Array(arr.length);
+      for (let i = 0; i < arr.length; i++) {
+        result[i] = ValueConversion.exactLongToFloat(arr[i]);
+      }
+      return result;
+    }
+    throw this.getInvalidTypeException("float[]");
+  }
+
+  public longArrayValue(): number[] | null {
+    if (this._value === null || this._value === undefined) return null;
+    if (
+      Array.isArray(this._value) &&
+      this._value.every(
+        (item) => Number.isInteger(item) && typeof item === "number"
+      )
+    ) {
+      return this._value as number[];
+    }
+    if (
+      this._value instanceof Float64Array ||
+      this._value instanceof Float32Array
+    ) {
+      const arr = this._value as Float64Array | Float32Array;
+      const result: number[] = [];
+      for (let i = 0; i < arr.length; i++) {
+        result[i] = ValueConversion.exactDoubleToLong(arr[i]);
+      }
+      return result;
+    }
+    throw this.getInvalidTypeException("long[]");
+  }
+
+  public getObject(): any | null {
+    return this._value;
+  }
+
   public isNullValue(): boolean {
-    const val = this.get<any>();
-    return val === null || val === undefined;
+    return this._value === null;
   }
 
-  /**
-   * Returns the value type of this default value.
-   */
-  public getValueType(): ValueType {
-    return this.valueType;
+  public toString(): string {
+    return `DefaultValue(${this._value})`;
   }
 
-  /**
-   * Compares this DefaultValue to another for equality.
-   * Two DefaultValues are equal if they have the same isUserDefined status
-   * and their underlying values are deeply equal.
-   * @param other The other DefaultValue to compare.
-   * @returns True if equal, false otherwise.
-   */
   public equals(other: any): boolean {
     if (this === other) return true;
     if (!(other instanceof DefaultValue)) return false;
 
-    if (this.isUserDefined !== other.isUserDefined) return false;
-    if (this.valueType !== other.valueType) return false; // Also check type for stricter equality
-
-    // Compare the actual values they represent
-    // We need a robust way to compare these values, potentially reusing
-    // the logic from NodeProjections.defaultValuesEqual or a shared utility.
-    // For now, let's assume a simple comparison for the `get()` value.
-    // A proper deep comparison would be needed here.
-    // This is a placeholder for a deep equality check.
-    const thisVal = this.get<any>();
-    const otherVal = other.get<any>();
-
-    // Basic deep equality check (can be extracted to a helper)
-    function deepCompare(a: any, b: any): boolean {
-        if (a === b) return true;
-        if (a === null || b === null || typeof a !== "object" || typeof b !== "object") {
-            // For BigInt, direct comparison works
-            if (typeof a === 'number' && typeof b === 'number') return a === b;
-            return a === b; // Handles primitives and different types
+    function deepArrayEquals(a: any, b: any): boolean {
+      if (
+        !Array.isArray(a) &&
+        !(a instanceof Float64Array) &&
+        !(a instanceof Float32Array)
+      )
+        return false;
+      if (
+        !Array.isArray(b) &&
+        !(b instanceof Float64Array) &&
+        !(b instanceof Float32Array)
+      )
+        return false;
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) {
+          if (typeof a[i] === "object" && typeof b[i] === "object") {
+            if (!deepArrayEquals(a[i], b[i])) return false;
+          } else {
+            return false;
+          }
         }
-
-        if (Array.isArray(a) && Array.isArray(b)) {
-            if (a.length !== b.length) return false;
-            for (let i = 0; i < a.length; i++) {
-                if (!deepCompare(a[i], b[i])) return false;
-            }
-            return true;
-        }
-
-        const aKeys = Object.keys(a);
-        const bKeys = Object.keys(b);
-        if (aKeys.length !== bKeys.length) return false;
-        for (const key of aKeys) {
-            if (!bKeys.includes(key) || !deepCompare(a[key], b[key])) return false;
-        }
-        return true;
+      }
+      return true;
     }
-    return deepCompare(thisVal, otherVal);
+
+    if (
+      (Array.isArray(this._value) ||
+        this._value instanceof Float64Array ||
+        this._value instanceof Float32Array) &&
+      (Array.isArray(other._value) ||
+        other._value instanceof Float64Array ||
+        other._value instanceof Float32Array)
+    ) {
+      return deepArrayEquals(this._value, other._value);
+    }
+    return this._value === other._value;
+  }
+
+  private getInvalidTypeException(expectedType: string): Error {
+    return new Error(
+      ValueConversion.formatWithLocale(
+        "Expected type of default value to be `%s`. But got `%s`.",
+        expectedType,
+        getClassName(this._value)
+      )
+    );
+  }
+
+  /**
+   * Creates a DefaultValue instance.
+   * It's generally recommended to use the more specific factory methods
+   * `DefaultValue.userDefined(value)` or `DefaultValue.systemDefault(value)`.
+   *
+   * @param value The underlying value for the default.
+   * @param isUserDefined A boolean indicating if the default value was defined by the user.
+   * @returns A new instance of DefaultValue.
+   */
+  public static create(value: any | null, isUserDefined: boolean): DefaultValue {
+    return new DefaultValue(value, isUserDefined);
+  }
+
+  /**
+   * Creates a user-defined DefaultValue instance.
+   * Use this when the default value comes from an explicit user configuration.
+   *
+   * @param value The underlying value for the default.
+   * @returns A new instance of DefaultValue marked as user-defined.
+   */
+  public static userDefined(value: any | null): DefaultValue {
+    return new DefaultValue(value, true);
+  }
+
+  /**
+   * Creates a system-defined (non-user-defined) DefaultValue instance.
+   * Use this for internal fallbacks or programmatically determined defaults.
+   * For the common case of a null value that is not user-defined, `DefaultValue.DEFAULT` can be used.
+   *
+   * @param value The underlying value for the default.
+   * @returns A new instance of DefaultValue marked as not user-defined.
+   */
+  public static systemDefault(value: any | null): DefaultValue {
+    return new DefaultValue(value, false);
   }
 }
 
+// Namespace for factory functions
 export namespace DefaultValue {
-  // System Default: isUserDefined is false.
-  // The value here is undefined, so get() will return the type-specific static default.
-  export const DEFAULT = new DefaultValue(ValueType.LONG, undefined, false); // Default type is LONG, not user-defined
-
-  export const LONG_DEFAULT_FALLBACK = -1;
-  export const DOUBLE_DEFAULT_FALLBACK = Number.NaN;
-
-  /**
-   * Factory methods for DefaultValue.
-   */
-
-  /**
-   * Creates a system default value for the specified type.
-   * isUserDefined will be false.
-   */
-  export function forType(valueType: ValueType): DefaultValue {
-    // The 'value' is undefined, so get() will use the static defaults. isUserDefined is false.
-    return new DefaultValue(valueType, undefined, false);
+  // Helper to access the private constructor from within the merged namespace
+  function ofFallBackValue(value: any | null): DefaultValue {
+    return DefaultValue.create(value, false);
   }
 
-  /**
-   * Creates a user-defined long (number) value.
-   */
-  export function forLong(value: number = 0): DefaultValue {
-    return new DefaultValue(ValueType.LONG, value, true);
-  }
-
-  /**
-   * Creates a user-defined double value.
-   */
-  export function forDouble(value: number = 0.0): DefaultValue {
-    return new DefaultValue(ValueType.DOUBLE, value, true);
-  }
-
-  /**
-   * Creates a user-defined string value.
-   */
-  export function forString(value: string = ""): DefaultValue {
-    return new DefaultValue(ValueType.STRING, value, true);
-  }
-
-  /**
-   * Creates a user-defined DefaultValue from any supplied value.
-   * Determines the type automatically. isUserDefined will be true.
-   */
-  export function of(value: any): DefaultValue {
-    // All values created by 'of' are considered user-defined.
-    if (value === undefined || value === null) {
-      // User explicitly provided null/undefined. Store it as such.
-      // We need a ValueType for null/undefined if we want to store them directly.
-      // Or, as currently, default to a type like LONG and store the null/undefined value.
-      return new DefaultValue(ValueType.LONG, value, true); // User provided null/undefined
+  export function of(value: any): DefaultValue;
+  export function of(value: any | null, isUserDefined: boolean): DefaultValue;
+  export function of(value: any | null, type: ValueType, isUserDefined: boolean): DefaultValue;
+  export function of(arg1: any, arg2?: ValueType | boolean, arg3?: boolean): DefaultValue {
+    if (arg1 instanceof DefaultValue) { // Check if arg1 is already a DefaultValue instance
+      return arg1;
     }
-
-    if (Array.isArray(value)) {
-      if (value.length === 0) {
-        // User provided an empty array. Determine a default array type or store as specific type.
-        return new DefaultValue(ValueType.LONG_ARRAY, value, true); // Default to LONG_ARRAY for empty arrays
-      }
-      const firstElement = value[0];
-      if (typeof firstElement === "number") {
-        return new DefaultValue(ValueType.LONG_ARRAY, value, true);
-      } else if (typeof firstElement === "number") {
-        // Could be FLOAT_ARRAY or DOUBLE_ARRAY, defaulting to DOUBLE_ARRAY
-        return new DefaultValue(ValueType.DOUBLE_ARRAY, value, true);
-      } else if (typeof firstElement === "string") {
-        return new DefaultValue(ValueType.STRING_ARRAY, value, true);
-      }
-       // Add other array types if necessary
+    // Signature: of(value, isUserDefined)
+    if (typeof arg2 === 'boolean' && arg3 === undefined) {
+        const valToStore = Array.isArray(arg1) ? DefaultValueUtil.transformObjectToPrimitiveArray(arg1) : arg1;
+        return DefaultValue.create(valToStore, arg2);
     }
-
-    if (typeof value === "number") {
-      return new DefaultValue(ValueType.LONG, value, true);
-    } else if (typeof value === "number") {
-      return new DefaultValue(ValueType.DOUBLE, value, true);
-    } else if (typeof value === "string") {
-      return new DefaultValue(ValueType.STRING, value, true);
-    } else if (typeof value === "boolean") {
-      return new DefaultValue(ValueType.BOOLEAN, value, true);
+    // Signature: of(value, type, isUserDefined)
+    else if (arg2 !== undefined && typeof arg2 !== 'boolean' && arg3 !== undefined) {
+        const value = arg1;
+        const type = arg2 as ValueType;
+        const isDef = arg3;
+        if (value === null || (typeof value === 'string' && value.trim() === '')) {
+            switch(type) {
+                case ValueType.LONG: return DefaultValue.forLong();
+                case ValueType.DOUBLE: return DefaultValue.forDouble();
+                case ValueType.FLOAT: return DefaultValue.forFloat();
+                case ValueType.DOUBLE_ARRAY: return DefaultValue.forDoubleArray();
+                case ValueType.FLOAT_ARRAY: return DefaultValue.forFloatArray();
+                case ValueType.LONG_ARRAY: return DefaultValue.forLongArray();
+                default: return DefaultValue.create(null, isDef);
+            }
+        }
+        let parsedValue = value;
+        switch (type) {
+            case ValueType.LONG: parsedValue = typeof value === 'string' ? parseInt(value, 10) : ValueConversion.exactDoubleToLong(Number(value)); break;
+            case ValueType.DOUBLE: parsedValue = typeof value === 'string' ? parseFloat(value) : Number(value); break;
+            case ValueType.DOUBLE_ARRAY: parsedValue = DefaultValueUtil.parseDoubleArrayValue(value, type); break;
+            case ValueType.FLOAT_ARRAY: parsedValue = DefaultValueUtil.parseFloatArrayValue(value, type); break;
+            case ValueType.LONG_ARRAY: parsedValue = DefaultValueUtil.parseLongArrayValue(value, type); break;
+        }
+        return DefaultValue.create(parsedValue, isDef);
     }
-
-    throw new Error(`Unsupported value type for DefaultValue.of: ${typeof value}`);
+    // Signature: of(value) -> isUserDefined = true
+    else if (arg2 === undefined && arg3 === undefined) {
+        const valToStore = Array.isArray(arg1) ? DefaultValueUtil.transformObjectToPrimitiveArray(arg1) : arg1;
+        return DefaultValue.create(valToStore, true);
+    }
+    // Fallback or error for unexpected signature
+    throw new Error("Invalid arguments for DefaultValue.of");
   }
 
-  // User-defined array values
-  export function forLongArray(value: number[] = []): DefaultValue {
-    return new DefaultValue(ValueType.LONG_ARRAY, value, true);
+  export function forInt(): DefaultValue {
+    return ofFallBackValue(DefaultValue.INTEGER_DEFAULT_FALLBACK);
+  }
+  export function forLong(): DefaultValue {
+    return ofFallBackValue(DefaultValue.LONG_DEFAULT_FALLBACK);
+  }
+  export function forDouble(): DefaultValue {
+    return ofFallBackValue(DefaultValue.DOUBLE_DEFAULT_FALLBACK);
+  }
+  export function forFloat(): DefaultValue {
+    return ofFallBackValue(DefaultValue.FLOAT_DEFAULT_FALLBACK);
   }
 
-  export function forDoubleArray(value: number[] = []): DefaultValue {
-    return new DefaultValue(ValueType.DOUBLE_ARRAY, value, true);
+  export function forDoubleArray(): DefaultValue {
+    // Access the private static member from the class directly
+    return ofFallBackValue(DefaultValue['DOUBLE_ARRAY_DEFAULT_FALLBACK']);
   }
-
-  export function forFloatArray(value: number[] = []): DefaultValue {
-    return new DefaultValue(ValueType.FLOAT_ARRAY, value, true);
+  export function forFloatArray(): DefaultValue {
+    return ofFallBackValue(DefaultValue['FLOAT_ARRAY_DEFAULT_FALLBACK']);
   }
-
-  export function forStringArray(value: string[] = []): DefaultValue {
-    return new DefaultValue(ValueType.STRING_ARRAY, value, true);
+  export function forLongArray(): DefaultValue {
+    return ofFallBackValue(DefaultValue['LONG_ARRAY_DEFAULT_FALLBACK']);
   }
 }

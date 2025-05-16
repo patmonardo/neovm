@@ -1,5 +1,5 @@
 import { ValueType } from '@/api/ValueType';
-import { FloatingPointValue } from '../FloatingPointValue';
+import { FloatingPointValue } from '../abstract/FloatingPointValue';
 
 /**
  * Implementation of FloatingPointValue that stores a double-precision floating point value.
@@ -52,9 +52,9 @@ export class FloatingPointValueImpl implements FloatingPointValue {
   public equals(o: unknown): boolean {
     if (this === o) return true;
 
-    if (o instanceof FloatingPointValue) {
-      // Use Object.is or epsilon comparison for better IEEE 754 handling
-      return Object.is(this.value, o.doubleValue());
+    // Use duck typing instead of instanceof
+    if (o && typeof (o as any).doubleValue === "function") {
+      return Object.is(this.value, (o as any).doubleValue());
     }
 
     return false;

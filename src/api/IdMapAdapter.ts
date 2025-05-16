@@ -74,6 +74,7 @@ export abstract class IdMapAdapter implements IdMap {
   forEachNode(consumer: (nodeId: number) => boolean): void {
     this.idMap.forEachNode(consumer);
   }
+
   // Fix the nodeIterator implementation
   nodeIterator(): Iterator<number>;
   nodeIterator(labels: Set<NodeLabel>): Iterator<number>;

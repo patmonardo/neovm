@@ -1,0 +1,365 @@
+]633;E;for f in {1..6};551bbbe3-675b-4803-99b9-e5311927fff9]633;C==== Minimal NodeProjection Test ====
+Creating NodeProjection for label: Person
+✓ Successfully created NodeProjection
+Label: Person
+Project all: false
+Object representation: {
+  "label": "Person"
+}
+✓ Successfully converted to object
+
+==== Test Completed Successfully ====
+===== TESTING NODE PROJECTIONS =====
+
+Test 1: Creating with single() factory
+Created projections with single label: Person
+Number of projections: 1
+Contains 'name(){return this._name}': true
+Object representation: {
+  "Person": {
+    "label": "Person"
+  }
+}
+
+Test 2: Creating with fromString()
+Created projections from string: Movie
+Number of projections: 1
+Object representation: {
+  "Movie": {
+    "label": "Movie"
+  }
+}
+
+Test 3: Creating with fromMap()
+Created projections from map: Actor, Director
+Number of projections: 2
+All properties: [ 'name' ]
+Object representation: {
+  "Actor": {
+    "label": "Actor",
+    "properties": {
+      "name": {
+        "property": "fullName",
+        "defaultValue": {
+          "isUserDefined": true,
+          "valueType": 0
+        }
+      }
+    }
+  },
+  "Director": {
+    "label": "Director",
+    "properties": {
+      "name": {
+        "property": "directorName",
+        "defaultValue": {
+          "isUserDefined": true,
+          "valueType": 0
+        }
+      }
+    }
+  }
+}
+
+Test 4: Creating with fromList()
+Created projections from list: Genre, Studio
+Number of projections: 2
+All projections: [ 'Genre', 'Studio' ]
+Object representation: {
+  "Genre": {
+    "label": "Genre"
+  },
+  "Studio": {
+    "label": "Studio",
+    "properties": {
+      "name": {
+        "property": "studioName",
+        "defaultValue": {
+          "isUserDefined": true,
+          "valueType": 0
+        }
+      },
+      "founded": {
+        "property": "yearFounded",
+        "defaultValue": {
+          "isUserDefined": true,
+          "valueType": 0
+        }
+      }
+    }
+  }
+}
+
+Test 5: Creating ALL projections
+All projections label: *
+Is ALL projection: true
+Object representation: {
+  "__ALL__": {
+    "label": "*"
+  }
+}
+
+Test 6: Adding property mappings
+Base projection: {
+  "Customer": {
+    "label": "Customer"
+  }
+}
+Enhanced projection: {
+  "Customer": {
+    "label": "Customer",
+    "properties": {
+      "name": {
+        "property": "customerName",
+        "defaultValue": {
+          "isUserDefined": false,
+          "valueType": 0
+        }
+      },
+      "age": {
+        "property": "customerAge",
+        "defaultValue": {
+          "isUserDefined": false,
+          "valueType": 0
+        }
+      }
+    }
+  }
+}
+All properties: [ 'name', 'age' ]
+
+Test 7: Property validation (success case)
+✓ Property validation succeeded (no conflicts)
+
+Test 8: Property validation (failure case - conflicting neo properties)
+✓ Property validation correctly failed: Specifying multiple neoPropertyKeys for the same property is not allowed, found propertyKey: `name` with conflicting neoPropertyKeys: `shortName`, `fullName`.
+
+Test 9: Get projection by identifier
+No projection found for 'name(){return this._name}'
+Projection for 'NonExistent': Not found
+
+Test 10: Empty projections handling
+✓ Creating empty projections correctly failed: An empty node projection was given; at least one node label must be projected.
+
+===== NODE PROJECTIONS TESTS COMPLETE =====
+===== PROPERTY MAPPINGS TEST =====
+
+1. Creating individual PropertyMappings:
+- Simple mapping: name -> name
+- Different source: age -> personAge
+- With default: active -> isActive, default: false
+- Using DefaultValue: score -> ranking, default: 0
+
+2. Creating PropertyMappings collection:
+- Collection with 2 mappings
+- Property keys: name,age
+- From string array: 2 mappings
+- Property keys: rating,verified
+- From object: 3 mappings
+- Property keys: firstName,lastName,memberSince
+
+3. Converting mappings to objects:
+Inspecting config object...
+- property: name (type: string)
+- defaultValue: [object Object] (type: object)
+  - isUserDefined: false (type: boolean)
+  - valueType: 0 (type: number)
+  - value: undefined (type: undefined)
+- aggregation: DEFAULT (type: string)
+- Single mapping as object: name -> {"property":"name","defaultValue":{"isUserDefined":false,"valueType":0},"aggregation":"DEFAULT"}
+- Mappings as object:
+{
+  "firstName": {
+    "property": "given_name",
+    "defaultValue": {
+      "isUserDefined": true,
+      "valueType": 0
+    },
+    "aggregation": "DEFAULT"
+  },
+  "lastName": {
+    "property": "family_name",
+    "defaultValue": {
+      "isUserDefined": true,
+      "valueType": 4,
+      "value": "Unknown"
+    },
+    "aggregation": "DEFAULT"
+  },
+  "memberSince": {
+    "property": "join_date",
+    "defaultValue": {
+      "isUserDefined": true,
+      "valueType": 0
+    },
+    "aggregation": "DEFAULT"
+  }
+}
+
+4. Merging PropertyMappings:
+- Original collections: 2 and 3 mappings
+- Merged collection: 5 mappings
+- All property keys: name,age,firstName,lastName,memberSince
+- Merged mappings as object:
+{
+  "name": {
+    "property": "name",
+    "defaultValue": {
+      "isUserDefined": false,
+      "valueType": 0
+    },
+    "aggregation": "DEFAULT"
+  },
+  "age": {
+    "property": "personAge",
+    "defaultValue": {
+      "isUserDefined": false,
+      "valueType": 0
+    },
+    "aggregation": "DEFAULT"
+  },
+  "firstName": {
+    "property": "given_name",
+    "defaultValue": {
+      "isUserDefined": true,
+      "valueType": 0
+    },
+    "aggregation": "DEFAULT"
+  },
+  "lastName": {
+    "property": "family_name",
+    "defaultValue": {
+      "isUserDefined": true,
+      "valueType": 4,
+      "value": "Unknown"
+    },
+    "aggregation": "DEFAULT"
+  },
+  "memberSince": {
+    "property": "join_date",
+    "defaultValue": {
+      "isUserDefined": true,
+      "valueType": 0
+    },
+    "aggregation": "DEFAULT"
+  }
+}
+
+5. Handling duplicate keys:
+❌ Expected error for duplicate keys
+
+6. Collection operations:
+- Collection contains 'name' mapping: true
+- Mappings with non-default values: name,age
+
+===== TEST COMPLETE =====
+===== NODE PROJECTION TEST =====
+
+1. Creating NodeProjections with different factory methods:
+- fromString: label = "Person", projectAll = false
+- of(): label = "Movie", projectAll = false
+- fromObject(string): label = "Actor", projectAll = false
+- fromObject(object): label = "Director", projectAll = false
+  - Properties: name, born
+- all(): label = "*", projectAll = true
+
+2. Skipping with NodeProjectionBuilder:
+
+3. Adding property mappings to existing projection:
+- Base projection: label = "Award"
+  - Initial properties: 0
+- Enhanced projection: label = "Award"
+  - Properties after adding: 3
+  - Property keys: category, year, winner
+
+4. Serializing to object:
+- Simple projection to object:
+{
+  "label": "Person"
+}
+- Projection with properties to object:
+{
+  "label": "Director",
+  "properties": {
+    "name": {
+      "property": "fullName",
+      "defaultValue": {
+        "isUserDefined": true,
+        "valueType": 0
+      }
+    },
+    "born": {
+      "property": "birthYear",
+      "defaultValue": {
+        "isUserDefined": true,
+        "valueType": 0
+      }
+    }
+  }
+}
+
+5. Edge cases and validation:
+- Wildcard projection: label = "*", projectAll = true
+❌ Expected error for invalid config key
+
+===== NODE PROJECTION TEST COMPLETE =====
+===== NODE PROJECTIONS CLARITY =====
+
+STEP 1: Create individual NodeProjection objects
+Created Person projection:
+- Label: Person
+- Properties: name, age
+
+Created Movie projection:
+- Label: Movie
+- Properties: title, year
+
+STEP 2: Create NodeProjections collection
+Created NodeProjections with 2 projections
+
+STEP 3: Accessing projections from the collection
+Get projection for Person label:
+- Label: Person
+- Properties: name, age
+
+STEP 4: Operating on all projections
+All properties across projections: name, age, title, year
+
+After adding 'rating' property to all projections:
+- name(){return this._name} properties: name, age, rating
+- name(){return this._name} properties: title, year, rating
+
+STEP 5: Other common creation methods
+Created from string: projections for label "Actor"
+Created from map: projections for labels "Genre"
+- Properties: name, popularity
+Created ALL projections: label = "*"
+- Is project all: true
+
+===== NODE PROJECTIONS CLARITY COMPLETE =====
+===== RELATIONSHIP PROJECTION TEST =====
+
+1. Creating with different factory methods:
+- fromString: type = "ACTED_IN"
+  indexInverse = false
+- of(): type = "DIRECTED_IN"
+- fromObject: type = "PRODUCED"
+  properties: investment, year
+
+2. Property mappings:
+- Complex relationship: type = "COMPLEX"
+  properties: weight, score, timestamp
+- After adding property: properties = weight, score, timestamp, strength
+
+3. Serializing to object:
+- Simple projection to object:
+  type: ACTED_IN
+- Complex projection with properties - keys: type, orientation, aggregation, indexInverse, properties
+  type: COMPLEX
+  property keys: weight, score, timestamp
+
+4. Special projections:
+- ALL projection: type = "*", projectAll = true
+- ALL_UNDIRECTED: type = "*"
+
+===== RELATIONSHIP PROJECTION TEST COMPLETE =====

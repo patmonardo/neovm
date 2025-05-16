@@ -1,4 +1,4 @@
-import { RelationshipType } from '@/RelationshipType';
+import { RelationshipType } from '@/projection/RelationshipType';
 import { DimensionsMap } from './DimensionsMap';
 
 /**

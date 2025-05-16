@@ -1,15 +1,15 @@
 import { Graph } from "./Graph";
 import { GraphStore } from "./GraphStore";
-import { NodeLabel } from "@/NodeLabel"; // Assuming this path
-import { RelationshipType } from "@/RelationshipType"; // Assuming this path
-import { ValueType } from "./nodeproperties/ValueType"; // Assuming this path
+import { NodeLabel } from "@/projection/NodeLabel"; // Assuming this path
+import { RelationshipType } from "@/projection/RelationshipType"; // Assuming this path
+import { ValueType } from "@/api/ValueType"; // Assuming this path
 import { GraphProperty } from "./properties/graph/GraphProperty";
 import { GraphPropertyValues } from "./properties/graph/GraphPropertyValues";
 import { NodeProperty } from "./properties/nodes/NodeProperty";
 import { NodePropertyValues } from "./properties/nodes/NodePropertyValues";
-import { RelationshipProperty } from "./properties/relationships/RelationshipProperty";
+import { RelationshipProperty } from "./properties/relationships/abstract/RelationshipProperty";
 import { RelationshipPropertyStore } from "./properties/relationships/RelationshipPropertyStore";
-import { GraphSchema } from "./schema/GraphSchema";
+import { GraphSchema } from "./schema/abstract/GraphSchema";
 import { Capabilities } from "@/core/loading/Capabilities"; // Assuming this path
 import { DeletionResult } from "@/core/loading/DeletionResult"; // Assuming this path
 import { SingleTypeRelationships } from "@/core/loading/SingleTypeRelationships"; // Assuming this path

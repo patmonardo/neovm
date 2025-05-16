@@ -1,7 +1,6 @@
-import { ValueType } from '@/api/ValueType';
-import { ArrayEquals } from '../ArrayEquals';
-import { DoubleArray } from '../DoubleArray';
-import { GdsValue } from '../GdsValue';
+import { ValueType } from "@/api/ValueType";
+import { DoubleArray } from "../abstract/DoubleArray";
+import { ArrayEquals } from "./ArrayEquals";
 
 /**
  * Implementation of DoubleArray that stores an array of double values.
@@ -71,15 +70,9 @@ export class DoubleArrayImpl implements DoubleArray {
    * @returns true if objects are equal
    */
   public equals(o: unknown): boolean {
-    if (this === o) return true;
-
-    if (o instanceof DoubleArray) {
-      return this.equalsDoubles(o.doubleArrayValue());
-    } else if (o instanceof GdsValue) {
-      return ArrayEquals.doubleAndObject(this.value, o.asObject());
-    }
-
-    return false;
+    return (
+      o != null && ArrayEquals.doubleAndObject(this.value, (o as any).value)
+    );
   }
 
   /**
@@ -171,6 +164,6 @@ export class DoubleArrayImpl implements DoubleArray {
    * @returns String representation
    */
   public toString(): string {
-    return `DoubleArray[${Array.from(this.value).join(', ')}]`;
+    return `DoubleArray[${Array.from(this.value).join(", ")}]`;
   }
 }

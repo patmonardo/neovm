@@ -1,0 +1,34 @@
+===== NODE PROJECTIONS CLARITY =====
+
+STEP 1: Create individual NodeProjection objects
+Created Person projection:
+- Label: Person
+- Properties: name, age
+
+Created Movie projection:
+- Label: Movie
+- Properties: title, year
+
+STEP 2: Create NodeProjections collection
+Created NodeProjections with 2 projections
+
+STEP 3: Accessing projections from the collection
+Get projection for Person label:
+- Label: Person
+- Properties: name, age
+
+STEP 4: Operating on all projections
+All properties across projections: name, age, title, year
+
+After adding 'rating' property to all projections:
+- name(){return this._name} properties: name, age, rating
+- name(){return this._name} properties: title, year, rating
+
+STEP 5: Other common creation methods
+Created from string: projections for label "Actor"
+Created from map: projections for labels "Genre"
+- Properties: name, popularity
+Created ALL projections: label = "*"
+- Is project all: true
+
+===== NODE PROJECTIONS CLARITY COMPLETE =====

@@ -1,8 +1,7 @@
 //@/src/values/primitive/ShortLongArrayImpl.ts
-import { ValueType } from '@/api/ValueType';
-import { GdsValue } from '../GdsValue';
-import { ArrayEquals } from '../ArrayEquals';
-import { LongArray } from '../LongArray';
+import { ValueType } from "@/api/ValueType";
+import { LongArray } from "../abstract/LongArray";
+import { ArrayEquals } from "./ArrayEquals";
 
 /**
  * Implementation of LongArray that stores values as shorts.
@@ -27,7 +26,7 @@ export class ShortLongArrayImpl implements LongArray {
   public longArrayValue(): number[] {
     const copy = new Array<number>(this.value.length);
     for (let i = 0; i < this.value.length; i++) {
-      copy[i] = (this.value[i]);
+      copy[i] = this.value[i];
     }
     return copy;
   }
@@ -39,7 +38,7 @@ export class ShortLongArrayImpl implements LongArray {
    * @returns Long value at that index
    */
   public longValue(idx: number): number {
-    return (this.value[idx]);
+    return this.value[idx];
   }
 
   /**
@@ -76,17 +75,9 @@ export class ShortLongArrayImpl implements LongArray {
    * @returns true if objects are equal
    */
   public equals(o: unknown): boolean {
-    if (this === o) return true;
-
-    if (o instanceof ShortLongArrayImpl) {
-      return this.equalsShorts(o.value);
-    }
-
-    if (o instanceof GdsValue) {
-      return ArrayEquals.shortAndObject(this.value, o.asObject());
-    }
-
-    return false;
+    return (
+      o != null && ArrayEquals.shortAndObject(this.value, (o as any).value)
+    );
   }
 
   /**
@@ -174,6 +165,6 @@ export class ShortLongArrayImpl implements LongArray {
    * @returns String representation
    */
   public toString(): string {
-    return `LongArray[${Array.from(this.value).join(', ')}]`;
+    return `LongArray[${Array.from(this.value).join(", ")}]`;
   }
 }

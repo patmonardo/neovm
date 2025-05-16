@@ -1,18 +1,18 @@
-import { Graph } from "./Graph";
-import { NodeLabel } from "@/NodeLabel";
-import { RelationshipType } from "@/RelationshipType";
-import { NodePropertyValues } from "./properties/nodes/NodePropertyValues";
-import { RelationshipConsumer } from "./properties/relationships/RelationshipConsumer";
-import { RelationshipCursor } from "./properties/relationships/RelationshipCursor";
-import { RelationshipWithPropertyConsumer } from "./properties/relationships/RelationshipWithPropertyConsumer";
-import { GraphSchema } from "./schema/GraphSchema";
+import { NodeLabel } from "@/projection/NodeLabel";
+import { RelationshipType } from "@/projection/RelationshipType";
+import { NodePropertyValues } from "./properties/nodes/abstract/NodePropertyValues";
+import { RelationshipConsumer } from "./properties/relationships/abstract/RelationshipConsumer";
+import { RelationshipCursor } from "./properties/relationships/abstract/RelationshipCursor";
+import { RelationshipWithPropertyConsumer } from "./properties/relationships/abstract/RelationshipWithPropertyConsumer";
 import { PrimitiveLongIterable } from "@/collections/primitive/PrimitiveLongIterable";
-import { Concurrency } from "@/concurrency/Concurrency";
-import { FilteredIdMap } from "./FilteredIdMap";
-import { IdMap } from "./IdMap";
-import { GraphCharacteristics } from "./GraphCharacteristics";
-import { NodeLabelConsumer } from "./NodeLabelConsumer";
 import { PrimitiveIterator } from "@/collections/primitive/PrimitiveIterator";
+import { Concurrency } from "@/concurrency/Concurrency";
+import { IdMap } from "./IdMap";
+import { FilteredIdMap } from "./FilteredIdMap";
+import { GraphCharacteristics } from "./GraphCharacteristics";
+import { NodeLabelConsumer } from "./properties/nodes/abstract/NodeLabelConsumer";
+import { GraphSchema } from "./schema/abstract/GraphSchema";
+import { Graph } from "./Graph";
 
 /**
  * Abstract adapter that delegates to an underlying Graph implementation.

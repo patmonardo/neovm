@@ -1,9 +1,10 @@
-import { PropertySchema } from '@/api/schema/PropertySchema';
-import { PropertyState } from '@/api/PropertyState';
-import { DefaultValue } from '@/api/DefaultValue';
 import { ValueType } from '@/api/ValueType';
+import { DefaultValue } from '@/api/DefaultValue';
+import { PropertyState } from '@/api/PropertyState';
+import { PropertySchema } from '@/api/schema/abstract/PropertySchema';
 import { Property } from '../Property';
-import { NodePropertyValues } from './NodePropertyValues';
+import { NodePropertyValues } from './abstract/NodePropertyValues';
+import { NodePropertyImpl } from './primitive/NodePropertyImpl';
 
 /**
  * Represents a property of a node in the graph.
@@ -63,41 +64,5 @@ export namespace NodeProperty {
         origin
       )
     );
-  }
-}
-
-/**
- * Implementation of the NodeProperty interface.
- */
-class NodePropertyImpl implements NodeProperty {
-  /**
-   * Creates a new NodeProperty implementation.
-   *
-   * @param propertyValues The node property values
-   * @param schema The property schema
-   */
-  constructor(
-    private readonly propertyValues: NodePropertyValues,
-    private readonly schema: PropertySchema
-  ) {}
-
-  values(): NodePropertyValues {
-    return this.propertyValues;
-  }
-
-  propertySchema(): PropertySchema {
-    return this.schema;
-  }
-
-  key(): string {
-    return this.schema.key();
-  }
-
-  valueType() {
-    return this.schema.valueType();
-  }
-
-  propertyState() {
-    return this.schema.state();
   }
 }

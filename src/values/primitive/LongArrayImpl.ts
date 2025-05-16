@@ -1,7 +1,6 @@
-import { ValueType } from '@/api/ValueType';
-import { ArrayEquals } from '../ArrayEquals';
-import { GdsValue } from '../GdsValue';
-import { LongArray } from '../LongArray';
+import { ValueType } from "@/api/ValueType";
+import { LongArray } from "../abstract/LongArray";
+import { ArrayEquals } from "./ArrayEquals";
 
 /**
  * Implementation of LongArray that stores an array of long (number) values.
@@ -71,15 +70,9 @@ export class LongArrayImpl implements LongArray {
    * @returns true if objects are equal
    */
   public equals(o: unknown): boolean {
-    if (this === o) return true;
-
-    if (o instanceof LongArray) {
-      return this.equalsLongs(o.longArrayValue());
-    } else if (o instanceof GdsValue) {
-      return ArrayEquals.longAndObject(this.value, o.asObject());
-    }
-
-    return false;
+    return (
+      o !== null && ArrayEquals.longAndObject(this.value, (o as any).value)
+    );
   }
 
   /**
@@ -119,13 +112,7 @@ export class LongArrayImpl implements LongArray {
    * @returns true if arrays are equal
    */
   public equalsLongs(other: number[]): boolean {
-    if (this.value.length !== other.length) return false;
-
-    for (let i = 0; i < this.value.length; i++) {
-      if (this.value[i] !== other[i]) return false;
-    }
-
-    return true;
+    return ArrayEquals.longAndObject(this.value, other);
   }
 
   /**
@@ -154,15 +141,16 @@ export class LongArrayImpl implements LongArray {
    * @returns Hash code
    */
   public hashCode(): number {
-    let result = 1;
+    let hashBigInt = 1n;
     for (let i = 0; i < this.value.length; i++) {
-      // Convert number to number for hashing
-      // This will lose precision for very large values but maintains
-      // similar hash behavior as Java for common values
-      const hash = Number(this.value[i] & 0xFFFFFFFF) ^ Number(this.value[i] >> 32);
-      result = 31 * result + hash;
+      // Use BigInt for proper 64-bit handling
+      const bigValue = BigInt(this.value[i]);
+      // Need to use BigInt literals with the 'n' suffix
+      const lower32 = bigValue & 0xffffffffn;
+      const upper32 = bigValue >> 32n;
+      hashBigInt = lower32 ^ upper32;
     }
-    return result;
+    return Number(hashBigInt);
   }
 
   /**
@@ -171,6 +159,6 @@ export class LongArrayImpl implements LongArray {
    * @returns String representation
    */
   public toString(): string {
-    return `LongArray[${this.value.join(', ')}]`;
+    return `LongArray[${this.value.join(", ")}]`;
   }
 }

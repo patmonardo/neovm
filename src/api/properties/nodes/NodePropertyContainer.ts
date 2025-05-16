@@ -1,4 +1,4 @@
-import { NodePropertyValues } from './NodePropertyValues';
+import { NodePropertyValues } from './abstract/NodePropertyValues';
 
 /**
  * Getter interface for node properties.
@@ -15,7 +15,7 @@ export interface NodePropertyContainer {
 
   /**
    * Returns the set of all available node property keys.
-   * 
+   *
    * @returns Set of available property keys
    */
   availableNodeProperties(): Set<string>;
@@ -27,7 +27,7 @@ export interface NodePropertyContainer {
 export namespace NodePropertyContainer {
   /**
    * Creates an empty NodePropertyContainer with no properties.
-   * 
+   *
    * @returns An empty NodePropertyContainer
    */
   export function empty(): NodePropertyContainer {
@@ -35,7 +35,7 @@ export namespace NodePropertyContainer {
       nodeProperties(_propertyKey: string): NodePropertyValues {
         throw new Error(`No node properties available`);
       },
-      
+
       availableNodeProperties(): Set<string> {
         return new Set<string>();
       }

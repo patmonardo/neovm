@@ -1,7 +1,6 @@
-import { ValueType } from '@/api/ValueType';
-import { ArrayEquals } from '../ArrayEquals';
-import { GdsValue } from '../GdsValue';
-import { LongArray } from '../LongArray';
+import { ValueType } from "@/api/ValueType";
+import { LongArray } from "../abstract/LongArray";
+import { ArrayEquals } from "./ArrayEquals";
 
 /**
  * Implementation of LongArray that stores values as integers.
@@ -26,7 +25,7 @@ export class IntLongArrayImpl implements LongArray {
   public longArrayValue(): number[] {
     const copy = new Array<number>(this.value.length);
     for (let i = 0; i < this.value.length; i++) {
-      copy[i] = (this.value[i]);
+      copy[i] = this.value[i];
     }
     return copy;
   }
@@ -38,7 +37,7 @@ export class IntLongArrayImpl implements LongArray {
    * @returns Long value at that index
    */
   public longValue(idx: number): number {
-    return (this.value[idx]);
+    return this.value[idx];
   }
 
   /**
@@ -75,17 +74,7 @@ export class IntLongArrayImpl implements LongArray {
    * @returns true if objects are equal
    */
   public equals(o: unknown): boolean {
-    if (this === o) return true;
-
-    if (o instanceof IntLongArrayImpl) {
-      return this.equalsInts(o.value);
-    }
-
-    if (o instanceof GdsValue) {
-      return ArrayEquals.intAndObject(this.value, o.asObject());
-    }
-
-    return false;
+    return o != null && ArrayEquals.intAndObject(this.value, (o as any).value);
   }
 
   /**
@@ -115,13 +104,7 @@ export class IntLongArrayImpl implements LongArray {
    * @returns true if arrays are equal
    */
   public equalsInts(o: Int32Array): boolean {
-    if (this.value.length !== o.length) return false;
-
-    for (let i = 0; i < this.value.length; i++) {
-      if (this.value[i] !== o[i]) return false;
-    }
-
-    return true;
+    return ArrayEquals.intAndObject(this.value, o);
   }
 
   /**
@@ -173,6 +156,6 @@ export class IntLongArrayImpl implements LongArray {
    * @returns String representation
    */
   public toString(): string {
-    return `LongArray[${Array.from(this.value).join(', ')}]`;
+    return `LongArray[${Array.from(this.value).join(", ")}]`;
   }
 }

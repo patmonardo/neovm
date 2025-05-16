@@ -1,4 +1,4 @@
-import { IndirectComparator } from '../collections/IndirectComparator';
+import { IndirectComparator } from '@/collections/IndirectComparator';
 
 /**
  * A comparator for sorting long/number arrays in ascending order.

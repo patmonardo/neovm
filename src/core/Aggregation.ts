@@ -193,6 +193,10 @@ export namespace Aggregation {
     return Aggregation[aggregation];
   }
 
+  export function name(aggregation: Aggregation): string {
+    return Aggregation[aggregation];
+  }
+
   /**
    * Checks if an aggregation is equivalent to NONE.
    *

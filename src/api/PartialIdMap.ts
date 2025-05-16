@@ -32,7 +32,7 @@ export namespace PartialIdMap {
    */
   export const EMPTY: PartialIdMap = {
     toMappedNodeId(_originalNodeId: number): number {
-      return -1n; // NOT_FOUND
+      return -1; // NOT_FOUND
     },
 
     rootNodeCount(): number | undefined {

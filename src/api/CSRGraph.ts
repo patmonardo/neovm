@@ -1,6 +1,6 @@
+import { RelationshipType } from "@/projection/RelationshipType";
 import { Graph } from "./Graph";
-import { RelationshipType } from "../RelationshipType"; // Adjust path as needed
-import { Topology } from "./Topology"; // Adjust path as needed
+import { Topology } from "./Topology";
 
 /**
  * A subtype of {@link Graph} which exposes data structures specific to the

@@ -1,5 +1,5 @@
 import { ValueType } from '../ValueType';
-import { PropertySchema } from '../schema/PropertySchema';
+import { PropertySchema } from '../schema/abstract/PropertySchema';
 import { PropertyState } from '../PropertyState';
 import { PropertyValues } from './PropertyValues';
 

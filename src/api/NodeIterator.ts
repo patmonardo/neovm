@@ -1,4 +1,4 @@
-import { NodeLabel } from '@/NodeLabel';
+import { NodeLabel } from '@/projection/NodeLabel';
 import { PrimitiveIterator } from '@/collections/primitive/PrimitiveIterator';
 
 /**

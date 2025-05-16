@@ -1,7 +1,6 @@
 import { ValueType } from '@/api/ValueType';
-import { ArrayEquals } from '../ArrayEquals';
-import { GdsValue } from '../GdsValue';
-import { LongArray } from '../LongArray';
+import { LongArray } from '../abstract/LongArray';
+import { ArrayEquals } from './ArrayEquals';
 
 /**
  * Implementation of LongArray that stores values as bytes.
@@ -75,17 +74,7 @@ export class ByteLongArrayImpl implements LongArray {
    * @returns true if objects are equal
    */
   public equals(o: unknown): boolean {
-    if (this === o) return true;
-
-    if (o instanceof ByteLongArrayImpl) {
-      return this.equalsBytes(o.value);
-    }
-
-    if (o instanceof GdsValue) {
-      return ArrayEquals.byteAndObject(this.value, o.asObject());
-    }
-
-    return false;
+    return ArrayEquals.byteAndObject(this.value, (o as any).value);
   }
 
   /**
@@ -95,13 +84,7 @@ export class ByteLongArrayImpl implements LongArray {
    * @returns true if arrays are equal
    */
   public equalsBytes(o: Uint8Array): boolean {
-    if (this.value.length !== o.length) return false;
-
-    for (let i = 0; i < this.value.length; i++) {
-      if (this.value[i] !== o[i]) return false;
-    }
-
-    return true;
+    return ArrayEquals.byteAndObject(this.value, o);
   }
 
   /**
