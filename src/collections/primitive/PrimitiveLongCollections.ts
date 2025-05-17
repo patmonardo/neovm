@@ -35,7 +35,7 @@ export namespace PrimitiveLongCollections {
   export abstract class PrimitiveLongBaseIterator implements PrimitiveIterator.OfLong {
     private hasNextDecided: boolean = false;
     private hasNextFlag: boolean = false; // Corresponds to Java's 'private boolean hasNext'
-    protected nextValue: number = 0;    // Corresponds to Java's 'protected long next'
+    protected nextValue: number = 0; // Corresponds to Java's 'protected long next'
 
     public hasNext(): boolean {
       if (!this.hasNextDecided) {
@@ -46,11 +46,14 @@ export namespace PrimitiveLongCollections {
     }
 
     public nextLong(): number {
-      if (!this.hasNext()) { // This calls the hasNext() above, which handles fetchNext()
-        throw new NoSuchElementException(`No more elements in ${this.constructor.name}`);
+      if (!this.hasNext()) {
+        // This calls the hasNext() above, which handles fetchNext()
+        throw new NoSuchElementException(
+          `No more elements in ${this.constructor.name}`
+        );
       }
       this.hasNextDecided = false; // Reset for the next call to hasNext()
-      return this.nextValue;       // Return the value populated by fetchNext() (via its call to storeNextValue())
+      return this.nextValue; // Return the value populated by fetchNext() (via its call to storeNextValue())
     }
 
     /**
@@ -63,6 +66,10 @@ export namespace PrimitiveLongCollections {
       } else {
         return { value: undefined, done: true };
       }
+    }
+
+    [Symbol.iterator](): Iterator<number> {
+      return this;
     }
 
     /**
@@ -122,16 +129,11 @@ export namespace PrimitiveLongCollections {
   }
 } // End of namespace PrimitiveLongCollections
 
-
-// The PrimitiveLongIterators namespace can remain separate or its contents
-// could potentially be merged into the PrimitiveLongCollections namespace
-// if they correspond to static methods on the Java PrimitiveLongCollections class.
-// For now, keeping it as you have it:
 export namespace PrimitiveLongIterators {
   /**
    * An iterator that produces values from an array.
    */
-  export class ArrayPrimitiveLongIterator implements PrimitiveIterator.OfLong {
+    export class ArrayPrimitiveLongIterator implements PrimitiveIterator.OfLong {
     private readonly values: number[];
     private index: number = 0;
 
@@ -157,12 +159,17 @@ export namespace PrimitiveLongIterators {
         return { value: undefined, done: true };
       }
     }
+
+    [Symbol.iterator](): Iterator<number> {
+      return this;
+    }
   }
 
   export class EmptyPrimitiveLongIterator implements PrimitiveIterator.OfLong {
     public hasNext(): boolean { return false; }
     public nextLong(): number { throw new NoSuchElementException("Empty iterator"); }
     public next(): IteratorResult<number, undefined> { return { value: undefined, done: true }; }
+    [Symbol.iterator](): Iterator<number> { return this; }
   }
 
   export class SinglePrimitiveLongIterator implements PrimitiveIterator.OfLong {
@@ -182,6 +189,7 @@ export namespace PrimitiveLongIterators {
       }
       return { value: undefined, done: true };
     }
+    [Symbol.iterator](): Iterator<number> { return this; }
   }
 
   export function of(...values: number[]): PrimitiveIterator.OfLong {

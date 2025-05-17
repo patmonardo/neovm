@@ -68,6 +68,7 @@ export namespace DatabaseInfo {
   ): DatabaseInfo {
     return new DatabaseInfoImpl(databaseId, databaseLocation, remoteDatabaseId);
   }
+
   /**
    * Implementation of DatabaseInfo interface.
    */

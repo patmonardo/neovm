@@ -1,7 +1,4 @@
-
-import { StringSimilarity } from '../core/StringSimilarity';
-import { ConfigKeyValidation, ImmutableStringAndScore } from '../utils/ConfigKeyValidation';
-import { MissingParameterExceptions } from '../utils/MissingParameterExceptions';
+import { MissingParameterExceptions } from "./MissingParameterExceptions";
 
 /**
  * Interface for accessing a Cypher map configuration
@@ -38,7 +35,7 @@ export interface CypherMapAccess {
  */
 export enum PairResult {
   FIRST_PAIR,
-  SECOND_PAIR
+  SECOND_PAIR,
 }
 
 /**
@@ -58,8 +55,11 @@ export namespace CypherMapAccess {
   /**
    * Validates that a string is not blank
    */
-  export function failOnBlank(key: string, value: string | null | undefined): string {
-    if (value === null || value === undefined || value.trim() === '') {
+  export function failOnBlank(
+    key: string,
+    value: string | null | undefined
+  ): string {
+    if (value === null || value === undefined || value.trim() === "") {
       throw blankValueFor(key, value);
     }
     return value;
@@ -86,7 +86,9 @@ export namespace CypherMapAccess {
     maxInclusive: boolean
   ): Error {
     return new Error(
-      `Value for \`${key}\` was \`${value}\`, but must be within the range ${minInclusive ? '[' : '('}${min}, ${max}${maxInclusive ? ']' : ')'}.`
+      `Value for \`${key}\` was \`${value}\`, but must be within the range ${
+        minInclusive ? "[" : "("
+      }${min}, ${max}${maxInclusive ? "]" : ")"}.`
     );
   }
 
@@ -129,7 +131,14 @@ export namespace CypherMapAccess {
     minInclusive = true,
     maxInclusive = true
   ): number {
-    return validateIntegerRange(key, value, min, max, minInclusive, maxInclusive);
+    return validateIntegerRange(
+      key,
+      value,
+      min,
+      max,
+      minInclusive,
+      maxInclusive
+    );
   }
 
   /**

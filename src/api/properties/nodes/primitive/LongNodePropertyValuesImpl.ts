@@ -6,14 +6,22 @@ import { NodePropertyValues } from '../abstract/NodePropertyValues'; // Import h
 export class LongNodePropertyValuesImpl implements LongNodePropertyValues {
   private readonly data: Map<number, number>;
   private readonly defaultValue: number;
-  private readonly defaults: Omit<NodePropertyValues, 'nodeCount' | 'release' | 'hasValue' | 'valueType'>;
+  private readonly defaults: Omit<
+    NodePropertyValues,
+    "nodeCount" | "release" | "hasValue" | "valueType"
+  >;
 
   constructor(data: Map<number, number>, customDefaultValue?: DefaultValue) {
     this.data = data;
-    // Assuming DefaultValue has a get() or longValue() method.
-    // If DefaultValue stores a generic 'value', ensure it's correctly typed or cast.
-    this.defaultValue = customDefaultValue?.get() ?? DefaultValue.LONG_DEFAULT_FALLBACK;
-    this.defaults = NodePropertyValues.withDefaultsForType(() => this.valueType());
+    // If customDefaultValue is provided, use its .longValue(), else use the static fallback
+    this.defaultValue = customDefaultValue
+      ? typeof customDefaultValue === "number"
+        ? customDefaultValue
+        : customDefaultValue.longValue()
+      : DefaultValue.LONG_DEFAULT_FALLBACK;
+    this.defaults = NodePropertyValues.withDefaultsForType(() =>
+      this.valueType()
+    );
   }
 
   // --- Methods specific to LongNodePropertyValues or overriding defaults ---
@@ -77,15 +85,15 @@ export class LongNodePropertyValuesImpl implements LongNodePropertyValues {
     return Number(longVal);
   }
 
-  doubleArrayValue(nodeId: number): ArrayLike<number> | undefined {
+  doubleArrayValue(nodeId: number): Float64Array {
     return this.defaults.doubleArrayValue!(nodeId);
   }
 
-  floatArrayValue(nodeId: number): ArrayLike<number> | undefined {
+  floatArrayValue(nodeId: number): Float32Array {
     return this.defaults.floatArrayValue!(nodeId);
   }
 
-  longArrayValue(nodeId: number): ArrayLike<number> | undefined {
+  longArrayValue(nodeId: number): number[] {
     return this.defaults.longArrayValue!(nodeId);
   }
 
@@ -107,7 +115,8 @@ export class LongNodePropertyValuesImpl implements LongNodePropertyValues {
     if (this.data.size === 0) return undefined;
     let max = -Infinity;
     for (const val of this.data.values()) {
-      const doubleVal = (val === DefaultValue.LONG_DEFAULT_FALLBACK) ? NaN : Number(val);
+      const doubleVal =
+        val === DefaultValue.LONG_DEFAULT_FALLBACK ? NaN : Number(val);
       if (!isNaN(doubleVal) && doubleVal > max) {
         max = doubleVal;
       }

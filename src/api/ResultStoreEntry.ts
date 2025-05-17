@@ -1,8 +1,8 @@
-import { ValueType } from './ValueType';
-import { NodePropertyValues } from './properties/nodes/NodePropertyValues';
-import { Graph } from './Graph';
-import { CompositeRelationshipIterator } from './CompositeRelationshipIterator';
-import { ExportedRelationship } from './ExportedRelationship';
+import { ValueType } from "./ValueType";
+import { Graph } from "./Graph";
+import { ExportedRelationship } from "./ExportedRelationship";
+import { CompositeRelationshipIterator } from "./CompositeRelationshipIterator";
+import { NodePropertyValues } from "./properties/nodes";
 
 /**
  * Interface for entries that can be stored in the ResultStore.

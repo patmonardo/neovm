@@ -1,21 +1,21 @@
-import { NodeLabel } from '@/NodeLabel';
-import { RelationshipType } from '@/RelationshipType';
-import { ValueType } from './ValueType';
-import { GraphProperty } from './properties/graph/GraphProperty';
-import { GraphPropertyValues } from './properties/graph/GraphPropertyValues';
-import { NodeProperty } from './properties/nodes/NodeProperty';
-import { NodePropertyValues } from './properties/nodes/NodePropertyValues';
-import { RelationshipProperty } from './properties/relationships/abstract/RelationshipProperty';
-import { RelationshipPropertyStore } from './properties/relationships/RelationshipPropertyStore';
-import { GraphSchema } from './schema/abstract/GraphSchema';
-import { Capabilities } from '../core/loading/Capabilities';
-import { DeletionResult } from '../core/loading/DeletionResult';
-import { SingleTypeRelationships } from '../core/loading/SingleTypeRelationships';
-import { Topology } from './Topology';
-import { DatabaseInfo } from './DatabaseInfo';
-import { Graph } from './Graph';
-import { IdMap } from './IdMap';
-import { CompositeRelationshipIterator } from './CompositeRelationshipIterator';
+import { NodeLabel } from "@/projection/NodeLabel";
+import { RelationshipType } from "@/projection/RelationshipType";
+import { ValueType } from "./ValueType";
+import { GraphProperty } from "./properties/graph";
+import { GraphPropertyValues } from "./properties/graph";
+import { NodeProperty } from "./properties/nodes";
+import { NodePropertyValues } from "./properties/nodes";
+import { RelationshipProperty } from "./properties/relationships";
+import { RelationshipPropertyStore } from "./properties/relationships";
+import { GraphSchema } from "./schema/abstract/GraphSchema";
+import { Capabilities } from "../core/loading/Capabilities";
+import { DeletionResult } from "../core/loading/DeletionResult";
+import { SingleTypeRelationships } from "../core/loading/SingleTypeRelationships";
+import { Topology } from "./Topology";
+import { DatabaseInfo } from "./DatabaseInfo";
+import { Graph } from "./Graph";
+import { IdMap } from "./IdMap";
+import { CompositeRelationshipIterator } from "./CompositeRelationshipIterator";
 
 /**
  * Central interface for managing and accessing graph data.
@@ -82,7 +82,10 @@ export interface GraphStore {
    * @param propertyKey Property key to add
    * @param propertyValues Property values to add
    */
-  addGraphProperty(propertyKey: string, propertyValues: GraphPropertyValues): void;
+  addGraphProperty(
+    propertyKey: string,
+    propertyValues: GraphPropertyValues
+  ): void;
 
   /**
    * Removes a graph property.
@@ -173,7 +176,11 @@ export interface GraphStore {
    * @param propertyKey Property key to add
    * @param propertyValues Property values to add
    */
-  addNodeProperty(nodeLabels: Set<NodeLabel>, propertyKey: string, propertyValues: NodePropertyValues): void;
+  addNodeProperty(
+    nodeLabels: Set<NodeLabel>,
+    propertyKey: string,
+    propertyValues: NodePropertyValues
+  ): void;
 
   /**
    * Removes a node property.
@@ -221,7 +228,10 @@ export interface GraphStore {
    * @param relType Relationship type to check
    * @param propertyKey Property key to check
    */
-  hasRelationshipProperty(relType: RelationshipType, propertyKey: string): boolean;
+  hasRelationshipProperty(
+    relType: RelationshipType,
+    propertyKey: string
+  ): boolean;
 
   /**
    * Returns property keys common to all specified relationship types.
@@ -255,7 +265,10 @@ export interface GraphStore {
    * @param relationshipType Relationship type to get property values for
    * @param propertyKey Property key to retrieve values for
    */
-  relationshipPropertyValues(relationshipType: RelationshipType, propertyKey: string): RelationshipProperty;
+  relationshipPropertyValues(
+    relationshipType: RelationshipType,
+    propertyKey: string
+  ): RelationshipProperty;
 
   /**
    * Adds a relationship type.
@@ -305,7 +318,10 @@ export interface GraphStore {
    * @param relationshipType Relationship type to filter by
    * @param relationshipProperty Optional relationship property to filter by
    */
-  getGraph(relationshipType: RelationshipType, relationshipProperty?: string): Graph;
+  getGraph(
+    relationshipType: RelationshipType,
+    relationshipProperty?: string
+  ): Graph;
 
   /**
    * Returns a graph filtered by relationship types and optional property.
@@ -313,7 +329,10 @@ export interface GraphStore {
    * @param relationshipTypes Collection of relationship types to filter by
    * @param relationshipProperty Optional relationship property to filter by
    */
-  getGraph(relationshipTypes: Collection<RelationshipType>, relationshipProperty?: string): Graph;
+  getGraph(
+    relationshipTypes: Collection<RelationshipType>,
+    relationshipProperty?: string
+  ): Graph;
 
   /**
    * Returns a graph filtered by node label, relationship type, and optional property.
@@ -388,4 +407,4 @@ export interface GraphStore {
 /**
  * Type alias for collections that can be either arrays or other collection types.
  */
- export type Collection<T> = T[] | Set<T> | Iterable<T>;
+export type Collection<T> = T[] | Set<T> | Iterable<T>;

@@ -73,5 +73,8 @@ export namespace BatchNodeIterable {
         done: false,
       };
     }
+    [Symbol.iterator](): Iterator<number> {
+      return this;
+    }
   }
 }

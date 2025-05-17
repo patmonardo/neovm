@@ -26,5 +26,6 @@ export namespace PrimitiveIterator {
      */
     next(): IteratorResult<number, undefined>; // TReturn is undefined as we don't have a final return value
 
+    [Symbol.iterator](): Iterator<number>;
   }
 }

@@ -1,125 +1,32 @@
 import { ImmutableHistogram } from "./common/ImmutableHistogram";
-import { Optional } from "@/api/Optional";
+import { Optional } from "@/utils/Optional";
 
 /**
  * Information about memory usage of compressed structures.
  * Collects statistics about compression rates and memory allocation.
  */
 export interface MemoryInfo {
-  /**
-   * Returns the total number of bytes occupied,
-   * including both on-heap and off-heap.
-   */
   bytesTotal(): Optional<number>;
-
-  /**
-   * The number of pages this adjacency list occupies.
-   */
   pages(): number;
-
-  /**
-   * Number of bytes occupied on heap.
-   */
   bytesOnHeap(): Optional<number>;
-
-  /**
-   * Number of bytes occupied off heap.
-   */
   bytesOffHeap(): Optional<number>;
-
-  /**
-   * Histogram that tracks heap allocations sizes during adjacency list construction.
-   * Each allocation is the number of bytes allocated for a single adjacency list.
-   */
   heapAllocations(): ImmutableHistogram;
-
-  /**
-   * Histogram that tracks native allocations sizes during adjacency list construction.
-   */
   nativeAllocations(): ImmutableHistogram;
-
-  /**
-   * Histogram that tracks pages sizes of an adjacency list.
-   */
   pageSizes(): ImmutableHistogram;
-
-  /**
-   * Histogram that tracks the number of bits used to encode a block of target ids.
-   */
   headerBits(): ImmutableHistogram;
-
-  /**
-   * Histogram that tracks the number of bytes used to store header information.
-   */
   headerAllocations(): ImmutableHistogram;
-
-  /**
-   * Tracks the number of blocks in the adjacency list.
-   */
   blockCount(): Optional<number>;
-
-  /**
-   * Tracks the standard deviation of bits used to encode a block.
-   */
   stdDevBits(): Optional<ImmutableHistogram>;
-
-  /**
-   * Tracks the mean number of bits used to encode a block.
-   */
   meanBits(): Optional<ImmutableHistogram>;
-
-  /**
-   * Tracks the median number of bits used to encode a block.
-   */
   medianBits(): Optional<ImmutableHistogram>;
-
-  /**
-   * Tracks the block lengths.
-   */
   blockLengths(): Optional<ImmutableHistogram>;
-
-  /**
-   * Tracks the maximum number of bits used to encode a block.
-   */
   maxBits(): Optional<ImmutableHistogram>;
-
-  /**
-   * Tracks the minimum number of bits used to encode a block.
-   */
   minBits(): Optional<ImmutableHistogram>;
-
-  /**
-   * Tracks the index of the min value within a block.
-   */
   indexOfMinValue(): Optional<ImmutableHistogram>;
-
-  /**
-   * Tracks the index of the max value within a block.
-   */
   indexOfMaxValue(): Optional<ImmutableHistogram>;
-
-  /**
-   * Tracks the absolute difference between bits required for head value
-   * and average bits required for tail values.
-   */
   headTailDiffBits(): Optional<ImmutableHistogram>;
-
-  /**
-   * Tracks the difference between lowest and highest number of bits.
-   */
   bestMaxDiffBits(): Optional<ImmutableHistogram>;
-
-  /**
-   * Tracks the number of exceptions within a block (PFOR heuristic).
-   */
   pforExceptions(): Optional<ImmutableHistogram>;
-
-  /**
-   * Merges this MemoryInfo with another one.
-   *
-   * @param other The other MemoryInfo to merge with
-   * @returns A new MemoryInfo containing merged data
-   */
   merge(other: MemoryInfo): MemoryInfo;
 }
 
@@ -152,7 +59,7 @@ export interface MemoryInfoConfig {
 /**
  * Immutable implementation of MemoryInfo.
  */
-class ImmutableMemoryInfo implements MemoryInfo {
+export class ImmutableMemoryInfo implements MemoryInfo {
   private readonly _pages: number;
   private readonly _bytesOnHeap: Optional<number>;
   private readonly _bytesOffHeap: Optional<number>;
@@ -176,124 +83,61 @@ class ImmutableMemoryInfo implements MemoryInfo {
 
   constructor(config: MemoryInfoConfig) {
     this._pages = config.pages;
-    this._bytesOnHeap = config.bytesOnHeap || Optional.empty();
-    this._bytesOffHeap = config.bytesOffHeap || Optional.empty();
+    this._bytesOnHeap = config.bytesOnHeap ?? Optional.empty();
+    this._bytesOffHeap = config.bytesOffHeap ?? Optional.empty();
     this._heapAllocations = config.heapAllocations;
     this._nativeAllocations = config.nativeAllocations;
     this._pageSizes = config.pageSizes;
     this._headerBits = config.headerBits;
     this._headerAllocations = config.headerAllocations;
-    this._blockCount = config.blockCount || Optional.empty();
-    this._stdDevBits = config.stdDevBits || Optional.empty();
-    this._meanBits = config.meanBits || Optional.empty();
-    this._medianBits = config.medianBits || Optional.empty();
-    this._blockLengths = config.blockLengths || Optional.empty();
-    this._maxBits = config.maxBits || Optional.empty();
-    this._minBits = config.minBits || Optional.empty();
-    this._indexOfMinValue = config.indexOfMinValue || Optional.empty();
-    this._indexOfMaxValue = config.indexOfMaxValue || Optional.empty();
-    this._headTailDiffBits = config.headTailDiffBits || Optional.empty();
-    this._bestMaxDiffBits = config.bestMaxDiffBits || Optional.empty();
-    this._pforExceptions = config.pforExceptions || Optional.empty();
+    this._blockCount = config.blockCount ?? Optional.empty();
+    this._stdDevBits = config.stdDevBits ?? Optional.empty();
+    this._meanBits = config.meanBits ?? Optional.empty();
+    this._medianBits = config.medianBits ?? Optional.empty();
+    this._blockLengths = config.blockLengths ?? Optional.empty();
+    this._maxBits = config.maxBits ?? Optional.empty();
+    this._minBits = config.minBits ?? Optional.empty();
+    this._indexOfMinValue = config.indexOfMinValue ?? Optional.empty();
+    this._indexOfMaxValue = config.indexOfMaxValue ?? Optional.empty();
+    this._headTailDiffBits = config.headTailDiffBits ?? Optional.empty();
+    this._bestMaxDiffBits = config.bestMaxDiffBits ?? Optional.empty();
+    this._pforExceptions = config.pforExceptions ?? Optional.empty();
   }
 
   bytesTotal(): Optional<number> {
-    const onHeap = this._bytesOnHeap;
-    const offHeap = this._bytesOffHeap;
-
-    if (onHeap.isPresent() && offHeap.isPresent()) {
-      return Optional.of(onHeap.get() + offHeap.get());
-    } else if (onHeap.isPresent()) {
-      return onHeap;
-    } else if (offHeap.isPresent()) {
-      return offHeap;
+    if (this._bytesOnHeap.isPresent() && this._bytesOffHeap.isPresent()) {
+      return Optional.of(this._bytesOnHeap.get() + this._bytesOffHeap.get());
+    } else if (this._bytesOnHeap.isPresent()) {
+      return this._bytesOnHeap;
+    } else if (this._bytesOffHeap.isPresent()) {
+      return this._bytesOffHeap;
     }
     return Optional.empty();
   }
 
-  pages(): number {
-    return this._pages;
-  }
-
-  bytesOnHeap(): Optional<number> {
-    return this._bytesOnHeap;
-  }
-
-  bytesOffHeap(): Optional<number> {
-    return this._bytesOffHeap;
-  }
-
-  heapAllocations(): ImmutableHistogram {
-    return this._heapAllocations;
-  }
-
-  nativeAllocations(): ImmutableHistogram {
-    return this._nativeAllocations;
-  }
-
-  pageSizes(): ImmutableHistogram {
-    return this._pageSizes;
-  }
-
-  headerBits(): ImmutableHistogram {
-    return this._headerBits;
-  }
-
-  headerAllocations(): ImmutableHistogram {
-    return this._headerAllocations;
-  }
-
-  blockCount(): Optional<number> {
-    return this._blockCount;
-  }
-
-  stdDevBits(): Optional<ImmutableHistogram> {
-    return this._stdDevBits;
-  }
-
-  meanBits(): Optional<ImmutableHistogram> {
-    return this._meanBits;
-  }
-
-  medianBits(): Optional<ImmutableHistogram> {
-    return this._medianBits;
-  }
-
-  blockLengths(): Optional<ImmutableHistogram> {
-    return this._blockLengths;
-  }
-
-  maxBits(): Optional<ImmutableHistogram> {
-    return this._maxBits;
-  }
-
-  minBits(): Optional<ImmutableHistogram> {
-    return this._minBits;
-  }
-
-  indexOfMinValue(): Optional<ImmutableHistogram> {
-    return this._indexOfMinValue;
-  }
-
-  indexOfMaxValue(): Optional<ImmutableHistogram> {
-    return this._indexOfMaxValue;
-  }
-
-  headTailDiffBits(): Optional<ImmutableHistogram> {
-    return this._headTailDiffBits;
-  }
-
-  bestMaxDiffBits(): Optional<ImmutableHistogram> {
-    return this._bestMaxDiffBits;
-  }
-
-  pforExceptions(): Optional<ImmutableHistogram> {
-    return this._pforExceptions;
-  }
+  pages(): number { return this._pages; }
+  bytesOnHeap(): Optional<number> { return this._bytesOnHeap; }
+  bytesOffHeap(): Optional<number> { return this._bytesOffHeap; }
+  heapAllocations(): ImmutableHistogram { return this._heapAllocations; }
+  nativeAllocations(): ImmutableHistogram { return this._nativeAllocations; }
+  pageSizes(): ImmutableHistogram { return this._pageSizes; }
+  headerBits(): ImmutableHistogram { return this._headerBits; }
+  headerAllocations(): ImmutableHistogram { return this._headerAllocations; }
+  blockCount(): Optional<number> { return this._blockCount; }
+  stdDevBits(): Optional<ImmutableHistogram> { return this._stdDevBits; }
+  meanBits(): Optional<ImmutableHistogram> { return this._meanBits; }
+  medianBits(): Optional<ImmutableHistogram> { return this._medianBits; }
+  blockLengths(): Optional<ImmutableHistogram> { return this._blockLengths; }
+  maxBits(): Optional<ImmutableHistogram> { return this._maxBits; }
+  minBits(): Optional<ImmutableHistogram> { return this._minBits; }
+  indexOfMinValue(): Optional<ImmutableHistogram> { return this._indexOfMinValue; }
+  indexOfMaxValue(): Optional<ImmutableHistogram> { return this._indexOfMaxValue; }
+  headTailDiffBits(): Optional<ImmutableHistogram> { return this._headTailDiffBits; }
+  bestMaxDiffBits(): Optional<ImmutableHistogram> { return this._bestMaxDiffBits; }
+  pforExceptions(): Optional<ImmutableHistogram> { return this._pforExceptions; }
 
   merge(other: MemoryInfo): MemoryInfo {
-    // Implementation of the merge logic, similar to the Java version
-    return MemoryInfo.of({
+    return new ImmutableMemoryInfo({
       pages: this.pages() + other.pages(),
       bytesOnHeap: this._mergeOptionalNumbers(this.bytesOnHeap(), other.bytesOnHeap()),
       bytesOffHeap: this._mergeOptionalNumbers(this.bytesOffHeap(), other.bytesOffHeap()),
@@ -345,9 +189,6 @@ class ImmutableMemoryInfo implements MemoryInfo {
  * Static methods and constants for MemoryInfo.
  */
 export namespace MemoryInfo {
-  /**
-   * Empty MemoryInfo instance with default values.
-   */
   export const EMPTY: MemoryInfo = new ImmutableMemoryInfo({
     pages: 0,
     heapAllocations: ImmutableHistogram.EMPTY,
@@ -357,12 +198,6 @@ export namespace MemoryInfo {
     headerAllocations: ImmutableHistogram.EMPTY
   });
 
-  /**
-   * Creates a new MemoryInfo with the specified values.
-   *
-   * @param config Configuration object with memory metrics
-   * @returns A new MemoryInfo instance
-   */
   export function of(config: MemoryInfoConfig): MemoryInfo {
     return new ImmutableMemoryInfo(config);
   }

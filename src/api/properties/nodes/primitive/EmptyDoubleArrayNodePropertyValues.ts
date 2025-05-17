@@ -39,7 +39,7 @@ export class EmptyDoubleArrayNodePropertyValues implements DoubleArrayNodeProper
    * Returns the type of values stored, which is DOUBLE_ARRAY.
    * @returns ValueType.DOUBLE_ARRAY
    */
-  public valueType(): ValueType {
+  public valueType(): ValueType.DOUBLE_ARRAY {
     return ValueType.DOUBLE_ARRAY;
   }
 

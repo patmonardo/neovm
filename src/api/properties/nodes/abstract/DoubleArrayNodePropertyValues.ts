@@ -15,7 +15,7 @@ export interface DoubleArrayNodePropertyValues extends NodePropertyValues {
    * @returns A Float64Array if a value exists for the node, otherwise undefined.
    *          (Corresponds to Java's `double[] doubleArrayValue(long nodeId)`)
    */
-  doubleArrayValue(nodeId: number): Float64Array | undefined;
+  doubleArrayValue(nodeId: number): Float64Array;
 
   /**
    * Returns the double array value for the given node ID, converted to a float array.
@@ -25,7 +25,7 @@ export interface DoubleArrayNodePropertyValues extends NodePropertyValues {
    * @returns A Float32Array if a double array value exists and can be converted, otherwise undefined.
    *          (Corresponds to Java's `default float[] floatArrayValue(long nodeId)`)
    */
-  floatArrayValue(nodeId: number): Float32Array | undefined;
+  floatArrayValue(nodeId: number): Float32Array;
 
   /**
    * Returns the double array value as an object for the given node ID.

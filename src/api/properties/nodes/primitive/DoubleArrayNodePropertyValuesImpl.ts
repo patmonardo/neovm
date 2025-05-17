@@ -7,7 +7,7 @@ export class DoubleArrayNodePropertyValuesImpl
   implements DoubleArrayNodePropertyValues
 {
   private readonly data: Map<number, Float64Array>;
-  private readonly defaultValue: Float64Array | undefined;
+  private readonly defaultValue: Float64Array;
   // 'dimension' is correctly omitted here as this class provides the specific implementation.
   private readonly defaults: Omit<
     NodePropertyValues,
@@ -23,7 +23,7 @@ export class DoubleArrayNodePropertyValuesImpl
       this.data.set(nodeId, arr instanceof Float64Array ? arr : new Float64Array(arr));
     });
 
-    const customDefault = customDefaultValue?.get();
+    const customDefault = customDefaultValue;
     if (customDefault instanceof Float64Array || customDefault === undefined) {
       this.defaultValue = customDefault;
     } else if (Array.isArray(customDefault) || (typeof customDefault === 'number' && typeof customDefault !== 'string')) {
@@ -39,14 +39,14 @@ export class DoubleArrayNodePropertyValuesImpl
     return ValueType.DOUBLE_ARRAY;
   }
 
-  doubleArrayValue(nodeId: number): Float64Array | undefined {
+  doubleArrayValue(nodeId: number): Float64Array {
     // If nodeId 0 is requested and not present, it will correctly return this.defaultValue
     return this.data.get(nodeId) ?? this.defaultValue;
   }
 
-  floatArrayValue(nodeId: number): Float32Array | undefined {
+  floatArrayValue(nodeId: number): Float32Array {
     const doubleArr = this.doubleArrayValue(nodeId);
-    return doubleArr ? new Float32Array(doubleArr) : undefined;
+    return doubleArr ? new Float32Array(doubleArr);
   }
 
   getObject(nodeId: number): Float64Array | undefined {
@@ -87,7 +87,7 @@ export class DoubleArrayNodePropertyValuesImpl
     return this.defaults.longValue!(nodeId);
   }
 
-  longArrayValue(nodeId: number): ArrayLike<number> | undefined {
+  longArrayValue(nodeId: number): number[] {
     return this.defaults.longArrayValue!(nodeId);
   }
 

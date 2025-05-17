@@ -1,9 +1,9 @@
-import { NodeLabel } from "@/NodeLabel";
+import { NodeLabel } from "@/projection/NodeLabel";
 import { Concurrency } from "@/concurrency/Concurrency";
 import { IdMap } from "./IdMap";
 import { FilteredIdMap } from "./FilteredIdMap";
 import { PrimitiveLongIterable } from "@/collections/primitive/PrimitiveLongIterable";
-// import { OfLong } from "./OfLong";
+import { PrimitiveIterator } from "@/collections/primitive/PrimitiveIterator";
 
 /**
  * Adapter for IdMap implementations that delegates all calls to an underlying IdMap.
@@ -76,9 +76,9 @@ export abstract class IdMapAdapter implements IdMap {
   }
 
   // Fix the nodeIterator implementation
-  nodeIterator(): Iterator<number>;
-  nodeIterator(labels: Set<NodeLabel>): Iterator<number>;
-  nodeIterator(labels?: Set<NodeLabel>): Iterator<number> {
+  nodeIterator(): PrimitiveIterator.OfLong;
+  nodeIterator(labels: Set<NodeLabel>): PrimitiveIterator.OfLong;
+  nodeIterator(labels?: Set<NodeLabel>): PrimitiveIterator.OfLong {
     // Get the iterator from the underlying idMap
     const iterator = labels
       ? this.idMap.nodeIterator(labels)

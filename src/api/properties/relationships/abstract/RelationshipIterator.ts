@@ -88,7 +88,7 @@ export interface RelationshipIterator extends RelationshipPredicate {
    * @param fallbackValue Value used as relationship property if no properties were loaded
    * @returns Iterable of relationship cursors
    */
-  iterateRelationships(
+  streamRelationships(
     nodeId: number,
     fallbackValue: number
   ): Iterable<RelationshipCursor>;
@@ -133,7 +133,7 @@ export namespace RelationshipIterator {
         // No-op - no relationships to iterate
       },
 
-      iterateRelationships(
+      streamRelationships(
         _nodeId: number,
         _fallbackValue: number
       ): Iterable<RelationshipCursor> {

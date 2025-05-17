@@ -1,22 +1,22 @@
 import { Graph } from "./Graph";
-import { GraphStore } from "./GraphStore";
-import { NodeLabel } from "@/projection/NodeLabel"; // Assuming this path
-import { RelationshipType } from "@/projection/RelationshipType"; // Assuming this path
-import { ValueType } from "@/api/ValueType"; // Assuming this path
-import { GraphProperty } from "./properties/graph/GraphProperty";
-import { GraphPropertyValues } from "./properties/graph/GraphPropertyValues";
+import { GraphStore, Collection } from "./GraphStore";
+import { NodeLabel } from "@/projection/NodeLabel";
+import { RelationshipType } from "@/projection/RelationshipType";
+import { ValueType } from "@/api/ValueType";
+import { GraphProperty } from "./properties/graph";
+import { GraphPropertyValues } from "./properties/graph";
 import { NodeProperty } from "./properties/nodes/NodeProperty";
-import { NodePropertyValues } from "./properties/nodes/NodePropertyValues";
+import { NodePropertyValues } from "./properties/nodes";
 import { RelationshipProperty } from "./properties/relationships/abstract/RelationshipProperty";
 import { RelationshipPropertyStore } from "./properties/relationships/RelationshipPropertyStore";
 import { GraphSchema } from "./schema/abstract/GraphSchema";
-import { Capabilities } from "@/core/loading/Capabilities"; // Assuming this path
-import { DeletionResult } from "@/core/loading/DeletionResult"; // Assuming this path
-import { SingleTypeRelationships } from "@/core/loading/SingleTypeRelationships"; // Assuming this path
-import { DatabaseInfo } from "./DatabaseInfo"; // Assuming this path
-import { IdMap } from "./IdMap"; // Assuming this path
-import { Topology } from "./Topology"; // Assuming this path
-import { CompositeRelationshipIterator } from "./CompositeRelationshipIterator"; // Assuming this path
+import { Capabilities } from "@/core/loading/Capabilities";
+import { DeletionResult } from "@/core/loading/DeletionResult";
+import { SingleTypeRelationships } from "@/core/loading/SingleTypeRelationships";
+import { DatabaseInfo } from "./DatabaseInfo";
+import { IdMap } from "./IdMap";
+import { Topology } from "./Topology";
+import { CompositeRelationshipIterator } from "./CompositeRelationshipIterator";
 
 export abstract class GraphStoreAdapter implements GraphStore {
   protected readonly graphStore: GraphStore;
@@ -25,215 +25,138 @@ export abstract class GraphStoreAdapter implements GraphStore {
     this.graphStore = graphStore;
   }
 
-  databaseInfo(): DatabaseInfo {
-    return this.graphStore.databaseInfo();
-  }
+  // --- Graph Properties ---
+  databaseInfo(): DatabaseInfo { return this.graphStore.databaseInfo(); }
+  capabilities(): Capabilities { return this.graphStore.capabilities(); }
+  schema(): GraphSchema { return this.graphStore.schema(); }
+  creationTime(): Date { return this.graphStore.creationTime(); }
+  modificationTime(): Date { return this.graphStore.modificationTime(); }
+  graphPropertyKeys(): Set<string> { return this.graphStore.graphPropertyKeys(); }
+  hasGraphProperty(propertyKey: string): boolean { return this.graphStore.hasGraphProperty(propertyKey); }
+  graphProperty(propertyKey: string): GraphProperty { return this.graphStore.graphProperty(propertyKey); }
+  graphPropertyValues(propertyKey: string): GraphPropertyValues { return this.graphStore.graphPropertyValues(propertyKey); }
+  addGraphProperty(propertyKey: string, propertyValues: GraphPropertyValues): void { this.graphStore.addGraphProperty(propertyKey, propertyValues); }
+  removeGraphProperty(propertyKey: string): void { this.graphStore.removeGraphProperty(propertyKey); }
 
-  capabilities(): Capabilities {
-    return this.graphStore.capabilities();
-  }
+  // --- Nodes ---
+  nodeCount(): number { return this.graphStore.nodeCount(); }
+  nodes(): IdMap { return this.graphStore.nodes(); }
+  nodeLabels(): Set<NodeLabel> { return this.graphStore.nodeLabels(); }
+  addNodeLabel(nodeLabel: NodeLabel): void { this.graphStore.addNodeLabel(nodeLabel); }
 
-  schema(): GraphSchema {
-    return this.graphStore.schema();
-  }
+  // --- Node Properties ---
 
-  creationTime(): Date {
-    return this.graphStore.creationTime();
-  }
+  // Overloads
+  nodePropertyKeys(): Set<string>;
+  nodePropertyKeys(label: NodeLabel): Set<string>;
+  nodePropertyKeys(labels: Collection<NodeLabel>): string[];
 
-  modificationTime(): Date {
-    return this.graphStore.modificationTime();
-  }
-
-  graphPropertyKeys(): Set<string> {
-    return this.graphStore.graphPropertyKeys();
-  }
-
-  hasGraphProperty(propertyKey: string): boolean {
-    return this.graphStore.hasGraphProperty(propertyKey);
-  }
-
-  graphProperty(propertyKey: string): GraphProperty {
-    return this.graphStore.graphProperty(propertyKey);
-  }
-
-  graphPropertyValues(propertyKey: string): GraphPropertyValues {
-    return this.graphStore.graphPropertyValues(propertyKey);
-  }
-
-  addGraphProperty(
-    propertyKey: string,
-    propertyValues: GraphPropertyValues
-  ): void {
-    this.graphStore.addGraphProperty(propertyKey, propertyValues);
-  }
-
-  removeGraphProperty(propertyKey: string): void {
-    this.graphStore.removeGraphProperty(propertyKey);
-  }
-
-  nodeCount(): number {
-    return this.graphStore.nodeCount();
-  }
-
-  nodes(): IdMap {
-    return this.graphStore.nodes();
-  }
-
-  nodeLabels(): Set<NodeLabel> {
-    return this.graphStore.nodeLabels();
-  }
-
-  addNodeLabel(nodeLabel: NodeLabel): void {
-    this.graphStore.addNodeLabel(nodeLabel);
-  }
-
-  nodePropertyKeys(labelOrLabels?: NodeLabel | NodeLabel[]): Set<string> {
-     if (labelOrLabels === undefined) {
-        return this.graphStore.nodePropertyKeys();
-     } else if (Array.isArray(labelOrLabels)) {
-        return this.graphStore.nodePropertyKeys(labelOrLabels);
-     } else {
-        return this.graphStore.nodePropertyKeys(labelOrLabels);
-     }
-  }
-
-  hasNodeProperty(
-    labelOrLabelsOrKey: NodeLabel | NodeLabel[] | string,
-    propertyKey?: string
-  ): boolean {
-    if (typeof labelOrLabelsOrKey === 'string' && propertyKey === undefined) {
-        return this.graphStore.hasNodeProperty(labelOrLabelsOrKey);
-    } else if (propertyKey !== undefined) {
-        if (Array.isArray(labelOrLabelsOrKey)) {
-            return this.graphStore.hasNodeProperty(labelOrLabelsOrKey as NodeLabel[], propertyKey);
-        } else {
-            return this.graphStore.hasNodeProperty(labelOrLabelsOrKey as NodeLabel, propertyKey);
-        }
+  // Implementation
+  nodePropertyKeys(labelOrLabels?: NodeLabel | Collection<NodeLabel>): Set<string> | string[] {
+    if (labelOrLabels === undefined) {
+      return this.graphStore.nodePropertyKeys();
     }
-    // Should not happen with proper overloads in GraphStore, but as a fallback:
-    throw new Error("Invalid arguments for hasNodeProperty");
+    if (isCollection(labelOrLabels)) {
+      // Accept Set, Array, or Iterable
+      // Convert to Set if needed
+      const set = labelOrLabels instanceof Set ? labelOrLabels : new Set(labelOrLabels as Iterable<NodeLabel>);
+      return this.graphStore.nodePropertyKeys(set);
+    }
+    // Single label
+    return this.graphStore.nodePropertyKeys(labelOrLabels as NodeLabel);
   }
 
-
-  nodeProperty(propertyKey: string): NodeProperty {
-    return this.graphStore.nodeProperty(propertyKey);
+  hasNodeProperty(propertyKey: string): boolean;
+  hasNodeProperty(label: NodeLabel, propertyKey: string): boolean;
+  hasNodeProperty(labels: Collection<NodeLabel>, propertyKey: string): boolean;
+  hasNodeProperty(labelOrLabelsOrKey: NodeLabel | Collection<NodeLabel> | string, propertyKey?: string): boolean {
+    if (propertyKey === undefined) {
+      // Only propertyKey provided
+      return this.graphStore.hasNodeProperty(labelOrLabelsOrKey as string);
+    }
+    if (isCollection(labelOrLabelsOrKey)) {
+      const set = labelOrLabelsOrKey instanceof Set ? labelOrLabelsOrKey : new Set(labelOrLabelsOrKey as Iterable<NodeLabel>);
+      return this.graphStore.hasNodeProperty(set, propertyKey);
+    }
+    // Single label
+    return this.graphStore.hasNodeProperty(labelOrLabelsOrKey as NodeLabel, propertyKey);
   }
 
-  addNodeProperty(
-    nodeLabels: Set<NodeLabel>,
-    propertyKey: string,
-    propertyValues: NodePropertyValues
-  ): void {
+  nodeProperty(propertyKey: string): NodeProperty { return this.graphStore.nodeProperty(propertyKey); }
+  addNodeProperty(nodeLabels: Set<NodeLabel>, propertyKey: string, propertyValues: NodePropertyValues): void {
     this.graphStore.addNodeProperty(nodeLabels, propertyKey, propertyValues);
   }
+  removeNodeProperty(propertyKey: string): void { this.graphStore.removeNodeProperty(propertyKey); }
 
-  removeNodeProperty(propertyKey: string): void {
-    this.graphStore.removeNodeProperty(propertyKey);
-  }
-
+  // --- Relationships ---
+  relationshipCount(): number;
+  relationshipCount(relationshipType: RelationshipType): number;
   relationshipCount(relationshipType?: RelationshipType): number {
-    if (relationshipType) {
-        return this.graphStore.relationshipCount(relationshipType);
+    if (relationshipType !== undefined) {
+      return this.graphStore.relationshipCount(relationshipType);
     }
     return this.graphStore.relationshipCount();
   }
-
-  relationshipTypes(): Set<RelationshipType> {
-    return this.graphStore.relationshipTypes();
-  }
-
-  hasRelationshipType(relationshipType: RelationshipType): boolean {
-    return this.graphStore.hasRelationshipType(relationshipType);
-  }
-
-  inverseIndexedRelationshipTypes(): Set<RelationshipType> {
-    return this.graphStore.inverseIndexedRelationshipTypes();
-  }
-
-  hasRelationshipProperty(
-    relType: RelationshipType,
-    propertyKey: string
-  ): boolean {
+  relationshipTypes(): Set<RelationshipType> { return this.graphStore.relationshipTypes(); }
+  hasRelationshipType(relationshipType: RelationshipType): boolean { return this.graphStore.hasRelationshipType(relationshipType); }
+  inverseIndexedRelationshipTypes(): Set<RelationshipType> { return this.graphStore.inverseIndexedRelationshipTypes(); }
+  hasRelationshipProperty(relType: RelationshipType, propertyKey: string): boolean {
     return this.graphStore.hasRelationshipProperty(relType, propertyKey);
   }
 
-  relationshipPropertyKeys(relTypesOrType?: RelationshipType[] | RelationshipType): Set<string> | string[] {
+  // Overloads
+  relationshipPropertyKeys(): Set<string>;
+  relationshipPropertyKeys(relationshipType: RelationshipType): Set<string>;
+  relationshipPropertyKeys(relTypes: Collection<RelationshipType>): string[];
+
+  relationshipPropertyKeys(relTypesOrType?: RelationshipType | Collection<RelationshipType>): Set<string> | string[] {
     if (relTypesOrType === undefined) {
-        return this.graphStore.relationshipPropertyKeys();
-    } else if (Array.isArray(relTypesOrType)) {
-        return this.graphStore.relationshipPropertyKeys(relTypesOrType);
-    } else {
-        return this.graphStore.relationshipPropertyKeys(relTypesOrType);
+      return this.graphStore.relationshipPropertyKeys();
     }
+    if (isCollection(relTypesOrType)) {
+      const set = relTypesOrType instanceof Set ? relTypesOrType : new Set(relTypesOrType as Iterable<RelationshipType>);
+      return this.graphStore.relationshipPropertyKeys(set);
+    }
+    return this.graphStore.relationshipPropertyKeys(relTypesOrType as RelationshipType);
   }
 
-  relationshipPropertyType(propertyKey: string): ValueType {
-    return this.graphStore.relationshipPropertyType(propertyKey);
+  relationshipPropertyType(propertyKey: string): ValueType { return this.graphStore.relationshipPropertyType(propertyKey); }
+  relationshipPropertyValues(relationshipType: RelationshipType, propertyKey: string): RelationshipProperty {
+    return this.graphStore.relationshipPropertyValues(relationshipType, propertyKey);
   }
-
-  relationshipPropertyValues(
-    relationshipType: RelationshipType,
-    propertyKey: string
-  ): RelationshipProperty {
-    return this.graphStore.relationshipPropertyValues(
-      relationshipType,
-      propertyKey
-    );
-  }
-
-  addRelationshipType(relationships: SingleTypeRelationships): void {
-    this.graphStore.addRelationshipType(relationships);
-  }
-
-  addInverseIndex(
-    relationshipType: RelationshipType,
-    topology: Topology,
-    properties?: RelationshipPropertyStore
-  ): void {
+  addRelationshipType(relationships: SingleTypeRelationships): void { this.graphStore.addRelationshipType(relationships); }
+  addInverseIndex(relationshipType: RelationshipType, topology: Topology, properties?: RelationshipPropertyStore): void {
     this.graphStore.addInverseIndex(relationshipType, topology, properties);
   }
-
   deleteRelationships(relationshipType: RelationshipType): DeletionResult {
     return this.graphStore.deleteRelationships(relationshipType);
   }
 
-  // For getGraph, the overloads are numerous.
-  // The GraphStore interface would define these, and the adapter just passes them through.
-  // This requires GraphStore to have a well-defined set of overloads for getGraph.
-  getGraph(
-    param1: NodeLabel | NodeLabel[] | RelationshipType | string | RelationshipType[],
-    param2?: RelationshipType | RelationshipType[] | string | Optional<string>,
-    param3?: Optional<string>
-  ): Graph {
-    // This is a simplified delegation. A real implementation would need to
-    // correctly match the overload signature of the underlying graphStore.getGraph
-    // For brevity, I'm showing a conceptual delegation.
-    // You'd need to implement the full dispatch logic based on argument types and count
-    // if the underlying graphStore.getGraph has a single complex signature.
-    // If graphStore.getGraph has matching overloads, this becomes simpler.
-
-    // Example of how one might start to differentiate:
-    if (param1 instanceof NodeLabel && param2 === undefined) {
-        return this.graphStore.getGraph(param1);
-    }
-    // ... and so on for all 9+ overloads.
-    // This part is highly dependent on how GraphStore.getGraph is defined.
-    // Assuming graphStore.getGraph has the same overloads:
+  // --- Graph Retrieval (getGraph) ---
+  getGraph(nodeLabel: NodeLabel): Graph;
+  getGraph(nodeLabels: Collection<NodeLabel>): Graph;
+  getGraph(relationshipTypes: Collection<RelationshipType>): Graph;
+  getGraph(relationshipProperty: string): Graph;
+  getGraph(relationshipType: RelationshipType, relationshipProperty?: string): Graph;
+  getGraph(relationshipTypes: Collection<RelationshipType>, relationshipProperty?: string): Graph;
+  getGraph(nodeLabel: string, relationshipType: string, relationshipProperty?: string): Graph;
+  getGraph(nodeLabel: NodeLabel, relationshipType: RelationshipType, relationshipProperty?: string): Graph;
+  getGraph(nodeLabels: Collection<NodeLabel>, relationshipTypes: Collection<RelationshipType>, relationshipProperty?: string): Graph;
+  getGraph(param1: any, param2?: any, param3?: any): Graph {
     return (this.graphStore.getGraph as any)(param1, param2, param3);
   }
 
-  getUnion(): Graph {
-    return this.graphStore.getUnion();
+  getUnion(): Graph { return this.graphStore.getUnion(); }
+  getCompositeRelationshipIterator(relationshipType: RelationshipType, propertyKeys: Collection<string>): CompositeRelationshipIterator {
+    return this.graphStore.getCompositeRelationshipIterator(relationshipType, propertyKeys);
   }
+}
 
-  getCompositeRelationshipIterator(
-    relationshipType: RelationshipType,
-    propertyKeys: string[]
-  ): CompositeRelationshipIterator {
-    return this.graphStore.getCompositeRelationshipIterator(
-      relationshipType,
-      propertyKeys
-    );
-  }
+// Helper to check if something is a collection (Set, Array, or Iterable but not string)
+function isCollection<T>(obj: any): obj is Collection<T> {
+  return (
+    (Array.isArray(obj) && typeof obj !== "string") ||
+    obj instanceof Set ||
+    (typeof obj === "object" && obj !== null && Symbol.iterator in obj)
+  );
 }

@@ -59,7 +59,7 @@ export class OpenGdsIdMapBehavior implements IdMapBehavior {
         // external ids may exceed the storage capabilities of the nested id map.
         // Instead, we _know_ that the highest original id for the nested id map
         // will be nodeCount - 1 as this is what the HighLimitIdMap guarantees.
-        const maxIntermediateId = nodeCount !== undefined ? nodeCount - 1n : undefined;
+        const maxIntermediateId = nodeCount !== undefined ? nodeCount - 1 : undefined;
 
         let innerBuilder: IdMapBuilder;
         const innerTypeId = HighLimitIdMap.innerTypeId(idLowerCase);
@@ -85,7 +85,7 @@ export class OpenGdsIdMapBehavior implements IdMapBehavior {
       if (nodeCount !== undefined) {
         capacity = nodeCount;
       } else if (maxOriginalId !== undefined) {
-        capacity = maxOriginalId + 1n;
+        capacity = maxOriginalId + 1;
       }
 
       if (capacity !== undefined) {

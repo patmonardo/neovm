@@ -13,7 +13,7 @@ import { GraphProjectConfig } from "../config/GraphProjectConfig"; // Placeholde
 import { GraphDimensions } from "../core/GraphDimensions"; // Placeholder
 import { IdMapBehaviorServiceProvider } from "../core/IdMapBehaviorServiceProvider"; // Placeholder
 import { HugeGraph } from "../core/huge/HugeGraph"; // Placeholder
-import { AdjacencyBuffer } from "../core/5/AdjacencyBuffer"; // Placeholder
+import { AdjacencyBuffer } from "../core/AdjacencyBuffer"; // Placeholder
 import { AdjacencyListBehavior } from "../core/loading/AdjacencyListBehavior"; // Placeholder
 import { CSRGraphStore } from "../core/loading/CSRGraphStore"; // Placeholder
 import { Capabilities } from "../core/loading/Capabilities"; // Placeholder

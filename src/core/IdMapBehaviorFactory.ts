@@ -1,5 +1,5 @@
-import { LicenseState } from "../LicenseState"; // Adjust path as needed
-import { IdMapBehavior } from "./IdMapBehavior";   // Adjust path as needed
+import { LicenseState } from "./LicenseState";
+import { IdMapBehavior } from "./IdMapBehavior";
 
 /**
  * A factory for creating IdMapBehavior instances.

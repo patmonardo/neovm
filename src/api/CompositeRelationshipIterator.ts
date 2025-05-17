@@ -41,7 +41,7 @@ export interface CompositeRelationshipIterator {
    *
    * @returns Array of property keys
    */
-  propertyKeys(): string[];
+  propertyKeys: string[];
 
   /**
    * Creates a thread-safe copy of the iterator.

@@ -1,10 +1,10 @@
-import { NodeLabel } from "@/NodeLabel";
-import { IdMap } from "./IdMap";
+import { NodeLabel } from "@/projection/NodeLabel";
 import { LabelInformation } from "@/core/loading/LabelInformation";
 import { PrimitiveLongIterable } from "@/collections/primitive/PrimitiveLongIterable";
 import { LazyBatchCollection } from "@/core/utils/LazyBatchCollection";
-import { OfLong } from "./OfLong";
-import { IdIterable } from "./IdIterable";
+import { PrimitiveIterator } from "@/collections/primitive/PrimitiveIterator";
+import { BatchNodeIterable } from "./BatchNodeIterable";
+import { IdMap } from "./IdMap";
 
 /**
  * Abstract base class providing common label-related functionality for IdMap implementations.
@@ -72,49 +72,35 @@ export abstract class LabeledIdMap implements IdMap {
    */
   forEachNode(consumer: (nodeId: number) => boolean): void {
     const count = this._nodeCount;
-    for (let i = 0n; i < count; i++) {
+    for (let i = 0; i < count; i++) {
       if (!consumer(i)) {
         return;
       }
     }
   }
   // Assume you have a way to get the OfLong iterators, for example:
-  private getInternalNodeIterator(): OfLong {
-    // ... your logic to return an OfLong iterator for all nodes
-    return {} as OfLong; // Placeholder
+  private getInternalNodeIterator(): PrimitiveIterator.OfLong {
+    // ... your logic to return an PrimitiveIterator.OfLong {iterator for all nodes
+    return {} as PrimitiveIterator.OfLong;
   }
 
-  private getInternalNodeIteratorForLabels(labels: Set<NodeLabel>): OfLong {
-    // ... your logic to return an OfLong iterator for specific labels
-    return {} as OfLong; // Placeholder
+  private getInternalNodeIteratorForLabels(labels: Set<NodeLabel>): PrimitiveIterator.OfLong {
+    // ... your logic to return an PrimitiveIterator.OfLong iterator for specific labels
+    return {} as PrimitiveIterator.OfLong;
   }
 
   // Overload signatures as required by IdMap
-  nodeIterator(): Iterator<number>;
-  nodeIterator(labels: Set<NodeLabel>): Iterator<number>;
+  nodeIterator(): PrimitiveIterator.OfLong;
+  nodeIterator(labels: Set<NodeLabel>): PrimitiveIterator.OfLong;
   // Implementation
-  nodeIterator(labels?: Set<NodeLabel>): Iterator<number> {
+  nodeIterator(labels?: Set<NodeLabel>):PrimitiveIterator.OfLong {
     const ofLongIterator = labels
       ? this.getInternalNodeIteratorForLabels(labels)
       : this.getInternalNodeIterator();
 
-    // Adapt OfLong to the standard Iterator<number> interface
-    return {
-      next(): IteratorResult<number> {
-        if (ofLongIterator.hasNext()) {
-          // Assuming OfLong has hasNext()
-          return {
-            value: ofLongIterator.nextLong(), // Assuming OfLong has nextLong()
-            done: false,
-          };
-        } else {
-          return {
-            value: undefined as any, // Or null, depending on your preference for exhausted iterators
-            done: true,
-          };
-        }
-      },
-    };
+    // Adapt PrimitiveIterator.OfLong to the standard Iterator<number> interface
+    return ofLongIterator;
+
   }
 
 
@@ -127,7 +113,7 @@ export abstract class LabeledIdMap implements IdMap {
     return LazyBatchCollection.of(
       this._nodeCount,
       batchSize,
-      (start: number, end: number) => new IdIterable(start, end)
+      (start: number, end: number) => new BatchNodeIterable.IdIterable(start, end)
     );
   }
 

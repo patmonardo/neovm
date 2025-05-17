@@ -1,7 +1,7 @@
-import { LicenseState } from "../LicenseState"; // Adjust path as needed
-import { IdMapBehavior } from "./IdMapBehavior"; // Adjust path as needed
-import { IdMapBehaviorFactory } from "./IdMapBehaviorFactory"; // Adjust path as needed
-import { OpenGdsIdMapBehavior } from "./OpenGdsIdMapBehavior"; // Adjust path as needed
+import { LicenseState } from "./LicenseState";
+import { IdMapBehavior } from "./IdMapBehavior";
+import { IdMapBehaviorFactory } from "./IdMapBehaviorFactory";
+import { OpenGdsIdMapBehavior } from "./OpenGdsIdMapBehavior";
 
 /**
  * A factory for creating OpenGdsIdMapBehavior instances.

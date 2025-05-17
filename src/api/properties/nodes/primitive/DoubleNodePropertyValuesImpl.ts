@@ -8,9 +8,9 @@ export class DoubleNodePropertyValuesImpl implements DoubleNodePropertyValues {
   private readonly defaultValue: number;
   private readonly defaults: Omit<NodePropertyValues, 'nodeCount' | 'release' | 'hasValue' | 'valueType'>;
 
-  constructor(data: Map<number, number>, customDefaultValue?: DefaultValue) {
+  constructor(data: Map<number, number>, customDefaultValue: DefaultValue) {
     this.data = data;
-    this.defaultValue = customDefaultValue?.get() ?? DefaultValue.DOUBLE_DEFAULT_FALLBACK;
+    this.defaultValue = customDefaultValue;
     this.defaults = NodePropertyValues.withDefaultsForType(() => this.valueType());
   }
 
@@ -82,15 +82,15 @@ export class DoubleNodePropertyValuesImpl implements DoubleNodePropertyValues {
     return this.doubleValue(nodeId);
   }
 
-  doubleArrayValue(nodeId: number): ArrayLike<number> | undefined {
+  doubleArrayValue(nodeId: number): Float64Array {
     return this.defaults.doubleArrayValue!(nodeId);
   }
 
-  floatArrayValue(nodeId: number): ArrayLike<number> | undefined {
+  floatArrayValue(nodeId: number): Float32Array {
     return this.defaults.floatArrayValue!(nodeId);
   }
 
-  longArrayValue(nodeId: number): ArrayLike<number> | undefined {
+  longArrayValue(nodeId: number): number[] {
     return this.defaults.longArrayValue!(nodeId);
   }
 

@@ -15,7 +15,7 @@ export interface LongArrayNodePropertyValues extends NodePropertyValues {
    *          (Corresponds to Java's `long[] longArrayValue(long nodeId)`)
    *          Note: If not strictly using BigInt for longs, this could be `number[]`.
    */
-  longArrayValue(nodeId: number): number[] | undefined;
+  longArrayValue(nodeId: number): number[];
 
   /**
    * Returns the long array value as an object for the given node ID.
@@ -26,7 +26,7 @@ export interface LongArrayNodePropertyValues extends NodePropertyValues {
    * @returns The BigInt64Array value if it exists, otherwise undefined.
    *          (Corresponds to Java's `default Object getObject(long nodeId)`)
    */
-  getObject(nodeId: number): number[] | undefined;
+  getObject(nodeId: number): number[];
 
   /**
    * Returns the specific type of values stored.

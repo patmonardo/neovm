@@ -32,7 +32,7 @@ export interface NodePropertyValues extends PropertyValues {
    * @throws Error if the value type is not DOUBLE_ARRAY
    * @returns The double array value, or null if the node has no array
    */
-  doubleArrayValue?(nodeId: number): ArrayLike<number> | undefined;
+  doubleArrayValue(nodeId: number): Float64Array;
 
   /**
    * Returns the float array value for the given node.
@@ -41,7 +41,7 @@ export interface NodePropertyValues extends PropertyValues {
    * @throws Error if the value type is not FLOAT_ARRAY
    * @returns The float array value, or null if the node has no array
    */
-  floatArrayValue?(nodeId: number): ArrayLike<number> | undefined;
+  floatArrayValue(nodeId: number): Float32Array;
 
   /**
    * Returns the long array value for the given node.
@@ -50,7 +50,7 @@ export interface NodePropertyValues extends PropertyValues {
    * @throws Error if the value type is not LONG_ARRAY
    * @returns The long array value, or null if the node has no array
    */
-  longArrayValue?(nodeId: number): ArrayLike<number> | undefined;
+  longArrayValue(nodeId: number): number[];
 
   /**
    * Returns the object value for the given node.
@@ -58,7 +58,7 @@ export interface NodePropertyValues extends PropertyValues {
    * @param nodeId The node ID
    * @returns The object value, or null if the node has no value
    */
-  getObject?(nodeId: number): any | undefined;
+  getObject(nodeId: number): any | undefined;
 
   /**
    * Returns the number of nodes that have property values.
@@ -75,7 +75,7 @@ export interface NodePropertyValues extends PropertyValues {
    *
    * @returns The dimension of the properties stored, or undefined if the dimension cannot easily be retrieved.
    */
-  dimension?(): number | undefined;
+  dimension(): number | undefined;
 
   /**
    * Gets the maximum long value contained in the mapping.
@@ -83,7 +83,7 @@ export interface NodePropertyValues extends PropertyValues {
    * @returns The maximum long value, or undefined if the mapping is empty or the feature is not supported.
    * @throws Error if the type is not coercible into a long.
    */
-  getMaxLongPropertyValue?(): number | undefined;
+  getMaxLongPropertyValue(): number | undefined;
 
   /**
    * Gets the maximum double value contained in the mapping.
@@ -91,7 +91,7 @@ export interface NodePropertyValues extends PropertyValues {
    * @returns The maximum double value, or undefined if the mapping is empty or the feature is not supported.
    * @throws Error if the type is not coercible into a double.
    */
-  getMaxDoublePropertyValue?(): number | undefined;
+  getMaxDoublePropertyValue(): number | undefined;
 
   /**
    * Returns whether the node has a value.
@@ -155,7 +155,7 @@ export namespace NodePropertyValues {
         }
         throw createError("longValue", ValueType.LONG);
       },
-      doubleArrayValue: (_nodeId: number): ArrayLike<number> | undefined => {
+      doubleArrayValue: (_nodeId: number): Float64Array => {
         if (primaryValueTypeProvider() === ValueType.DOUBLE_ARRAY) {
           throw createError(
             "doubleArrayValue (concrete implementation missing)"
@@ -163,7 +163,7 @@ export namespace NodePropertyValues {
         }
         throw createError("doubleArrayValue", ValueType.DOUBLE_ARRAY);
       },
-      floatArrayValue: (_nodeId: number): ArrayLike<number> | undefined => {
+      floatArrayValue: (_nodeId: number): Float32Array => {
         if (primaryValueTypeProvider() === ValueType.FLOAT_ARRAY) {
           throw createError(
             "floatArrayValue (concrete implementation missing)"
@@ -171,7 +171,7 @@ export namespace NodePropertyValues {
         }
         throw createError("floatArrayValue", ValueType.FLOAT_ARRAY);
       },
-      longArrayValue: (_nodeId: number): ArrayLike<number> | undefined => {
+      longArrayValue: (_nodeId: number): number[] => {
         if (primaryValueTypeProvider() === ValueType.LONG_ARRAY) {
           throw createError("longArrayValue (concrete implementation missing)");
         }

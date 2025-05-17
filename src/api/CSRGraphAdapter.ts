@@ -1,5 +1,6 @@
 import { NodeLabel } from "@/projection/NodeLabel";
 import { RelationshipType } from "@/projection/RelationshipType";
+import { RelationshipCursor } from "@/api/properties/relationships"
 import { CSRGraph } from "./CSRGraph";
 import { GraphAdapter } from "./GraphAdapter";
 import { Topology } from "./Topology";
@@ -63,6 +64,26 @@ export abstract class CSRGraphAdapter extends GraphAdapter implements CSRGraph {
     this.csrGraph.addNodeIdToLabel(nodeId, nodeLabel);
   }
 
-  // Other methods from Graph are inherited from GraphAdapter,
-  // which in turn delegate to `this.graph` (which is the `csrGraph` instance).
+  isEmpty(): boolean {
+    // Implement logic to check if the graph is empty
+    return this.nodeCount() === 0;
+  }
+
+  safeToMappedNodeId(nodeId: number): number {
+    // Implement logic to safely map a node ID
+    // For now, just return the input (replace with real logic)
+    return nodeId;
+  }
+
+  iterateRelationships(nodeId: number, fallbackValue: number): Iterable<RelationshipCursor> {
+    return {
+      [Symbol.iterator](): Iterator<RelationshipCursor> {
+        return {
+          next(): IteratorResult<RelationshipCursor> {
+            return { done: true, value: undefined as any };
+          }
+        };
+      }
+    };
+  }
 }

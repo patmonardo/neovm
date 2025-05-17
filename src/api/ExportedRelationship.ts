@@ -1,4 +1,4 @@
-import { Value } from '/values/Value';
+import { GdsValue as Value} from '@/values';
 
 /**
  * Represents a relationship that is being exported from the graph,

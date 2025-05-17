@@ -10,7 +10,7 @@ import { ResultStoreEntry } from './ResultStoreEntry';
 export interface ResultStore {
   /**
    * Stores a shallow entry representing result store data in this store given a JobId.
-   * 
+   *
    * @param jobId The ID of the job that produced the result
    * @param entry The result entry to store
    */
@@ -18,15 +18,15 @@ export interface ResultStore {
 
   /**
    * Retrieves a ResultStoreEntry from this store.
-   * 
+   *
    * @param jobId The ID of the job whose result should be retrieved
    * @returns The stored result entry
    */
-  get(jobId: JobId): ResultStoreEntry;
+  get(jobId: JobId): ResultStoreEntry | null;
 
   /**
    * Checks if this store contains an entry for the given JobId.
-   * 
+   *
    * @param jobId The ID to check
    * @returns True if an entry exists for this job ID
    */
@@ -34,7 +34,7 @@ export interface ResultStore {
 
   /**
    * Removes a stored entry based on the given JobId.
-   * 
+   *
    * @param jobId The ID of the job whose result should be removed
    */
   remove(jobId: JobId): void;
