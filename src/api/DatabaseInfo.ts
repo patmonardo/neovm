@@ -161,21 +161,3 @@ export namespace DatabaseInfo {
     }
   }
 }
-
-// Add hashCode to String prototype if not exists
-declare global {
-  interface String {
-    hashCode(): number;
-  }
-}
-
-if (!String.prototype.hashCode) {
-  String.prototype.hashCode = function (): number {
-    let hash = 0;
-    for (let i = 0; i < this.length; i++) {
-      hash = (hash << 5) - hash + this.charCodeAt(i);
-      hash |= 0; // Convert to 32bit integer
-    }
-    return hash;
-  };
-}

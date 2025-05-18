@@ -1,4 +1,4 @@
-import { AdjacencyProperties } from '@/api/AdjacencyProperties';
+import { AdjacencyProperties } from "@/api/AdjacencyProperties";
 
 /**
  * Represents properties of relationships in a graph.
@@ -28,52 +28,34 @@ export interface Properties {
 }
 
 /**
- * Implementation of the Properties interface.
- */
-export class Properties implements Properties {
-  /**
-   * Creates a new Properties implementation.
-   *
-   * @param propertiesList The adjacency properties
-   * @param elementCount The element count
-   * @param defaultPropertyValue The default property value
-   */
-  constructor(
-    private readonly _propertiesList: AdjacencyProperties,
-    private readonly _elementCount: number,
-    private readonly _defaultPropertyValue: number
-  ) {}
-
-  propertiesList(): AdjacencyProperties {
-    return this._propertiesList;
-  }
-
-  elementCount(): number {
-    return this._elementCount;
-  }
-
-  defaultPropertyValue(): number {
-    return this._defaultPropertyValue;
-  }
-}
-
-/**
- * Namespace providing factory methods for Properties.
+ * Namespace containing Properties-related factories.
  */
 export namespace Properties {
-  /**
-   * Creates a new Properties instance.
-   *
-   * @param propertiesList The adjacency properties
-   * @param elementCount The element count
-   * @param defaultPropertyValue The default property value
-   * @returns A new Properties instance
-   */
   export function of(
     propertiesList: AdjacencyProperties,
     elementCount: number,
     defaultPropertyValue: number
   ): Properties {
-    return new Properties(propertiesList, elementCount, defaultPropertyValue);
+    return Object.freeze({
+      propertiesList: () => propertiesList,
+      elementCount: () => elementCount,
+      defaultPropertyValue: () => defaultPropertyValue,
+    });
+  }
+
+}
+
+/**
+ * Alias for immutable Properties.
+ */
+export type ImmutableProperties = Properties;
+
+export namespace ImmutableProperties {
+  export function of(
+    propertiesList: AdjacencyProperties,
+    elementCount: number,
+    defaultPropertyValue: number
+  ): ImmutableProperties {
+    return Properties.of(propertiesList, elementCount, defaultPropertyValue);
   }
 }

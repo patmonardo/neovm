@@ -1,8 +1,9 @@
-import { NodeLabel } from "@/NodeLabel";
-import { RelationshipType } from "@/RelationshipType";
+import { NodeLabel } from "@/projection";
+import { Configuration } from "@/annotations";
+import { RelationshipType } from "@/projection";
 import { GraphStore } from "@/api/GraphStore";
-import { Configuration } from "@/annotations/Configuration";
 import { ConfigNodesValidations } from "./ConfigNodesValidations";
+
 import {
   emptyToNull,
   validateNoWhiteCharacter,

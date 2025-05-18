@@ -68,4 +68,28 @@ export namespace Topology {
       isMultiGraph: () => isMultiGraph
     };
   }
+
+  export function immutableOf(
+    adjacencyList: AdjacencyList,
+    elementCount: number,
+    isMultiGraph: boolean
+  ): Topology {
+    return Object.freeze({
+      adjacencyList: () => adjacencyList,
+      elementCount: () => elementCount,
+      isMultiGraph: () => isMultiGraph,
+    });
+  }
+}
+
+export type ImmutableTopology = Topology;
+
+export namespace ImmutableTopology {
+  export function of(
+    adjacencyList: AdjacencyList,
+    elementCount: number,
+    isMultiGraph: boolean
+  ): ImmutableTopology {
+    return Topology.immutableOf(adjacencyList, elementCount, isMultiGraph);
+  }
 }

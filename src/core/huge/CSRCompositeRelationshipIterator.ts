@@ -5,7 +5,9 @@ import { CompositeRelationshipIterator } from "@/api/CompositeRelationshipIterat
 import { PropertyCursor } from "@/api/properties/relationships";
 import { RelationshipConsumer } from "@/api/properties/relationships";
 
-export class CSRCompositeRelationshipIterator implements CompositeRelationshipIterator {
+export class CSRCompositeRelationshipIterator
+  implements CompositeRelationshipIterator
+{
   private readonly propertyKeysArr: string[];
   private readonly adjacencyList: AdjacencyList;
   private readonly inverseAdjacencyList?: AdjacencyList;
@@ -25,7 +27,8 @@ export class CSRCompositeRelationshipIterator implements CompositeRelationshipIt
     inverseProperties: AdjacencyProperties[]
   ) {
     const propertyCount = propertyKeys.length;
-    if (properties.length !== propertyCount) throw new Error("Properties length must match propertyKeys length");
+    if (properties.length !== propertyCount)
+      throw new Error("Properties length must match propertyKeys length");
     this.adjacencyList = adjacencyList;
     this.inverseAdjacencyList = inverseAdjacencyList ?? undefined;
     this.propertyKeysArr = propertyKeys;
@@ -33,9 +36,13 @@ export class CSRCompositeRelationshipIterator implements CompositeRelationshipIt
     this.inverseProperties = inverseProperties;
     this.propertyBuffer = new Array(propertyCount);
     this.adjacencyCursor = adjacencyList.rawAdjacencyCursor();
-    this.inverseAdjacencyCursor = inverseAdjacencyList ? inverseAdjacencyList.rawAdjacencyCursor() : undefined;
-    this.propertyCursors = properties.map(p => p.rawPropertyCursor());
-    this.inversePropertyCursors = inverseProperties.map(p => p.rawPropertyCursor());
+    this.inverseAdjacencyCursor = inverseAdjacencyList
+      ? inverseAdjacencyList.rawAdjacencyCursor()
+      : undefined;
+    this.propertyCursors = properties.map((p) => p.rawPropertyCursor());
+    this.inversePropertyCursors = inverseProperties.map((p) =>
+      p.rawPropertyCursor()
+    );
   }
 
   degree(nodeId: number): number {
@@ -44,20 +51,31 @@ export class CSRCompositeRelationshipIterator implements CompositeRelationshipIt
 
   forEachRelationship(nodeId: number, consumer: RelationshipConsumer): void {
     this.forEachRelationshipInternal(
-      nodeId, consumer,
-      this.adjacencyList, this.properties,
-      this.adjacencyCursor, this.propertyCursors
+      nodeId,
+      consumer,
+      this.adjacencyList,
+      this.properties,
+      this.adjacencyCursor,
+      this.propertyCursors
     );
   }
 
-  forEachInverseRelationship(nodeId: number, consumer: RelationshipConsumer): void {
+  forEachInverseRelationship(
+    nodeId: number,
+    consumer: RelationshipConsumer
+  ): void {
     if (!this.inverseAdjacencyList || !this.inverseAdjacencyCursor) {
-      throw new Error("Cannot create composite iterator on a relationship type that is not inverse indexed");
+      throw new Error(
+        "Cannot create composite iterator on a relationship type that is not inverse indexed"
+      );
     }
     this.forEachRelationshipInternal(
-      nodeId, consumer,
-      this.inverseAdjacencyList, this.inverseProperties,
-      this.inverseAdjacencyCursor, this.inversePropertyCursors
+      nodeId,
+      consumer,
+      this.inverseAdjacencyList,
+      this.inverseProperties,
+      this.inverseAdjacencyCursor,
+      this.inversePropertyCursors
     );
   }
 

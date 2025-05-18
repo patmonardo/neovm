@@ -16,7 +16,10 @@ export interface CompositeRelationshipIterator {
    * @param nodeId The source node ID
    * @param consumer The relationship consumer to apply
    */
-  forEachRelationship(nodeId: number, consumer: CompositeRelationshipIterator.RelationshipConsumer): void;
+  forEachRelationship(
+    nodeId: number,
+    consumer: CompositeRelationshipIterator.RelationshipConsumer
+  ): void;
 
   /**
    * Calls the given consumer for every inverse relationship of a given node.
@@ -32,7 +35,10 @@ export interface CompositeRelationshipIterator {
    * @param nodeId The node for which to iterate the inverse relationships
    * @param consumer The relationship consumer function
    */
-  forEachInverseRelationship(nodeId: number, consumer: CompositeRelationshipIterator.RelationshipConsumer): void;
+  forEachInverseRelationship(
+    nodeId: number,
+    consumer: CompositeRelationshipIterator.RelationshipConsumer
+  ): void;
 
   /**
    * Returns the property keys that are managed by this iterator.

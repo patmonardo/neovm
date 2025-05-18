@@ -1,8 +1,8 @@
 import { GraphStore } from "./GraphStore";
-import { GraphProjectConfig } from "@/config/GraphProjectConfig"; // Placeholder
-import { GraphDimensions } from "@/core/GraphDimensions"; // Placeholder
-import { Capabilities } from "@/core/loading/Capabilities"; // Placeholder
-import { MemoryEstimation } from "@/mem/MemoryEstimation"; // Placeholder
+import { GraphProjectConfig } from "@/config/GraphProjectConfig";
+import { GraphDimensions } from "@/core/GraphDimensions";
+import { Capabilities } from "@/core/loading/Capabilities";
+import { MemoryEstimation } from "@/mem/MemoryEstimation";
 import { GraphLoaderContext } from "./GraphLoaderContext";
 
 /**
