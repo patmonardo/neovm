@@ -1,6 +1,7 @@
 export * from "./Properties";
 export * from "./PropertyCursor";
 export * from "./RelationshipPropertyStore";
+export * from "./abstract/RelationshipProperties";
 export * from "./abstract/RelationshipProperty";
 export * from "./abstract/RelationshipCursor";
 export * from "./abstract/RelationshipIterator";

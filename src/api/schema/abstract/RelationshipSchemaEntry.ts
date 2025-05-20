@@ -1,9 +1,9 @@
-import { ElementIdentifier } from '@/projection/ElementIdentifier';
-import { RelationshipType } from '@/projection/RelationshipType';
+import { ElementIdentifier } from '@/projection';
+import { RelationshipType } from '@/projection';
+import { Direction } from '../Direction';
+import { ElementSchemaEntry } from './ElementSchemaEntry';
 import { PropertySchema } from './PropertySchema';
 import { RelationshipPropertySchema } from './RelationshipPropertySchema';
-import { ElementSchemaEntry } from './ElementSchemaEntry';
-import { Direction } from './Direction';
 
 /**
  * Schema entry for a relationship type in a graph.

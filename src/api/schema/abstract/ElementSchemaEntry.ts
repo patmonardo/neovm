@@ -1,4 +1,4 @@
-import { ElementIdentifier } from "@/projection/ElementIdentifier";
+import { ElementIdentifier } from "@/projection/abstract/ElementIdentifier";
 import { PropertySchema } from "./PropertySchema";
 
 /**

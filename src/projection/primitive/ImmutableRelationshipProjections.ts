@@ -2,9 +2,8 @@ import {
   RelationshipProjections,
   RelationshipProjectionsBuilder
 } from './RelationshipProjections';
-import { RelationshipType } from './RelationshipType';
+import { RelationshipType } from '../RelationshipType';
 import { RelationshipProjection } from './RelationshipProjection';
-// import { PropertyMappings } from './PropertyMappings'; // If needed for overrides
 
 /**
  * Immutable implementation of RelationshipProjections.

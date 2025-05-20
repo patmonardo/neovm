@@ -1,8 +1,5 @@
-
 export namespace PrimitiveIterator {
-
   export interface OfLong extends Iterator<number> {
-    // Extend the standard JavaScript Iterator
     /**
      * Returns true if the iteration has more elements.
      * This is a common helper, though standard Iterator relies on `next().done`.
@@ -29,3 +26,5 @@ export namespace PrimitiveIterator {
     [Symbol.iterator](): Iterator<number>;
   }
 }
+
+export type LongPredicate = (value: number) => boolean;

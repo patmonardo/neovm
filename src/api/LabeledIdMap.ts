@@ -1,4 +1,4 @@
-import { NodeLabel } from "@/projection/NodeLabel";
+import { NodeLabel } from "@/projection/primitive/NodeLabel";
 import { LabelInformation } from "@/core/loading/LabelInformation";
 import { PrimitiveLongIterable } from "@/collections/primitive/PrimitiveLongIterable";
 import { LazyBatchCollection } from "@/core/utils/LazyBatchCollection";

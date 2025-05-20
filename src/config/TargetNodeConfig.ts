@@ -1,6 +1,6 @@
-import { NodeLabel } from "@/NodeLabel";
-import { RelationshipType } from "@/RelationshipType";
 import { GraphStore } from "@/api/GraphStore";
+import { NodeLabel } from "@/projection";
+import { RelationshipType } from "@/projection";
 import { Configuration } from "@/annotations/Configuration";
 import { ConfigNodesValidations } from "./ConfigNodesValidations";
 import { NodeIdParser } from "./NodeIdParser";

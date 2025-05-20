@@ -1,8 +1,8 @@
-import { ElementProjection } from "./ElementProjection";
+import { ElementProjection } from "../abstract/ElementProjection";
 import { PropertyMappings } from "./PropertyMappings";
-import { Orientation } from "./Orientation";
+import { Orientation } from "../Orientation";
 import { Aggregation } from "@/core/Aggregation";
-import { RelationshipType } from "./RelationshipType";
+import { RelationshipType } from "../RelationshipType";
 
 /**
  * Represents a projection for relationships in a graph.

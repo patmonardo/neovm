@@ -1,4 +1,4 @@
-import { NodeLabel } from "@/projection/NodeLabel";
+import { NodeLabel } from "@/projection/primitive/NodeLabel";
 import { ElementSchema } from "./ElementSchema";
 import { NodeSchemaEntry } from "./NodeSchemaEntry";
 import { PropertySchema } from "./PropertySchema";

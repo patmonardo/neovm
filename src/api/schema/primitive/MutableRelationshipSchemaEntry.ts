@@ -1,8 +1,8 @@
 import { ValueType } from "@/api/ValueType";
 import { PropertyState } from "@/api/PropertyState";
-import { RelationshipType } from "@/projection/RelationshipType";
 import { Aggregation } from "@/core/Aggregation";
-import { Direction } from "../abstract/Direction";
+import { RelationshipType } from "@/projection";
+import { Direction } from "../Direction";
 import { RelationshipPropertySchema } from "../abstract/RelationshipPropertySchema";
 import { RelationshipSchemaEntry } from "../abstract/RelationshipSchemaEntry";
 
@@ -319,7 +319,7 @@ function schemaEquals(
 function schemaHashCode(schema: RelationshipPropertySchema): number {
   let result = schema.valueType();
   result = 31 * result + schema.state();
-  result = 31 * result + schema.defaultValue().get<number>(); // hashCode();
+  result = 31 * result + schema.defaultValue().longValue();
   // Use the namespace function instead of a non-existent instance method
   result = 31 * result + Aggregation.hashCode(schema.aggregation());
   return result;

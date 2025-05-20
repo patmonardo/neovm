@@ -1,8 +1,8 @@
 import { DefaultValue } from "@/api/DefaultValue";
 import { Aggregation } from "@/core/Aggregation";
 import { PropertyMapping } from "./PropertyMapping";
-import { PropertyMappings } from "./PropertyMappings";
-import { PropertyMappingsBuilder } from "./PropertyMappings";
+import { PropertyMappings } from "../primitive/PropertyMappings";
+import { PropertyMappingsBuilder } from "../primitive/PropertyMappings";
 
 /**
  * Base class for projections of graph elements (nodes or relationships).

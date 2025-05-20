@@ -204,15 +204,15 @@ export namespace ValueTypeUtils {
       case ValueType.LONG:
         return visitor.visitLong();
       case ValueType.FLOAT:
-        return visitor.visitFloat(); // Direct call
+        return visitor.visitFloat();
       case ValueType.DOUBLE:
         return visitor.visitDouble();
       case ValueType.BOOLEAN:
-        return visitor.visitBoolean(); // Direct call
+        return visitor.visitBoolean();
       case ValueType.STRING:
         return visitor.visitString();
       case ValueType.BIGINT:
-        return visitor.visitBigInt(); // Direct call
+        return visitor.visitBigInt();
       case ValueType.LONG_ARRAY:
         return visitor.visitLongArray();
       case ValueType.FLOAT_ARRAY:
@@ -220,11 +220,11 @@ export namespace ValueTypeUtils {
       case ValueType.DOUBLE_ARRAY:
         return visitor.visitDoubleArray();
       case ValueType.BOOLEAN_ARRAY:
-        return visitor.visitBooleanArray(); // Direct call
+        return visitor.visitBooleanArray();
       case ValueType.STRING_ARRAY:
-        return visitor.visitStringArray(); // Direct call
+        return visitor.visitStringArray();
       case ValueType.BIGINT_ARRAY:
-        return visitor.visitBigIntArray(); // Direct call
+        return visitor.visitBigIntArray();
       case ValueType.UNTYPED_ARRAY:
         if (visitor.visitUntypedArray) {
           return visitor.visitUntypedArray();

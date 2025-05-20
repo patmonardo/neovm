@@ -1,9 +1,9 @@
 import { NodeLabel } from "./NodeLabel";
-import { AbstractProjections } from "./AbstractProjections";
-import { ElementProjection } from "./ElementProjection";
-import { NodeProjection } from "./NodeProjection";
-import { PropertyMapping } from "./PropertyMapping";
+import { AbstractProjections } from "../abstract/AbstractProjections";
+import { ElementProjection } from "../abstract/ElementProjection";
+import { PropertyMapping } from "../abstract/PropertyMapping";
 import { PropertyMappings } from "./PropertyMappings";
+import { NodeProjection } from "./NodeProjection";
 
 /**
  * Collection of node projections for configuring node filtering in graph projections.

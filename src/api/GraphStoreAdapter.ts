@@ -1,6 +1,6 @@
 import { Graph } from "./Graph";
 import { GraphStore, Collection } from "./GraphStore";
-import { NodeLabel } from "@/projection/NodeLabel";
+import { NodeLabel } from "@/projection/primitive/NodeLabel";
 import { RelationshipType } from "@/projection/RelationshipType";
 import { ValueType } from "@/api/ValueType";
 import { GraphProperty } from "./properties/graph";

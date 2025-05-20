@@ -1,4 +1,4 @@
-import { NodeLabel } from "@/projection/NodeLabel";
+import { NodeLabel } from "@/projection";
 import { Concurrency } from "@/concurrency/Concurrency";
 import { PartialIdMap } from "./PartialIdMap";
 import { NodeIterator } from "./NodeIterator";

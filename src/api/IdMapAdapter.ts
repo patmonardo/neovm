@@ -1,4 +1,4 @@
-import { NodeLabel } from "@/projection/NodeLabel";
+import { NodeLabel } from "@/projection/primitive/NodeLabel";
 import { Concurrency } from "@/concurrency/Concurrency";
 import { IdMap } from "./IdMap";
 import { FilteredIdMap } from "./FilteredIdMap";

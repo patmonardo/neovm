@@ -1,5 +1,5 @@
 import { Orientation } from "@/projection/Orientation";
-import { Direction } from "./schema/abstract/Direction";
+import { Direction } from "./schema/Direction";
 
 /**
  * Graph characteristics describe certain capabilities of the graph.

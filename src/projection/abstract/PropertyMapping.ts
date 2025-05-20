@@ -52,6 +52,18 @@ export interface PropertyMapping {
 }
 
 /**
+ * Interface for PropertyMapping creation options
+ */
+export interface PropertyMappingOptions {
+  /** Neo4j property key */
+  neoPropertyKey?: string | null;
+  /** Default value */
+  defaultValue?: DefaultValue | any;
+  /** Aggregation strategy */
+  aggregation?: Aggregation;
+}
+
+/**
  * Implementation of PropertyMapping.
  */
 class PropertyMappingImpl implements PropertyMapping {
@@ -140,18 +152,6 @@ class PropertyMappingImpl implements PropertyMapping {
 export namespace PropertyMapping {
   export const PROPERTY_KEY = "property";
   export const DEFAULT_VALUE_KEY = "defaultValue";
-
-  /**
-   * Interface for PropertyMapping creation options
-   */
-  export interface PropertyMappingOptions {
-    /** Neo4j property key */
-    neoPropertyKey?: string | null;
-    /** Default value */
-    defaultValue?: DefaultValue | any;
-    /** Aggregation strategy */
-    aggregation?: Aggregation;
-  }
 
   /**
    * Validates a property key.

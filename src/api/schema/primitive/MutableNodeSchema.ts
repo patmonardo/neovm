@@ -1,4 +1,4 @@
-import { NodeLabel } from "@/projection/NodeLabel";
+import { NodeLabel } from "@/projection";
 import { ValueType } from "@/api/ValueType";
 import { NodeSchema } from "../abstract/NodeSchema";
 import { PropertySchema } from "../abstract/PropertySchema";

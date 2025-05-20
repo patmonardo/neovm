@@ -2,6 +2,7 @@
 	"dependencies": {
 		"@types/node": "^22.15.17",
 		"@types/reflect-metadata": "^0.1.0",
+		"apache-arrow": "^20.0.0",
 		"reflect-metadata": "^0.2.2"
 	},
 	"devDependencies": {

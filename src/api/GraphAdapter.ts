@@ -6,6 +6,7 @@ import { RelationshipConsumer } from "./properties/relationships";
 import { RelationshipWithPropertyConsumer } from "./properties/relationships";
 import { PrimitiveLongIterable } from "@/collections";
 import { PrimitiveIterator } from "@/collections";
+import { LongPredicate } from "@/collections";
 import { Concurrency } from "@/concurrency";
 import { GraphSchema } from "./schema";
 import { IdMap } from "./IdMap";
@@ -40,7 +41,7 @@ export abstract class GraphAdapter implements Graph {
     return this.graph.asNodeFilteredGraph();
   }
 
-  batchIterables(batchSize: number): PrimitiveLongIterable[] {
+  batchIterables(batchSize: number): Set<PrimitiveLongIterable> {
     return this.graph.batchIterables(batchSize);
   }
 
@@ -92,7 +93,7 @@ export abstract class GraphAdapter implements Graph {
     return this.graph.highestOriginalId();
   }
 
-  forEachNode(consumer: (nodeId: number) => boolean): void {
+  forEachNode(consumer: LongPredicate): void {
     this.graph.forEachNode(consumer);
   }
 

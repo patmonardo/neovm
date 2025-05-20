@@ -1,7 +1,7 @@
-import { RelationshipType } from '@/projection/RelationshipType';
 import { ValueType } from '@/api/ValueType';
 import { PropertyState } from '@/api/PropertyState';
-import { Direction } from '../abstract/Direction';
+import { RelationshipType } from '@/projection';
+import { Direction } from '../Direction';
 import { RelationshipSchema } from '../abstract/RelationshipSchema';
 import { RelationshipSchemaEntry } from '../abstract/RelationshipSchemaEntry';
 import { RelationshipPropertySchema } from '../abstract/RelationshipPropertySchema';

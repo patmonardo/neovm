@@ -1,5 +1,5 @@
 import { Aggregation } from "@/core/Aggregation";
-import { PropertyMapping } from "./PropertyMapping";
+import { PropertyMapping } from "../abstract/PropertyMapping";
 
 /**
  * Collection of property mappings for configuring property filtering and aggregation.

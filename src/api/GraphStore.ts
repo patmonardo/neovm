@@ -1,5 +1,5 @@
-import { NodeLabel } from "@/projection/NodeLabel";
-import { RelationshipType } from "@/projection/RelationshipType";
+import { NodeLabel } from "@/projection";
+import { RelationshipType } from "@/projection";
 import { ValueType } from "./ValueType";
 import { GraphProperty } from "./properties/graph";
 import { GraphPropertyValues } from "./properties/graph";

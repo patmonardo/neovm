@@ -8,9 +8,7 @@ import { NodePropertyStoreBuilder } from "./NodePropertyStoreBuilder";
  * Each property is identified by a string key and holds NodePropertyValues.
  */
 export interface NodePropertyStore
-  extends PropertyStore<NodePropertyValues, NodeProperty> {
-  // Inherits methods from PropertyStore
-}
+  extends PropertyStore<NodePropertyValues, NodeProperty> {}
 
 /**
  * Static factory methods for NodePropertyStore

@@ -103,7 +103,7 @@ export class CSRCompositeRelationshipIterator
   }
 
   propertyKeys(): string[] {
-    return this.propertyKeysArr;
+    return this._propertyKeys;
   }
 
   concurrentCopy(): CompositeRelationshipIterator {

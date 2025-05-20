@@ -20,6 +20,8 @@ export interface AdjacencyList {
    */
   degree(node: number): number;
 
+  adjacencyCursor(node: number): AdjacencyCursor;
+
   /**
    * Create a new cursor for the target ids of the given node.
    * If the cursor cannot produce property values, it will yield the provided fallbackValue.
@@ -50,7 +52,11 @@ export interface AdjacencyList {
    * @param fallbackValue The fallback value for properties
    * @returns A cursor for the node's relationships
    */
-  adjacencyCursor(reuse: AdjacencyCursor | null, node: number, fallbackValue: number): AdjacencyCursor;
+  adjacencyCursor(
+    reuse: AdjacencyCursor | null,
+    node: number,
+    fallbackValue: number
+  ): AdjacencyCursor;
 
   /**
    * Create a new uninitialized cursor.
@@ -81,10 +87,12 @@ export namespace AdjacencyList {
       return 0;
     },
 
-    adjacencyCursor(_nodeOrReuse: number | AdjacencyCursor | null,
-      _nodeOrFallback: number | number,
-      _fallbackValue?: number): AdjacencyCursor {
-      // Handle both overloaded versions
+    adjacencyCursor(
+      arg1: number | AdjacencyCursor | null,
+      arg2?: number,
+      arg3?: number
+    ): AdjacencyCursor {
+      // Handles all overloads, always returns empty
       return AdjacencyCursor.empty();
     },
 
@@ -94,7 +102,7 @@ export namespace AdjacencyList {
 
     memoryInfo(): MemoryInfo {
       return MemoryInfo.EMPTY;
-    }
+    },
   };
 }
 

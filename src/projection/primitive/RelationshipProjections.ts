@@ -1,8 +1,8 @@
-import { AbstractProjections } from "./AbstractProjections";
-import { RelationshipType } from "./RelationshipType";
-import { RelationshipProjection } from "./RelationshipProjection";
+import { ElementProjection } from "../abstract/ElementProjection";
+import { AbstractProjections } from "../abstract/AbstractProjections";
 import { PropertyMappings } from "./PropertyMappings";
-import { ElementProjection } from "./ElementProjection";
+import { RelationshipType } from "../RelationshipType";
+import { RelationshipProjection } from "./RelationshipProjection";
 
 /**
  * Collection of relationship projections for configuring relationship filtering in graph projections.

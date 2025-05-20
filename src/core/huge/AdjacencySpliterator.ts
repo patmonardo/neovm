@@ -1,5 +1,5 @@
 import { AdjacencyCursor } from "@/api/AdjacencyCursor";
-import { RelationshipCursor } from "@/api/properties/relationships/";
+import { RelationshipCursor } from "@/api/properties/relationships";
 import { PropertyCursor } from "@/api/properties/relationships";
 
 /**
@@ -9,7 +9,7 @@ export namespace AdjacencySpliterator {
   /**
    * Returns an Iterable of RelationshipCursor for adjacencies without properties.
    */
-  export function of(
+  export function* of(
     adjacencyCursor: AdjacencyCursor,
     sourceNodeId: number,
     fallbackValue: number
@@ -28,7 +28,7 @@ export namespace AdjacencySpliterator {
   /**
    * Returns an Iterable of RelationshipCursor for adjacencies with properties.
    */
-  export function ofWithProperty(
+  export function* ofWithProperty(
     adjacencyCursor: AdjacencyCursor,
     propertyCursor: PropertyCursor,
     sourceNodeId: number

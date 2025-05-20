@@ -1,10 +1,10 @@
-import { NodeLabel } from "@/projection/NodeLabel";
-import { RelationshipType } from "@/projection/RelationshipType";
+import { NodeLabel } from "@/projection/primitive/NodeLabel";
+import { RelationshipType } from "@/projection";
 import { NodeSchema } from "./NodeSchema";
 import { RelationshipSchema } from "./RelationshipSchema";
 import { RelationshipPropertySchema } from "./RelationshipPropertySchema";
 import { PropertySchema } from "./PropertySchema";
-import { Direction } from "./Direction";
+import { Direction } from "../Direction";
 
 /**
  * Schema representation for a graph, including node and relationship schemas.

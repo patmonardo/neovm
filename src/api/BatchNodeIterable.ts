@@ -10,7 +10,7 @@ export interface BatchNodeIterable {
    *          the given batch size. Each iterable in the collection
    *          represents one batch.
    */
-  batchIterables(batchSize: number): PrimitiveLongIterable[];
+  batchIterables(batchSize: number): Set<PrimitiveLongIterable>;
 }
 
 /**
@@ -73,6 +73,7 @@ export namespace BatchNodeIterable {
         done: false,
       };
     }
+
     [Symbol.iterator](): Iterator<number> {
       return this;
     }

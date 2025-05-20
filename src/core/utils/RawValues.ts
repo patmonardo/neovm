@@ -1,4 +1,4 @@
-import { Direction } from '@/api/schema/abstract/Direction';
+import { Direction } from '@/api/schema/Direction';
 
 /**
  * Utility class for manipulating raw values through bit operations.

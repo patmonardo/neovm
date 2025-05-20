@@ -1,4 +1,4 @@
-import { Orientation } from '@/projection/Orientation';
+import { Orientation } from '@/projection';
 
 /**
  * Represents the direction of relationships in a graph.

@@ -1,8 +1,8 @@
-import { RelationshipType } from "@/projection/RelationshipType";
+import { RelationshipType } from "@/projection";
 import { NodePropertyContainer } from "./properties/nodes/NodePropertyContainer";
-import { RelationshipConsumer } from "./properties/relationships/abstract/RelationshipConsumer";
-import { RelationshipIterator } from "./properties/relationships/abstract/RelationshipIterator";
-import { RelationshipProperties } from "./properties/relationships/abstract/RelationshipProperties";
+import { RelationshipConsumer } from "./properties/relationships";
+import { RelationshipIterator } from "./properties/relationships";
+import { RelationshipProperties } from "./properties/relationships";
 import { GraphSchema } from "./schema/abstract/GraphSchema";
 import { GraphCharacteristics } from "./GraphCharacteristics";
 import { IdMap } from "./IdMap";
@@ -47,7 +47,7 @@ export interface Graph
    * Whether the graph is guaranteed to have no parallel relationships.
    * If this returns {@code false} it still may be parallel-free, but we don't know.
    *
-   * @returns true if the graph has maximum one relationship between each pair of nodes
+   * @returns false if the graph has maximum one relationship between each pair of nodes
    */
   isMultiGraph(): boolean;
 

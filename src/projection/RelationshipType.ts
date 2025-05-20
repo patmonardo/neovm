@@ -1,4 +1,4 @@
-import { ElementIdentifier } from './ElementIdentifier';
+import { ElementIdentifier } from './abstract/ElementIdentifier';
 
 /**
  * Identifies a relationship type in a graph.
@@ -11,7 +11,7 @@ export class RelationshipType extends ElementIdentifier {
 
   /**
    * Creates a new RelationshipType.
-   * 
+   *
    * @param name The name of the relationship type
    */
   constructor(name: string) {
@@ -20,7 +20,7 @@ export class RelationshipType extends ElementIdentifier {
 
   /**
    * Returns a relationship type that projects all relationships.
-   * 
+   *
    * @returns ALL_RELATIONSHIPS
    */
   public projectAll(): ElementIdentifier {
@@ -29,7 +29,7 @@ export class RelationshipType extends ElementIdentifier {
 
   /**
    * Factory method to create a RelationshipType.
-   * 
+   *
    * @param name The name of the relationship type
    * @returns A new RelationshipType
    */
@@ -39,7 +39,7 @@ export class RelationshipType extends ElementIdentifier {
 
   /**
    * Creates a collection of RelationshipTypes from strings.
-   * 
+   *
    * @param relationshipTypes The relationship type names
    * @returns Array of RelationshipTypes
    */

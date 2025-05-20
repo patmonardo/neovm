@@ -1,4 +1,4 @@
-import { RelationshipType } from "@/projection/RelationshipType";
+import { RelationshipType } from "@/projection";
 import { Graph } from "./Graph";
 import { Topology } from "./Topology";
 

@@ -1,5 +1,5 @@
-import { RelationshipType } from '@/projection/RelationshipType';
-import { Direction } from './Direction';
+import { RelationshipType } from '@/projection';
+import { Direction } from '../Direction';
 import { ElementSchema } from './ElementSchema';
 import { RelationshipPropertySchema } from './RelationshipPropertySchema';
 import { RelationshipSchemaEntry } from '../abstract/RelationshipSchemaEntry';
