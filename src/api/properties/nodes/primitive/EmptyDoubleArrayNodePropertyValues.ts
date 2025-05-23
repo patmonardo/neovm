@@ -1,13 +1,15 @@
-import { ValueType } from '@/api/ValueType'; // Adjusted path
-import { DoubleArrayNodePropertyValues } from '../abstract/DoubleArrayNodePropertyValues'; // Assuming this interface exists
-// import { MemoryEstimations } from '@/mem/MemoryEstimations'; // If memoryEstimation is needed
+import { ValueType } from '@/api/ValueType';
+import { DoubleArrayNodePropertyValues } from '../abstract/DoubleArrayNodePropertyValues';
+import { UnsupportedOperationError } from '../NodePropertyValues';
 
 /**
  * An implementation of DoubleArrayNodePropertyValues that represents an empty set of double array properties.
  * It always returns an empty array for any node ID and reports a node count of 0.
  * This is a direct translation of GDS's org.neo4j.gds.api.properties.nodes.EmptyDoubleArrayNodePropertyValues.
  */
-export class EmptyDoubleArrayNodePropertyValues implements DoubleArrayNodePropertyValues {
+export class EmptyDoubleArrayNodePropertyValues
+  implements DoubleArrayNodePropertyValues
+{
   /**
    * The singleton instance of EmptyDoubleArrayNodePropertyValues.
    */
@@ -39,7 +41,7 @@ export class EmptyDoubleArrayNodePropertyValues implements DoubleArrayNodeProper
    * Returns the type of values stored, which is DOUBLE_ARRAY.
    * @returns ValueType.DOUBLE_ARRAY
    */
-  public valueType(): ValueType.DOUBLE_ARRAY {
+  public valueType(): ValueType {
     return ValueType.DOUBLE_ARRAY;
   }
 
@@ -51,23 +53,117 @@ export class EmptyDoubleArrayNodePropertyValues implements DoubleArrayNodeProper
     return 0;
   }
 
-  // Assuming DoubleArrayNodePropertyValues might extend a base NodePropertyValues,
-  // or have its own specific methods that need "empty" implementations.
+  /**
+   * Checks if a value exists for the given node ID, which is always false.
+   * @param _nodeId - The node ID (ignored).
+   * @returns false
+   */
+  public hasValue(_nodeId: number): boolean {
+    return false;
+  }
 
-  // public hasValue(_nodeId: number): boolean {
-  //   return false;
-  // }
+  /**
+   * No-op release method.
+   */
+  public release(): void {
+    // No-op
+  }
 
-  // public release(): void {
-  //   // No-op
-  // }
+  /**
+   * Returns the object representation of the property value.
+   * @param _nodeId The node ID (ignored)
+   * @returns An empty Float64Array
+   */
+  public getObject(_nodeId: number): Float64Array {
+    return this.doubleArrayValue(_nodeId);
+  }
 
-  // public memoryEstimation(): MemoryEstimation {
-  //   return MemoryEstimations.empty(); // Or MemoryEstimations.ZERO
-  // }
+  /**
+   * Returns the dimension of this property.
+   * @returns 1 (for array values)
+   */
+  public dimension(): number {
+    return 1; // For array values, we return 1 (the arrays themselves are variable length)
+  }
 
-  // If DoubleArrayNodePropertyValues has specific methods like dimension:
-  // public dimension(): number {
-  //   return 0; // Or 1 if it's for scalar arrays that are empty
-  // }
+  /**
+   * Returns the maximum value across all nodes, which is undefined for an empty array.
+   */
+  public getMaxLongPropertyValue(): number | undefined {
+    return undefined;
+  }
+
+  /**
+   * Returns the maximum value across all nodes, which is undefined for an empty array.
+   */
+  public getMaxLongArrayPropertyValue(): number[] | undefined {
+    return undefined;
+  }
+
+  /**
+   * Returns the maximum value across all nodes, which is undefined for an empty array.
+   */
+  public getMaxDoublePropertyValue(): number | undefined {
+    return undefined;
+  }
+
+  /**
+   * Returns the maximum double array property value across all nodes.
+   * @returns undefined since there are no values
+   */
+  public getMaxDoubleArrayPropertyValue(): Float64Array | undefined {
+    return undefined;
+  }
+
+  // Type conversion methods
+
+  /**
+   * Cannot convert array to scalar double.
+   * @throws UnsupportedOperationError
+   */
+  public doubleValue(_nodeId: number): number {
+    throw new UnsupportedOperationError(
+      "Cannot convert DOUBLE_ARRAY to DOUBLE"
+    );
+  }
+
+  /**
+   * Cannot convert array to scalar long.
+   * @throws UnsupportedOperationError
+   */
+  public longValue(_nodeId: number): number {
+    throw new UnsupportedOperationError("Cannot convert DOUBLE_ARRAY to LONG");
+  }
+
+  /**
+   * Cannot convert array to scalar float.
+   * @throws UnsupportedOperationError
+   */
+  public floatValue(_nodeId: number): number {
+    throw new UnsupportedOperationError("Cannot convert DOUBLE_ARRAY to FLOAT");
+  }
+
+  /**
+   * Cannot convert array to boolean.
+   * @throws UnsupportedOperationError
+   */
+  public booleanValue(_nodeId: number): boolean {
+    throw new UnsupportedOperationError(
+      "Cannot convert DOUBLE_ARRAY to BOOLEAN"
+    );
+  }
+
+  /**
+   * Converts to float array (empty).
+   */
+  public floatArrayValue(_nodeId: number): Float32Array {
+    return new Float32Array(0);
+  }
+
+  /**
+   * Converts to long array (empty).
+   */
+  public longArrayValue(_nodeId: number): number[] {
+    return [];
+  }
 }

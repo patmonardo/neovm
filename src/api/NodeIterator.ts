@@ -1,5 +1,5 @@
-import { NodeLabel } from '@/projection/primitive/NodeLabel';
-import { PrimitiveIterator } from '@/collections/primitive/PrimitiveIterator';
+import { NodeLabel } from '@/projection';
+import { PrimitiveIterator } from '@/collections';
 
 /**
  * Iterate over each node Id until either

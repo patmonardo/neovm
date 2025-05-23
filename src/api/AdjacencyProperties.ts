@@ -1,4 +1,4 @@
-import { PropertyCursor } from './properties/relationships/PropertyCursor';
+import { PropertyCursor } from './properties/relationships';
 
 /**
  * The properties for a mono-partite graph for a single relationship property.

@@ -1,6 +1,6 @@
 import { ElementProjection } from "../abstract/ElementProjection";
 import { PropertyMappings } from "./PropertyMappings";
-import { NodeLabel } from "./NodeLabel";
+import { NodeLabel } from "../NodeLabel";
 
 /**
  * Represents a projection for nodes in a graph.

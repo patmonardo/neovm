@@ -1,15 +1,13 @@
-import { ValueType } from "@/api/ValueType"; // Adjusted path assuming ValueType is in @/api
-import { LongNodePropertyValues } from "../abstract/LongNodePropertyValues"; // Assuming this interface exists
-//import { MemoryEstimations } from '@/mem/MemoryEstimations'; // If memoryEstimation is needed
+import { ValueType } from "@/api";
+import { LongNodePropertyValues } from "../abstract/LongNodePropertyValues";
+import { UnsupportedOperationError } from "../NodePropertyValues";
 
 /**
  * An implementation of LongNodePropertyValues that represents an empty set of long properties.
  * It always returns -1 (as a default/sentinel value) for any node ID and reports a node count of 0.
  * This is a direct translation of GDS's org.neo4j.gds.api.properties.nodes.EmptyLongNodePropertyValues.
  */
-export class EmptyLongNodePropertyValues
-  implements Partial<LongNodePropertyValues>
-{
+export class EmptyLongNodePropertyValues implements LongNodePropertyValues {
   /**
    * The singleton instance of EmptyLongNodePropertyValues.
    */
@@ -18,9 +16,7 @@ export class EmptyLongNodePropertyValues
   /**
    * Private constructor to enforce singleton pattern.
    */
-  private constructor() {
-    // Private constructor
-  }
+  private constructor() {}
 
   /**
    * Returns a default long value (-1) for any given node ID.
@@ -31,6 +27,7 @@ export class EmptyLongNodePropertyValues
   public longValue(_nodeId: number): number {
     return -1;
   }
+
   /**
    * Returns the type of values stored, which is LONG.
    * @returns ValueType.LONG
@@ -47,23 +44,103 @@ export class EmptyLongNodePropertyValues
     return 0;
   }
 
-  // Assuming LongNodePropertyValues might extend a base NodePropertyValues,
-  // include other necessary methods with "empty" behavior.
+  /**
+   * Checks if a value exists for the given node ID, which is always false.
+   * @param _nodeId - The node ID (ignored).
+   * @returns false
+   */
+  public hasValue(_nodeId: number): boolean {
+    return false;
+  }
 
-  // public hasValue(_nodeId: number): boolean {
-  //   return false; // Or true if -1 is considered a "value"
-  // }
+  /**
+   * No-op release method.
+   */
+  public release(): void {
+    // No-op
+  }
 
-  // public release(): void {
-  //   // No-op
-  // }
+  /**
+   * Returns the object representation of the property value.
+   * @param _nodeId The node ID (ignored)
+   * @returns -1 as a Number object
+   */
+  public getObject(_nodeId: number): number {
+    return this.longValue(_nodeId);
+  }
 
-  // public memoryEstimation(): MemoryEstimation {
-  //   return MemoryEstimations.empty(); // Or MemoryEstimations.ZERO
-  // }
+  /**
+   * Returns the dimension of this property.
+   * @returns 1 (for scalar values)
+   */
+  public dimension(): number {
+    return 1;
+  }
 
-  // If LongNodePropertyValues has specific methods like getMaxLongPropertyValue:
-  // public getMaxLongPropertyValue(): number | undefined {
-  //   return undefined; // Or BigInt(Number.MIN_SAFE_INTEGER) if using bigints
-  // }
+  /**
+   * Returns the maximum long property value across all nodes.
+   * @returns undefined since there are no values
+   */
+  public getMaxLongPropertyValue(): number | undefined {
+    return undefined;
+  }
+
+  /**
+   * Returns the maximum long property value across all nodes.
+   * @returns undefined since there are no values
+   */
+  public getMaxDoublePropertyValue(): number | undefined {
+    return undefined;
+  }
+  // Type conversion methods
+
+  /**
+   * Converts to double value.
+   * @param _nodeId - The node ID (ignored).
+   * @returns NaN (standard GDS behavior when converting empty/missing long to double)
+   */
+  public doubleValue(_nodeId: number): number {
+    return Number.NaN;
+  }
+
+  /**
+   * Converts to float value.
+   * @param _nodeId - The node ID (ignored).
+   * @returns NaN (standard GDS behavior when converting empty/missing long to float)
+   */
+  public floatValue(_nodeId: number): number {
+    return Number.NaN;
+  }
+
+  /**
+   * Cannot convert to boolean.
+   * @throws UnsupportedOperationError
+   */
+  public booleanValue(_nodeId: number): boolean {
+    throw new UnsupportedOperationError("Cannot convert LONG to BOOLEAN");
+  }
+
+  /**
+   * Cannot convert scalar to array.
+   * @throws UnsupportedOperationError
+   */
+  public doubleArrayValue(_nodeId: number): Float64Array {
+    throw new UnsupportedOperationError("Cannot convert LONG to DOUBLE_ARRAY");
+  }
+
+  /**
+   * Cannot convert scalar to array.
+   * @throws UnsupportedOperationError
+   */
+  public longArrayValue(_nodeId: number): number[] {
+    throw new UnsupportedOperationError("Cannot convert LONG to LONG_ARRAY");
+  }
+
+  /**
+   * Cannot convert scalar to array.
+   * @throws UnsupportedOperationError
+   */
+  public floatArrayValue(_nodeId: number): Float32Array {
+    throw new UnsupportedOperationError("Cannot convert LONG to FLOAT_ARRAY");
+  }
 }

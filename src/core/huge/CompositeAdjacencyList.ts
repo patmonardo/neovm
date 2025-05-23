@@ -1,6 +1,6 @@
-import { AdjacencyCursor } from "@/api/AdjacencyCursor";
-import { AdjacencyList } from "@/api/AdjacencyList";
-import { FilteredIdMap } from "@/api/FilteredIdMap";
+import { AdjacencyCursor } from "@/api";
+import { AdjacencyList } from "@/api";
+import { FilteredIdMap } from "@/api";
 import { MemoryInfo } from "@/core/compression/MemoryInfo";
 import { CompositeAdjacencyCursor } from "./CompositeAdjacencyCursor";
 import { NodeFilteredAdjacencyCursor } from "./NodeFilteredAdjacencyCursor";

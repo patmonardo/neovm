@@ -1,7 +1,7 @@
 import {
-  RelationshipCursorImpl,
-  ModifiableRelationshipCursorImpl,
-} from "../primitive/RelationshipCursorImpl";
+  DefRelationshipCursor,
+  DefModifiableRelationshipCursor
+} from "../primitive/DefRelationshipCursor";
 
 /**
  * Represents a relationship between two nodes with an associated property value.
@@ -76,7 +76,7 @@ export namespace RelationshipCursor {
     targetId: number,
     property: number
   ): RelationshipCursor {
-    return new RelationshipCursorImpl(sourceId, targetId, property);
+    return new DefRelationshipCursor(sourceId, targetId, property);
   }
 
   /**
@@ -85,6 +85,6 @@ export namespace RelationshipCursor {
    * @returns A new modifiable RelationshipCursor
    */
   export function modifiable(): ModifiableRelationshipCursor {
-    return new ModifiableRelationshipCursorImpl(0, 0, 0);
+    return new DefModifiableRelationshipCursor(0, 0, 0);
   }
 }

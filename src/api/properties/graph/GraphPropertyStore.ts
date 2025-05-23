@@ -1,9 +1,9 @@
 import { ValueType } from "@/api/ValueType";
 import { PropertyStore } from "@/api/properties/PropertyStore";
-import { GraphProperty } from "./abstract/GraphProperty";
-import { GraphPropertyValues } from "./abstract/GraphPropertyValues";
+import { GraphProperty } from "./GraphProperty";
+import { GraphPropertyValues } from "./GraphPropertyValues";
 import { GraphPropertyStoreBuilder } from "./GraphPropertyStoreBuilder";
-import { GraphPropertyStoreImpl } from "./primitive/GraphPropertyStoreImpl";
+import { DefGraphPropertyStore } from "./primitive/DefGraphPropertyStore";
 
 /**
  * A specialized property store for graph properties.
@@ -95,7 +95,7 @@ export namespace GraphPropertyStore {
    * @returns An empty GraphPropertyStore
    */
   export function empty(): GraphPropertyStore {
-    return new GraphPropertyStoreImpl(new Map());
+    return new DefGraphPropertyStore(new Map());
   }
 
   /**

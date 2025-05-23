@@ -1,4 +1,4 @@
-import { DefaultValue } from "@/api/DefaultValue";
+import { DefaultValue } from "@/api";
 import { Aggregation } from "@/core/Aggregation";
 import { PropertyMapping } from "./PropertyMapping";
 import { PropertyMappings } from "../primitive/PropertyMappings";
@@ -161,6 +161,7 @@ export interface InlineProperties<Self extends InlineProperties<Self>> {
    */
   inlineBuilder(): InlinePropertiesBuilder;
 }
+
 /**
  * Builder for inline properties.
  */

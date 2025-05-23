@@ -1,5 +1,5 @@
 import { ValueType } from '@/api/ValueType';
-import { NodePropertyValues } from './NodePropertyValues';
+import { NodePropertyValues } from '../NodePropertyValues';
 /**
  * Represents node property values that are arrays of longs (64-bit integers).
  * Extends the base NodePropertyValues interface.
@@ -36,7 +36,7 @@ export interface LongArrayNodePropertyValues extends NodePropertyValues {
    * @returns `ValueType.LONG_ARRAY`
    *          (Corresponds to Java's `default ValueType valueType()`)
    */
-  valueType(): ValueType.LONG_ARRAY; // Using the specific enum member type
+  valueType(): ValueType;
 
   /**
    * Returns the dimension (length) of the long arrays.

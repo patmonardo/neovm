@@ -1,5 +1,5 @@
 import { ValueType } from '@/api/ValueType'; // Assuming ValueType is in @/api or similar path
-import { NodePropertyValues } from './NodePropertyValues';
+import { NodePropertyValues } from '../NodePropertyValues';
 
 /**
  * Represents node property values that are arrays of doubles (64-bit floating-point numbers).
@@ -46,7 +46,7 @@ export interface DoubleArrayNodePropertyValues extends NodePropertyValues {
    * @returns `ValueType.DOUBLE_ARRAY`
    *          (Corresponds to Java's `default ValueType valueType()`)
    */
-  valueType(): ValueType.DOUBLE_ARRAY; // Using the specific enum member type
+  valueType(): ValueType; // Using the specific enum member type
 
   /**
    * Returns the dimension (length) of the double arrays.

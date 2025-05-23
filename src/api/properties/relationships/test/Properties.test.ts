@@ -1,5 +1,5 @@
+import { AdjacencyProperties } from "@/api";
 import { Properties } from "../Properties";
-import { AdjacencyProperties } from "@/api/AdjacencyProperties";
 
 describe("Properties", () => {
   let mockAdjacencyProps: AdjacencyProperties;

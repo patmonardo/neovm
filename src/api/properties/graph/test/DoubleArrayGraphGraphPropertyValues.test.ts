@@ -1,11 +1,14 @@
-import { ValueType } from '@/api/ValueType';
-import { DoubleArrayGraphPropertyValuesImpl } from '../primitive/DoubleArrayGraphPropertyValuesImpl';
+import { ValueType } from "@/api/ValueType";
+import { DefDoubleArrayGraphPropertyValues } from "../primitive/DefDoubleArrayGraphPropertyValues";
 
-describe('DoubleArrayGraphPropertyValuesImpl', () => {
-  test('should store and retrieve array values correctly', () => {
+describe("DoubleArrayGraphPropertyValuesImpl", () => {
+  test("should store and retrieve array values correctly", () => {
     // Setup test arrays
-    const arrays = [[1.1, 2.2, 3.3], [4.4, 5.5, 6.6]];
-    const values = new DoubleArrayGraphPropertyValuesImpl(arrays);
+    const arrays = [
+      [1.1, 2.2, 3.3],
+      [4.4, 5.5, 6.6],
+    ];
+    const values = new DefDoubleArrayGraphPropertyValues(arrays);
 
     // Check value type
     expect(values.valueType()).toBe(ValueType.DOUBLE_ARRAY);
@@ -28,8 +31,11 @@ describe('DoubleArrayGraphPropertyValuesImpl', () => {
     expect(objects).toEqual(arrays);
   });
 
-  test('should throw for unsupported conversions', () => {
-    const values = new DoubleArrayGraphPropertyValuesImpl([[1.1, 2.2], [3.3, 4.4]]);
+  test("should throw for unsupported conversions", () => {
+    const values = new DefDoubleArrayGraphPropertyValues([
+      [1.1, 2.2],
+      [3.3, 4.4],
+    ]);
 
     // Test each unsupported conversion
     expect(() => Array.from(values.doubleValues())).toThrow();
@@ -37,8 +43,8 @@ describe('DoubleArrayGraphPropertyValuesImpl', () => {
     expect(() => Array.from(values.longArrayValues())).toThrow();
   });
 
-  test('should handle empty values', () => {
-    const emptyValues = new DoubleArrayGraphPropertyValuesImpl([]);
+  test("should handle empty values", () => {
+    const emptyValues = new DefDoubleArrayGraphPropertyValues([]);
     expect(emptyValues.valueCount()).toBe(0);
 
     // Check that iteration works with empty arrays

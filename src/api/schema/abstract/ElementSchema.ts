@@ -36,7 +36,7 @@ export abstract class ElementSchema<
   /**
    * Returns all schema entries.
    *
-   * @returns Collection of schema entries
+   * @returns Array of schema entries
    */
   abstract entries(): ENTRY[];
 

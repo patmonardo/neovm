@@ -1,6 +1,7 @@
-import { ValueType } from "@/api/ValueType";
-import { GraphPropertyValues } from "./GraphPropertyValues";
-import { LongGraphPropertyValuesImpl } from "../primitive/LongGraphPropertyValuesImpl";
+import { ValueType } from "@/api";
+import { GraphPropertyValues } from "../GraphPropertyValues";
+import { DefLongGraphPropertyValues } from "../primitive/DefLongGraphPropertyValues";
+
 /**
  * Graph property values specifically for Long (number) values.
  */
@@ -60,10 +61,10 @@ export namespace LongGraphPropertyValues {
   export function of(param: number | number[]): LongGraphPropertyValues {
     if (Array.isArray(param)) {
       // It's an array of bigints
-      return new LongGraphPropertyValuesImpl(param);
+      return new DefLongGraphPropertyValues(param);
     } else {
       // It's a single number
-      return new LongGraphPropertyValuesImpl([param]);
+      return new DefLongGraphPropertyValues([param]);
     }
   }
 }

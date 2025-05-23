@@ -1,5 +1,8 @@
-import { ValueType } from "@/api/ValueType";
-import { NodePropertyValues } from "./NodePropertyValues";
+import { ValueType } from "@/api";
+import { DefaultValue } from "@/api";
+import { NodePropertyValues } from "../NodePropertyValues";
+import { DefDoubleNodePropertyValues } from "../primitive/DefDoubleNodePropertyValues";
+import { EmptyDoubleNodePropertyValues } from "../primitive/EmptyDoubleNodePropertyValues";
 
 /**
  * Node property values specifically for double (number) values.
@@ -43,4 +46,63 @@ export interface DoubleNodePropertyValues extends NodePropertyValues {
    * @returns The maximum value, or undefined if no values exist
    */
   getMaxDoublePropertyValue(): number | undefined;
+}
+
+/**
+ * Factory methods for creating DoubleNodePropertyValues instances
+ */
+export namespace DoubleNodePropertyValues {
+  /**
+   * Creates a new instance with the specified default value
+   */
+  export function of(defaultValue: number = 0.0): DoubleNodePropertyValues {
+    // Import here to avoid circular dependencies
+    // const { DefDoubleNodePropertyValues } = require('../primitive/DefDoubleNodePropertyValues');
+    return new DefDoubleNodePropertyValues(
+      new Map<number, number>(),
+      DefaultValue.of(defaultValue)
+    );
+  }
+
+  /**
+   * Creates a new instance with values from the specified map
+   */
+  export function fromMap(
+    data: Map<number, number>,
+    defaultValue: number = 0.0
+  ): DoubleNodePropertyValues {
+    // Import here to avoid circular dependencies
+    // const { DefDoubleNodePropertyValues } = require('../primitive/DefDoubleNodePropertyValues');
+    return new DefDoubleNodePropertyValues(
+      new Map(data),
+      DefaultValue.of(defaultValue)
+    );
+  }
+
+  /**
+   * Creates an empty instance that returns no values
+   */
+  export function empty(): DoubleNodePropertyValues {
+    // Import here to avoid circular dependencies
+    // const { EmptyDoubleNodePropertyValues } = require('../primitive/EmptyDoubleNodePropertyValues');
+    return EmptyDoubleNodePropertyValues.INSTANCE;
+  }
+
+  /**
+   * Creates a new instance from a JavaScript array
+   */
+  export function fromArray(
+    values: number[],
+    defaultValue: number = 0.0
+  ): DoubleNodePropertyValues {
+    // Import here to avoid circular dependencies
+    // const {
+    //   DefDoubleNodePropertyValues,
+    // } = require("../primitive/DefDoubleNodePropertyValues");
+    const map = new Map<number, number>();
+    values.forEach((value, index) => {
+      map.set(index, value);
+    });
+    return new DefDoubleNodePropertyValues(map, DefaultValue.of(defaultValue));
+  }
 }

@@ -1,4 +1,4 @@
-import { Graph } from "@/api/Graph";
+import { Graph } from "@/api";
 import { RelationshipCursor } from "@/api/properties/relationships";
 import { RelationshipIterator } from "@/api/properties/relationships";
 

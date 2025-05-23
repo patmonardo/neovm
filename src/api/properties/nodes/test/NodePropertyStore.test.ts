@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { NodePropertyStore } from '../NodePropertyStore';
 import { NodeProperty } from '../NodeProperty';
-import { NodePropertyValues } from '../abstract/NodePropertyValues';
+import { NodePropertyValues } from '../NodePropertyValues';
 import { ValueType } from '@/api/ValueType';
 
 // Create a mock NodePropertyValues implementation

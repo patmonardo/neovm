@@ -1,12 +1,12 @@
-import { PrimitiveValues } from '@/values/PrimitiveValues';
+import { PrimitiveValues } from '@/values';
 import { ValueType } from '@/api/ValueType';
-import { LongValueImpl } from '@/values/primitive/LongValueImpl';
-import { IntLongArrayImpl } from '@/values/primitive/IntLongArrayImpl';
-import { FloatArrayImpl } from '@/values/primitive/FloatArrayImpl';
-import { ByteLongArrayImpl } from '@/values/primitive/ByteLongArrayImpl';
-import { ShortLongArrayImpl } from '@/values/primitive/ShortLongArrayImpl';
+import { DefLongValue } from '@/values/primitive/DefLongValue';
+import { DefByteLongArray } from '@/values/primitive/DefByteLongArray';
+import { DefShortLongArray } from "@/values/primitive/DefShortLongArray";
+import { DefIntLongArray } from '@/values/primitive/DefIntLongArray';
+import { DefFloatingPointValue } from '@/values/primitive/DefFloatingPointValue';
+import { DefFloatArray } from '@/values/primitive/DefFloatArray';
 import { GdsNoValue } from '@/values/abstract/GdsNoValue';
-import { FloatingPointValueImpl } from '@/values/primitive/FloatingPointValueImpl';
 
 describe('PrimitiveValues', () => {
   // Test constants
@@ -46,25 +46,25 @@ describe('PrimitiveValues', () => {
     test('intArray creates LongArray from Int32Array', () => {
       const array = PrimitiveValues.intArray(new Int32Array([1, 2, 3]));
       expect(array.type()).toBe(ValueType.LONG_ARRAY);
-      expect(array instanceof IntLongArrayImpl).toBe(true);
+      expect(array instanceof DefIntLongArray).toBe(true);
     });
 
     test('shortArray creates LongArray from Int16Array', () => {
       const array = PrimitiveValues.shortArray(new Int16Array([1, 2, 3]));
       expect(array.type()).toBe(ValueType.LONG_ARRAY);
-      expect(array instanceof ShortLongArrayImpl).toBe(true);
+      expect(array instanceof DefShortLongArray).toBe(true);
     });
 
     test('byteArray creates LongArray from Uint8Array', () => {
       const array = PrimitiveValues.byteArray(new Uint8Array([1, 2, 3]));
       expect(array.type()).toBe(ValueType.LONG_ARRAY);
-      expect(array instanceof ByteLongArrayImpl).toBe(true);
+      expect(array instanceof DefByteLongArray).toBe(true);
     });
 
     test('floatArray creates FloatArray from Float32Array', () => {
       const array = PrimitiveValues.floatArray(new Float32Array([1.1, 2.2, 3.3]));
       expect(array.type()).toBe(ValueType.FLOAT_ARRAY);
-      expect(array instanceof FloatArrayImpl).toBe(true);
+      expect(array instanceof DefFloatArray).toBe(true);
     });
 
     test('doubleArray creates DoubleArray from Float64Array', () => {
@@ -78,13 +78,13 @@ describe('PrimitiveValues', () => {
     test('create() handles integer values', () => {
       const value = PrimitiveValues.create(42);
       expect(value.type()).toBe(ValueType.LONG);
-      expect(value instanceof LongValueImpl).toBe(true);
+      expect(value instanceof DefLongValue).toBe(true);
     });
 
     test('create() handles floating point values', () => {
       const value = PrimitiveValues.create(3.14);
       expect(value.type()).toBe(ValueType.DOUBLE);
-      expect(value instanceof FloatingPointValueImpl).toBe(true);
+      expect(value instanceof DefFloatingPointValue).toBe(true);
     });
 
     test('create() handles typed arrays', () => {

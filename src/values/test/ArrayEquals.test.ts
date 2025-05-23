@@ -1,4 +1,4 @@
-import { ArrayEquals } from '@/values/primitive/ArrayEquals';
+import { ArrayEquals } from '@/values';
 
 describe('ArrayEquals', () => {
   // Test typed comparison methods

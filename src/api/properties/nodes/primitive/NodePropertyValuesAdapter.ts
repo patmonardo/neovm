@@ -1,6 +1,6 @@
 import { LongNodePropertyValues } from '../abstract/LongNodePropertyValues';
 import { DoubleNodePropertyValues } from '../abstract/DoubleNodePropertyValues';
-import { NodePropertyValues } from '../abstract/NodePropertyValues'; // The general base type
+import { NodePropertyValues } from '../NodePropertyValues'; // The general base type
 import { LongNodePropertyValuesAdapter } from '../abstract/LongNodePropertyValuesAdapter';
 import { DoubleNodePropertyValuesAdapter } from './DoubleNodePropertyValuesAdapter';
 import { HugeLongArray } from '@/collections/ha/HugeLongArray';

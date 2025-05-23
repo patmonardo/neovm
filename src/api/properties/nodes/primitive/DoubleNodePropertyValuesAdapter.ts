@@ -2,7 +2,7 @@ import { DoubleNodePropertyValues } from '../abstract/DoubleNodePropertyValues';
 import { ValueType } from '../../ValueType';
 import { HugeDoubleArray } from '@/collections/ha/HugeDoubleArray'; // Placeholder path
 import { HugeAtomicDoubleArray } from '@/collections/haa/HugeAtomicDoubleArray'; // Placeholder path
-import { NodePropertyValues } from '../abstract/NodePropertyValues'; // Base interface
+import { NodePropertyValues } from '../NodePropertyValues'; // Base interface
 import { MemoryEstimation } from '@/mem/MemoryEstimation'; // Placeholder
 import { MemoryEstimations } from '@/mem/MemoryEstimations'; // Placeholder
 

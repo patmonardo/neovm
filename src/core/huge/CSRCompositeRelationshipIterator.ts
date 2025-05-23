@@ -1,7 +1,7 @@
-import { AdjacencyList } from "@/api/AdjacencyList";
-import { AdjacencyCursor } from "@/api/AdjacencyCursor";
-import { AdjacencyProperties } from "@/api/AdjacencyProperties";
-import { CompositeRelationshipIterator } from "@/api/CompositeRelationshipIterator";
+import { AdjacencyList } from "@/api";
+import { AdjacencyCursor } from "@/api";
+import { AdjacencyProperties } from "@/api";
+import { CompositeRelationshipIterator } from "@/api";
 import { PropertyCursor } from "@/api/properties/relationships";
 import { RelationshipConsumer } from "@/api/properties/relationships";
 

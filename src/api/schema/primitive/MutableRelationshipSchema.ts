@@ -11,9 +11,14 @@ import { MutableRelationshipSchemaEntry } from './MutableRelationshipSchemaEntry
  * Mutable implementation of RelationshipSchema.
  */
 export class MutableRelationshipSchema extends RelationshipSchema {
-  private readonly _entries: Map<RelationshipType, MutableRelationshipSchemaEntry>;
+  private readonly _entries: Map<
+    RelationshipType,
+    MutableRelationshipSchemaEntry
+  >;
 
-  constructor(entries: Map<RelationshipType, MutableRelationshipSchemaEntry> = new Map()) {
+  constructor(
+    entries: Map<RelationshipType, MutableRelationshipSchemaEntry> = new Map()
+  ) {
     super();
     this._entries = entries;
   }
@@ -28,7 +33,9 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   /**
    * Creates a mutable relationship schema from an existing schema.
    */
-  public static from(fromSchema: RelationshipSchema): MutableRelationshipSchema {
+  public static from(
+    fromSchema: RelationshipSchema
+  ): MutableRelationshipSchema {
     const relationshipSchema = MutableRelationshipSchema.empty();
     fromSchema.entries().forEach((fromEntry) => {
       relationshipSchema.set(MutableRelationshipSchemaEntry.from(fromEntry));
@@ -54,8 +61,8 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   isUndirected(type?: RelationshipType): boolean {
     if (type === undefined) {
       // A graph with no relationships is considered undirected
-      return Array.from(this._entries.values()).every(entry =>
-        entry.direction() === Direction.UNDIRECTED
+      return Array.from(this._entries.values()).every(
+        (entry) => entry.direction() === Direction.UNDIRECTED
       );
     }
 
@@ -93,7 +100,10 @@ export class MutableRelationshipSchema extends RelationshipSchema {
    * Creates a filtered version of this schema.
    */
   filter(relationshipTypesToKeep: Set<RelationshipType>): RelationshipSchema {
-    const filteredEntries = new Map<RelationshipType, MutableRelationshipSchemaEntry>();
+    const filteredEntries = new Map<
+      RelationshipType,
+      MutableRelationshipSchemaEntry
+    >();
 
     this._entries.forEach((entry, type) => {
       if (relationshipTypesToKeep.has(type)) {
@@ -121,7 +131,10 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   protected unionEntries(
     other: RelationshipSchema
   ): Map<RelationshipType, MutableRelationshipSchemaEntry> {
-    const entriesMap = new Map<RelationshipType, MutableRelationshipSchemaEntry>();
+    const entriesMap = new Map<
+      RelationshipType,
+      MutableRelationshipSchemaEntry
+    >();
 
     // Add entries from this schema
     this._entries.forEach((entry, type) => {
@@ -146,21 +159,21 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   /**
    * Sets a schema entry.
    */
-  set(entry: MutableRelationshipSchemaEntry): void {
+  public set(entry: MutableRelationshipSchemaEntry): void {
     this._entries.set(entry.identifier(), entry);
   }
 
   /**
    * Removes a schema entry by its type.
    */
-  remove(identifier: RelationshipType): void {
+  public remove(identifier: RelationshipType): void {
     this._entries.delete(identifier);
   }
 
   /**
    * Gets or creates a relationship type entry.
    */
-  getOrCreateRelationshipType(
+  public getOrCreateRelationshipType(
     relationshipType: RelationshipType,
     direction: Direction
   ): MutableRelationshipSchemaEntry {
@@ -176,7 +189,10 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   /**
    * Adds a relationship type to the schema.
    */
-  addRelationshipType(relationshipType: RelationshipType, direction: Direction): MutableRelationshipSchema {
+  public addRelationshipType(
+    relationshipType: RelationshipType,
+    direction: Direction
+  ): MutableRelationshipSchema {
     this.getOrCreateRelationshipType(relationshipType, direction);
     return this;
   }
@@ -193,7 +209,7 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   ): MutableRelationshipSchema {
     const entry = this.getOrCreateRelationshipType(relationshipType, direction);
 
-    if (typeof valueTypeOrSchema === 'number') {
+    if (typeof valueTypeOrSchema === "number") {
       // It's a ValueType
       const valueType = valueTypeOrSchema;
       if (propertyState !== undefined) {

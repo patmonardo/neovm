@@ -1,4 +1,4 @@
-import { AdjacencyCursor } from "@/api/AdjacencyCursor";
+import { AdjacencyCursor } from "@/api";
 import { RelationshipCursor } from "@/api/properties/relationships";
 import { PropertyCursor } from "@/api/properties/relationships";
 

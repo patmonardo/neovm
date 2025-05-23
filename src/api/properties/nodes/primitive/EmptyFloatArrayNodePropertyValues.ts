@@ -1,6 +1,6 @@
-import { ValueType } from "@/api/ValueType";
-// import { MemoryEstimations } from '@/mem/MemoryEstimations';
-import { FloatArrayNodePropertyValues } from "../abstract/FloatArrayNodePropertyValues"; // Assuming this interface exists
+import { ValueType } from "@/api";
+import { FloatArrayNodePropertyValues } from "../abstract/FloatArrayNodePropertyValues";
+import { UnsupportedOperationError } from "../NodePropertyValues";
 
 /**
  * An implementation of FloatArrayNodePropertyValues that represents an empty set of float array properties.
@@ -8,7 +8,7 @@ import { FloatArrayNodePropertyValues } from "../abstract/FloatArrayNodeProperty
  * This is a direct translation of GDS's org.neo4j.gds.api.properties.nodes.EmptyFloatArrayNodePropertyValues.
  */
 export class EmptyFloatArrayNodePropertyValues
-  implements Partial<FloatArrayNodePropertyValues>
+  implements FloatArrayNodePropertyValues
 {
   /**
    * The singleton instance of EmptyFloatArrayNodePropertyValues.
@@ -53,23 +53,115 @@ export class EmptyFloatArrayNodePropertyValues
     return 0;
   }
 
-  // Assuming FloatArrayNodePropertyValues might extend a base NodePropertyValues,
-  // or have its own specific methods that need "empty" implementations.
+  /**
+   * Checks if a value exists for the given node ID, which is always false.
+   * @param _nodeId - The node ID (ignored).
+   * @returns false
+   */
+  public hasValue(_nodeId: number): boolean {
+    return false;
+  }
 
-  // public hasValue(_nodeId: number): boolean {
-  //   return false;
-  // }
+  /**
+   * No-op release method.
+   */
+  public release(): void {
+    // No-op
+  }
 
-  // public release(): void {
-  //   // No-op
-  // }
+  /**
+   * Returns the object representation of the property value.
+   * @param _nodeId The node ID (ignored)
+   * @returns An empty Float32Array
+   */
+  public getObject(_nodeId: number): Float32Array {
+    return this.floatArrayValue(_nodeId);
+  }
 
-  // public memoryEstimation(): MemoryEstimation {
-  //   return MemoryEstimations.empty(); // Or MemoryEstimations.ZERO
-  // }
+  /**
+   * Returns the dimension of this property.
+   * @returns 1 (for array values)
+   */
+  public dimension(): number {
+    return 1; // For array values, we return 1 (the arrays themselves are variable length)
+  }
 
-  // If FloatArrayNodePropertyValues has specific methods like dimension:
-  // public dimension(): number {
-  //   return 0; // Or 1 if it's for scalar arrays that are empty
-  // }
+  /**
+   * Returns the maximum value across all nodes, which is undefined for an empty array.
+   */
+  public getMaxLongPropertyValue(): number | undefined {
+    return undefined;
+  }
+
+  /**
+   * Returns the maximum value across all nodes, which is undefined for an empty array.
+   */
+  public getMaxLongArrayPropertyValue(): number[] | undefined {
+    return undefined;
+  }
+
+  /**
+   * Returns the maximum value across all nodes, which is undefined for an empty array.
+   */
+  public getMaxDoublePropertyValue(): number | undefined {
+    return undefined;
+  }
+
+  /**
+   * Returns the maximum float array property value across all nodes.
+   * @returns undefined since there are no values
+   */
+  public getMaxFloatArrayPropertyValue(): Float32Array | undefined {
+    return undefined;
+  }
+
+  // Type conversion methods
+
+  /**
+   * Cannot convert array to scalar float.
+   * @throws UnsupportedOperationError
+   */
+  public floatValue(_nodeId: number): number {
+    throw new UnsupportedOperationError("Cannot convert FLOAT_ARRAY to FLOAT");
+  }
+
+  /**
+   * Cannot convert array to scalar double.
+   * @throws UnsupportedOperationError
+   */
+  public doubleValue(_nodeId: number): number {
+    throw new UnsupportedOperationError("Cannot convert FLOAT_ARRAY to DOUBLE");
+  }
+
+  /**
+   * Cannot convert array to scalar long.
+   * @throws UnsupportedOperationError
+   */
+  public longValue(_nodeId: number): number {
+    throw new UnsupportedOperationError("Cannot convert FLOAT_ARRAY to LONG");
+  }
+
+  /**
+   * Cannot convert array to boolean.
+   * @throws UnsupportedOperationError
+   */
+  public booleanValue(_nodeId: number): boolean {
+    throw new UnsupportedOperationError(
+      "Cannot convert FLOAT_ARRAY to BOOLEAN"
+    );
+  }
+
+  /**
+   * Converts to double array (empty).
+   */
+  public doubleArrayValue(_nodeId: number): Float64Array {
+    return new Float64Array(0);
+  }
+
+  /**
+   * Converts to long array (empty).
+   */
+  public longArrayValue(_nodeId: number): number[] {
+    return [];
+  }
 }

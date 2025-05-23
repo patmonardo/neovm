@@ -1,5 +1,5 @@
 import { ValueType } from "@/api/ValueType"; // Assuming ValueType is in @/api or similar path
-import { NodePropertyValues } from "./NodePropertyValues";
+import { NodePropertyValues } from "../NodePropertyValues";
 
 /**
  * Represents node property values that are arrays of floats (32-bit).

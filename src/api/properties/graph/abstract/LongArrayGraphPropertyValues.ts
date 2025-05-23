@@ -1,6 +1,6 @@
-import { ValueType } from "@/api/ValueType";
-import { GraphPropertyValues } from "./GraphPropertyValues";
-import { LongArrayGraphPropertyValuesImpl } from "../primitive/LongArrayGraphPropertyValuesImpl";
+import { ValueType } from "@/api";
+import { GraphPropertyValues } from "../GraphPropertyValues";
+import { DefLongArrayGraphPropertyValues } from "../primitive/DefLongArrayGraphPropertyValues";
 
 /**
  * Graph property values specifically for arrays of long integers.
@@ -56,10 +56,10 @@ export namespace LongArrayGraphPropertyValues {
   ): LongArrayGraphPropertyValues {
     if (param.length === 0 || !Array.isArray(param[0])) {
       // It's a single array (or empty array)
-      return new LongArrayGraphPropertyValuesImpl([param as number[]]);
+      return new DefLongArrayGraphPropertyValues([param as number[]]);
     } else {
       // It's already a 2D array
-      return new LongArrayGraphPropertyValuesImpl(param as number[][]);
+      return new DefLongArrayGraphPropertyValues(param as number[][]);
     }
   }
 }

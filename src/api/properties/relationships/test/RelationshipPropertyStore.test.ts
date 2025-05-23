@@ -1,6 +1,6 @@
 import { ValueType } from '@/api/ValueType';
 import { RelationshipPropertyStore } from '../RelationshipPropertyStore';
-import { RelationshipProperty } from '../abstract/RelationshipProperty';
+import { RelationshipProperty } from '../RelationshipProperty';
 
 describe('RelationshipPropertyStore', () => {
   test('should store and retrieve properties', () => {

@@ -1,7 +1,7 @@
-import { GraphStoreFactorySupplier as IGraphStoreFactorySupplier } from "../api/GraphStoreFactory";
-import { GraphStoreFactorySupplierProvider } from "../api/GraphStoreFactorySupplierProvider";
+import { GraphStoreFactorySupplier as IGraphStoreFactorySupplier } from "../api";
+import { GraphStoreFactorySupplierProvider } from "../api";
 import { GraphProjectConfig } from "../config/GraphProjectConfig"; // Adjust path as needed
-import { formatWithLocale } from "../utils/StringFormatting"; // Adjust path as needed, or use a simple string formatter
+import { formatWithLocale } from "../utils"; // Adjust path as needed, or use a simple string formatter
 
 // This array will hold the registered provider instances.
 // In Java, ServiceLoader populates this dynamically. Here, we'll need explicit registration.
@@ -22,7 +22,9 @@ export class GraphStoreFactorySupplier {
    * This method should be called during application setup for each provider implementation.
    * @param provider The provider instance to register.
    */
-  public static registerProvider(provider: GraphStoreFactorySupplierProvider): void {
+  public static registerProvider(
+    provider: GraphStoreFactorySupplierProvider
+  ): void {
     // You might want to add checks here, e.g., to prevent duplicate registrations
     // or to ensure providers are registered in a specific order if that matters.
     PROVIDERS.push(provider);
@@ -44,8 +46,12 @@ export class GraphStoreFactorySupplier {
    * @returns The suitable GraphStoreFactory.Supplier.
    * @throws Error if no suitable provider is found for the given configuration.
    */
-  public static supplier(graphProjectConfig: GraphProjectConfig): IGraphStoreFactorySupplier {
-    const suitableProvider = PROVIDERS.find(p => p.canSupplyFactoryFor(graphProjectConfig));
+  public static supplier(
+    graphProjectConfig: GraphProjectConfig
+  ): IGraphStoreFactorySupplier {
+    const suitableProvider = PROVIDERS.find((p) =>
+      p.canSupplyFactoryFor(graphProjectConfig)
+    );
 
     if (!suitableProvider) {
       // Attempt to get a meaningful name for the config for the error message.
@@ -54,9 +60,9 @@ export class GraphStoreFactorySupplier {
       // A 'type' or 'name' property on GraphProjectConfig would be more robust.
       const configIdentifier =
         (graphProjectConfig as any)?.constructor?.name ||
-        (typeof graphProjectConfig === 'object' && graphProjectConfig !== null ?
-          Object.getPrototypeOf(graphProjectConfig)?.constructor?.name :
-          'UnknownConfig');
+        (typeof graphProjectConfig === "object" && graphProjectConfig !== null
+          ? Object.getPrototypeOf(graphProjectConfig)?.constructor?.name
+          : "UnknownConfig");
 
       throw new Error(
         formatWithLocale(

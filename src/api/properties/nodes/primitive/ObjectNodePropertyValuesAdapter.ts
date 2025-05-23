@@ -2,7 +2,7 @@ import { ValueType } from "@/api/ValueType";
 import { HugeObjectArray } from "@/collections/ha/HugeObjectArray"; // Assuming this path
 import { MemoryEstimation } from "@/mem/MemoryEstimation"; // Placeholder
 import { MemoryEstimations } from "@/mem/MemoryEstimations"; // Placeholder
-import { NodePropertyValues } from "../abstract/NodePropertyValues";
+import { NodePropertyValues } from "../NodePropertyValues";
 import { FloatArrayNodePropertyValues } from "../abstract/FloatArrayNodePropertyValues";
 import { DoubleArrayNodePropertyValues } from "../abstract/DoubleArrayNodePropertyValues";
 import { LongArrayNodePropertyValues } from "../abstract/LongArrayNodePropertyValues";

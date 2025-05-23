@@ -1,4 +1,4 @@
-import { NodeLabel } from "./NodeLabel";
+import { NodeLabel } from "../NodeLabel";
 import { AbstractProjections } from "../abstract/AbstractProjections";
 import { ElementProjection } from "../abstract/ElementProjection";
 import { PropertyMapping } from "../abstract/PropertyMapping";

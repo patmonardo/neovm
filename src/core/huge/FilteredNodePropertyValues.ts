@@ -1,7 +1,7 @@
-import { ValueType } from "@/api/ValueType";
-import { DefaultValue } from "@/api/DefaultValue";
+import { ValueType } from "@/api";
+import { DefaultValue } from "@/api";
+import { FilteredIdMap } from "@/api";
 import { NodePropertyValues } from "@/api/properties/nodes";
-import { FilteredIdMap } from "@/api/FilteredIdMap";
 import { NodeFilteredGraph } from "./NodeFilteredGraph";
 
 export abstract class FilteredNodePropertyValues implements NodePropertyValues {
@@ -109,7 +109,7 @@ export class FilteredToOriginalNodePropertyValues extends FilteredNodePropertyVa
   }
 
   protected translateId(nodeId: number): number {
-    return (this.graph as NodeFilteredGraph).toRootNodeId(nodeId);
+    return (this.graph.toRootNodeId(nodeId));
   }
 }
 

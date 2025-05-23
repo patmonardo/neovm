@@ -68,7 +68,7 @@ class ImmutablePropertySchema extends PropertySchema {
     private readonly _state: PropertyState
   ) {
     super();
-    Object.freeze(this); // Make truly immutable
+    Object.freeze(this);
   }
 
   key(): string {

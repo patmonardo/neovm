@@ -1,9 +1,9 @@
-import { NodeLabel } from "@/projection/primitive/NodeLabel";
+import { NodeLabel } from "@/projection";
 import { Concurrency } from "@/concurrency/Concurrency";
-import { IdMap } from "./IdMap";
-import { FilteredIdMap } from "./FilteredIdMap";
 import { PrimitiveLongIterable } from "@/collections/primitive/PrimitiveLongIterable";
 import { PrimitiveIterator } from "@/collections/primitive/PrimitiveIterator";
+import { IdMap } from "./IdMap";
+import { FilteredIdMap } from "./FilteredIdMap";
 
 /**
  * Adapter for IdMap implementations that delegates all calls to an underlying IdMap.
@@ -28,9 +28,9 @@ export abstract class IdMapAdapter implements IdMap {
     return this.idMap.typeId();
   }
 
-  batchIterables(batchSize: number): PrimitiveLongIterable[] {
+  batchIterables(batchSize: number): Set<PrimitiveLongIterable> {
     // Convert iterable to array if needed
-    return Array.from(this.idMap.batchIterables(batchSize));
+    return this.idMap.batchIterables(batchSize);
   }
 
   toMappedNodeId(originalNodeId: number): number {

@@ -3,7 +3,6 @@ import { DefaultValue } from "@/api/DefaultValue";
 import { PropertyState } from "@/api/PropertyState";
 import { Aggregation } from "@/core/Aggregation";
 import { PropertySchema } from "./PropertySchema";
-import { RelationshipPropertySchemaImpl } from "../primitive/RelationshipPropertySchemaImpl";
 
 /**
  * Schema definition for relationship properties in a graph
@@ -17,6 +16,10 @@ export abstract class RelationshipPropertySchema extends PropertySchema {
    * @returns The aggregation strategy
    */
   abstract aggregation(): Aggregation;
+
+  abstract equals(obj: unknown): boolean;
+  abstract hashCode(): number;
+  abstract toString(): string;
 
   /**
    * Returns a normalized version of this schema where DEFAULT aggregation
@@ -39,60 +42,82 @@ export abstract class RelationshipPropertySchema extends PropertySchema {
 }
 
 /**
- * Namespace providing factory methods and utilities for RelationshipPropertySchema.
+ * Factory methods and implementation for RelationshipPropertySchema.
  */
 export namespace RelationshipPropertySchema {
   /**
-   * Private implementation function that centralizes schema creation
+   * Implementation class (private to the namespace)
    */
-  function createImpl(
-    propertyKey: string,
-    valueType: ValueType,
-    defaultValue?: DefaultValue,
-    propertyState?: PropertyState,
-    aggregation?: Aggregation
-  ): RelationshipPropertySchema {
-    // Fill in default values
-    const actualDefaultValue = defaultValue ?? DefaultValue.of(valueType);
-    const actualPropertyState = propertyState ?? PropertyState.PERSISTENT;
-    const actualAggregation = aggregation ?? Aggregation.DEFAULT;
+  class RelationshipPropertySchemaImpl extends RelationshipPropertySchema {
+    constructor(
+      private readonly _key: string,
+      private readonly _valueType: ValueType,
+      private readonly _defaultValue: DefaultValue,
+      private readonly _state: PropertyState,
+      private readonly _aggregation: Aggregation
+    ) {
+      super();
+    }
 
-    // Create and potentially normalize the schema
-    const schema = new RelationshipPropertySchemaImpl(
-      propertyKey,
-      valueType,
-      actualDefaultValue,
-      actualPropertyState,
-      actualAggregation
-    );
+    key(): string {
+      return this._key;
+    }
 
-    if (actualAggregation === Aggregation.DEFAULT) {
-      return new RelationshipPropertySchemaImpl(
-        propertyKey,
-        valueType,
-        actualDefaultValue,
-        actualPropertyState,
-        Aggregation.resolve(actualAggregation)
+    valueType(): ValueType {
+      return this._valueType;
+    }
+
+    defaultValue(): DefaultValue {
+      return this._defaultValue;
+    }
+
+    state(): PropertyState {
+      return this._state;
+    }
+
+    aggregation(): Aggregation {
+      return this._aggregation;
+    }
+
+    equals(obj: unknown): boolean {
+      if (this === obj) return true;
+      if (!(obj instanceof RelationshipPropertySchemaImpl)) return false;
+
+      return (
+        this._key === obj._key &&
+        this._valueType === obj._valueType &&
+        this._defaultValue.equals(obj._defaultValue) &&
+        this._state === obj._state &&
+        this._aggregation === obj._aggregation
       );
     }
 
-    return schema;
+    hashCode(): number {
+      let result = this._key.length;
+      result = 31 * result + this._valueType;
+      result = 31 * result + this._defaultValue.longValue();
+      result = 31 * result + this._state;
+      result = 31 * result + this._aggregation;
+      return result;
+    }
+
+    toString(): string {
+      return `RelationshipPropertySchema{key=${this._key}, valueType=${
+        ValueType[this._valueType]
+      }, defaultValue=${this._defaultValue}, state=${
+        PropertyState[this._state]
+      }, aggregation=${Aggregation[this._aggregation]}}`;
+    }
   }
+
+  /**
+   * Creates a relationship property schema with the given key and value type.
+   */
 
   // Define all valid overload signatures
   export function of(
     propertyKey: string,
     valueType: ValueType
-  ): RelationshipPropertySchema;
-  export function of(
-    propertyKey: string,
-    valueType: ValueType,
-    aggregation: Aggregation
-  ): RelationshipPropertySchema;
-  export function of(
-    propertyKey: string,
-    valueType: ValueType,
-    propertyState: PropertyState
   ): RelationshipPropertySchema;
   export function of(
     propertyKey: string,
@@ -112,64 +137,22 @@ export namespace RelationshipPropertySchema {
     propertyState: PropertyState,
     aggregation: Aggregation
   ): RelationshipPropertySchema;
-
-  // Single implementation that handles all combinations
+  /**
+   * Creates a relationship property schema with the given key and value type.
+   */
   export function of(
-    propertyKey: string,
+    key: string,
     valueType: ValueType,
-    arg3?: Aggregation | PropertyState | DefaultValue,
-    arg4?: PropertyState,
-    arg5?: Aggregation
+    defaultValue: DefaultValue = DefaultValue.of(0),
+    state: PropertyState = PropertyState.PERSISTENT,
+    aggregation: Aggregation = Aggregation.NONE
   ): RelationshipPropertySchema {
-    // Case: Just key and value type
-    if (arg3 === undefined) {
-      return createImpl(propertyKey, valueType);
-    }
-
-    // Case: Third arg is Aggregation
-    if (
-      typeof arg3 === "number" &&
-      Object.values(Aggregation).includes(arg3 as Aggregation)
-    ) {
-      return createImpl(
-        propertyKey,
-        valueType,
-        undefined,
-        undefined,
-        arg3 as Aggregation
-      );
-    }
-
-    // Case: Third arg is PropertyState
-    if (
-      typeof arg3 === "number" &&
-      Object.values(PropertyState).includes(arg3 as PropertyState)
-    ) {
-      return createImpl(
-        propertyKey,
-        valueType,
-        undefined,
-        arg3 as PropertyState
-      );
-    }
-
-    // Case: Third arg is DefaultValue
-    if (arg3 instanceof DefaultValue) {
-      // Case: With DefaultValue only
-      if (arg4 === undefined) {
-        return createImpl(propertyKey, valueType, arg3);
-      }
-
-      // Case: With DefaultValue and PropertyState
-      if (arg5 === undefined) {
-        return createImpl(propertyKey, valueType, arg3, arg4);
-      }
-
-      // Case: With all args
-      return createImpl(propertyKey, valueType, arg3, arg4, arg5);
-    }
-
-    // Fallback: Use default values for anything we couldn't determine
-    return createImpl(propertyKey, valueType);
+    return new RelationshipPropertySchemaImpl(
+      key,
+      valueType,
+      defaultValue,
+      state,
+      aggregation
+    );
   }
 }

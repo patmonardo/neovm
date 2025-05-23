@@ -1,10 +1,10 @@
-import { ValueType } from '@/api/ValueType'; // Adjusted path assuming ValueType is in @/api
+import { ValueType } from '@/api';
 import { LongArrayNodePropertyValues } from '../abstract/LongArrayNodePropertyValues';
+import { UnsupportedOperationError } from '../NodePropertyValues';
 
 /**
  * An implementation of LongArrayNodePropertyValues that represents an empty set of long array properties.
  * It always returns an empty array for any node ID and reports a node count of 0.
- * This is a direct translation of GDS's org.neo4j.gds.api.properties.nodes.EmptyLongArrayNodePropertyValues.
  */
 export class EmptyLongArrayNodePropertyValues implements LongArrayNodePropertyValues {
   /**
@@ -13,24 +13,21 @@ export class EmptyLongArrayNodePropertyValues implements LongArrayNodePropertyVa
   public static readonly INSTANCE = new EmptyLongArrayNodePropertyValues();
 
   /**
-   * A shared, empty BigInt64Array instance.
-   * Using BigInt64Array to align with Java's long[].
+   * A shared, empty array instance.
    */
-  private static readonly EMPTY_ARRAY: BigInt64Array = new BigInt64Array(0);
+  private static readonly EMPTY_ARRAY: number[] = [];
 
   /**
    * Private constructor to enforce singleton pattern.
    */
-  private constructor() {
-    // Private constructor
-  }
+  private constructor() {}
 
   /**
    * Returns an empty long array for any given node ID.
    * @param _nodeId - The node ID (ignored).
-   * @returns A statically defined empty BigInt64Array.
+   * @returns A statically defined empty array.
    */
-  public longArrayValue(_nodeId: number): BigInt64Array {
+  public longArrayValue(_nodeId: number): number[] {
     return EmptyLongArrayNodePropertyValues.EMPTY_ARRAY;
   }
 
@@ -50,19 +47,110 @@ export class EmptyLongArrayNodePropertyValues implements LongArrayNodePropertyVa
     return 0;
   }
 
-  // Potentially other methods from NodePropertyValues if they need specific empty implementations:
-  // For example, if NodePropertyValues has hasValue(nodeId: number): boolean;
-  // public hasValue(_nodeId: number): boolean {
-  //   return false;
-  // }
+  /**
+   * Checks if a value exists for the given node ID, which is always false.
+   * @param _nodeId - The node ID (ignored).
+   * @returns false
+   */
+  public hasValue(_nodeId: number): boolean {
+    return false;
+  }
 
-  // If NodePropertyValues has release(): void;
-  // public release(): void {
-  //   // No-op
-  // }
+  /**
+   * No-op release method.
+   */
+  public release(): void {
+    // No-op
+  }
 
-  // If NodePropertyValues has memoryEstimation(): MemoryEstimation;
-  // public memoryEstimation(): MemoryEstimation {
-  //   return MemoryEstimations.empty(); // Assuming an empty estimation
-  // }
+  /**
+   * Returns the object representation of the property value.
+   * @param nodeId The node ID
+   * @returns An empty array
+   */
+  public getObject(nodeId: number): number[] {
+    return this.longArrayValue(nodeId);
+  }
+
+  /**
+   * Returns the dimension of this property.
+   * @returns 1 (for array dimension)
+   */
+  public dimension(): number {
+    return 1;
+  }
+
+  // Type conversion methods - throw appropriate errors or return defaults
+
+  /**
+   * Cannot convert array to scalar long.
+   * @throws UnsupportedOperationError
+   */
+  public longValue(_nodeId: number): number {
+    throw new UnsupportedOperationError("Cannot convert LONG_ARRAY to LONG");
+  }
+
+  /**
+   * Cannot convert array to scalar double.
+   * @throws UnsupportedOperationError
+   */
+  public doubleValue(_nodeId: number): number {
+    throw new UnsupportedOperationError("Cannot convert LONG_ARRAY to DOUBLE");
+  }
+
+  /**
+   * Cannot convert array to scalar float.
+   * @throws UnsupportedOperationError
+   */
+  public floatValue(_nodeId: number): number {
+    throw new UnsupportedOperationError("Cannot convert LONG_ARRAY to FLOAT");
+  }
+
+  /**
+   * Cannot convert array to boolean.
+   * @throws UnsupportedOperationError
+   */
+  public booleanValue(_nodeId: number): boolean {
+    throw new UnsupportedOperationError("Cannot convert LONG_ARRAY to BOOLEAN");
+  }
+
+  /**
+   * Converts to double array (empty).
+   */
+  public doubleArrayValue(_nodeId: number): Float64Array {
+    return new Float64Array(0);
+  }
+
+  /**
+   * Converts to float array (empty).
+   */
+  public floatArrayValue(_nodeId: number): Float32Array {
+    return new Float32Array(0);
+  }
+  /**
+   * Returns the maximum value across all nodes, which is undefined for an empty array.
+   */
+  public getMaxLongPropertyValue(): number | undefined {
+    return undefined;
+  }
+  /**
+   * Returns the maximum value across all nodes, which is undefined for an empty array.
+   */
+  public getMaxLongArrayPropertyValue(): number[] | undefined {
+    return undefined;
+  }
+
+  /**
+   * Returns the maximum value across all nodes, which is undefined for an empty array.
+   */
+  public getMaxDoublePropertyValue(): number | undefined {
+    return undefined;
+  }
+
+  /**
+   * Returns the maximum value across all nodes, which is undefined for an empty array.
+   */
+  public getMaxDoubleArrayPropertyValue(): number[] | undefined {
+    return undefined;
+  }
 }

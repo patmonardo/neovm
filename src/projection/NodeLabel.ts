@@ -1,4 +1,4 @@
-import { ElementIdentifier } from '../abstract/ElementIdentifier';
+import { ElementIdentifier } from './abstract/ElementIdentifier';
 
 /**
  * Represents a node label in a graph.

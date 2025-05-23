@@ -6,14 +6,14 @@ import { GdsNoValue } from './abstract/GdsNoValue';
 import { GdsValue } from './abstract/GdsValue';
 import { IntegralValue } from './abstract/IntegralValue';
 import { LongArray } from './abstract/LongArray';
-import { ByteLongArrayImpl } from './primitive/ByteLongArrayImpl';
-import { DoubleArrayImpl } from './primitive/DoubleArrayImpl';
-import { FloatArrayImpl } from './primitive/FloatArrayImpl';
-import { FloatingPointValueImpl } from './primitive/FloatingPointValueImpl';
-import { IntLongArrayImpl } from './primitive/IntLongArrayImpl';
-import { LongArrayImpl } from './primitive/LongArrayImpl';
-import { LongValueImpl } from './primitive/LongValueImpl';
-import { ShortLongArrayImpl } from './primitive/ShortLongArrayImpl';
+import { DefFloatArray } from './primitive/DefFloatArray';
+import { DefDoubleArray } from './primitive/DefDoubleArray';
+import { DefByteLongArray } from './primitive/DefByteLongArray';
+import { DefFloatingPointValue } from './primitive/DefFloatingPointValue';
+import { DefIntLongArray } from './primitive/DefIntLongArray';
+import { DefLongArray } from './primitive/DefLongArray';
+import { DefLongValue } from './primitive/DefLongValue';
+import { DefShortLongArray } from './primitive/DefShortLongArray';
 
 /**
  * Factory class for creating primitive value wrappers.
@@ -49,7 +49,7 @@ export class PrimitiveValues {
     // Handle single numbers (Java's numberValue logic)
     if (typeof value === 'number') {
       if (Number.isInteger(value)) {
-        // Consistent with your decision to use 'number' for LongValueImpl
+        // Consistent with your decision to use 'number' for LongValue
         return this.longValue(value);
       } else {
         return this.floatingPointValue(value);
@@ -69,7 +69,7 @@ export class PrimitiveValues {
     }
     // For long[], Java takes long[]. In TS, if you expect a "direct long array",
     // it would likely be number[] (per your design) or BigInt64Array.
-    // Let's assume number[] for LongArrayImpl for now.
+    // Let's assume number[] for LongArray for now.
     // We'll handle generic Array.isArray(value) below for more flexibility.
 
     if (value instanceof Float32Array) {
@@ -144,41 +144,41 @@ export class PrimitiveValues {
 
 
   // Factory methods for specific types remain largely the same,
-  // ensuring they use the correct underlying types (e.g., number[] for LongArrayImpl)
+  // ensuring they use the correct underlying types (e.g., number[] for LongArray)
 
   public static longValue(value: number): IntegralValue {
-    return new LongValueImpl(value); // Assumes LongValueImpl constructor takes number
+    return new DefLongValue(value); // Assumes LongValue constructor takes number
   }
 
   public static floatingPointValue(value: number): FloatingPointValue {
-    return new FloatingPointValueImpl(value);
+    return new DefFloatingPointValue(value);
   }
 
   public static doubleArray(data: Float64Array): DoubleArray {
-    return new DoubleArrayImpl(data);
+    return new DefDoubleArray(data);
   }
 
   public static floatArray(data: Float32Array): FloatArray {
-    return new FloatArrayImpl(data);
+    return new DefFloatArray(data);
   }
 
   /**
    * Creates a LongArray from a number array (representing longs).
    */
   public static longArray(data: number[]): LongArray { // Parameter is number[]
-    return new LongArrayImpl(data); // Assumes LongArrayImpl constructor takes number[]
+    return new DefLongArray(data); // Assumes LongArray constructor takes number[]
   }
 
   public static intArray(data: Int32Array): LongArray {
-    return new IntLongArrayImpl(data);
+    return new DefIntLongArray(data);
   }
 
   public static shortArray(data: Int16Array): LongArray {
-    return new ShortLongArrayImpl(data);
+    return new DefShortLongArray(data);
   }
 
   public static byteArray(data: Uint8Array): LongArray {
-    return new ByteLongArrayImpl(data);
+    return new DefByteLongArray(data);
   }
 
   private constructor() {}

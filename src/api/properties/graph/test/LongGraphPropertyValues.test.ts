@@ -1,15 +1,15 @@
 import { ValueType } from '@/api/ValueType';
-import { LongGraphPropertyValuesImpl } from '../primitive/LongGraphPropertyValuesImpl';
+import { DefLongGraphPropertyValues } from '../primitive/DefLongGraphPropertyValues';
 
 describe('LongGraphPropertyValuesImpl', () => {
   test('should store and retrieve values correctly', () => {
     // Single value
-    const singleValue = new LongGraphPropertyValuesImpl([42]);
+    const singleValue = new DefLongGraphPropertyValues([42]);
     expect(singleValue.valueType()).toBe(ValueType.LONG);
     expect(singleValue.valueCount()).toBe(1);
 
     // Multiple values
-    const multipleValues = new LongGraphPropertyValuesImpl([1, 2, 3]);
+    const multipleValues = new DefLongGraphPropertyValues([1, 2, 3]);
     expect(multipleValues.valueCount()).toBe(3);
 
     // Check iteration
@@ -28,7 +28,7 @@ describe('LongGraphPropertyValuesImpl', () => {
   });
 
   test('should convert to double values correctly', () => {
-    const longValues = new LongGraphPropertyValuesImpl([1, 2, 3]);
+    const longValues = new DefLongGraphPropertyValues([1, 2, 3]);
 
     // Convert to array for testing
     const doubleValues: number[] = [];
@@ -40,7 +40,7 @@ describe('LongGraphPropertyValuesImpl', () => {
   });
 
   test('should throw for unsupported conversions', () => {
-    const values = new LongGraphPropertyValuesImpl([1, 2, 3]);
+    const values = new DefLongGraphPropertyValues([1, 2, 3]);
     expect(() => Array.from(values.doubleArrayValues())).toThrow();
     expect(() => Array.from(values.floatArrayValues())).toThrow();
     expect(() => Array.from(values.longArrayValues())).toThrow();
@@ -55,7 +55,7 @@ describe('LongGraphPropertyValuesImpl', () => {
   });
 
   test('should handle empty values', () => {
-    const emptyValues = new LongGraphPropertyValuesImpl([]);
+    const emptyValues = new DefLongGraphPropertyValues([]);
     expect(emptyValues.valueCount()).toBe(0);
 
     // Check that iteration works with empty arrays

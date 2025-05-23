@@ -1,4 +1,4 @@
-import { AdjacencyCursor } from "@/api/AdjacencyCursor";
+import { AdjacencyCursor } from "@/api";
 
 /**
  * CompositeAdjacencyCursor merges multiple AdjacencyCursors into one,

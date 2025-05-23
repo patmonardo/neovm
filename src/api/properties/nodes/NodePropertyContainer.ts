@@ -1,4 +1,4 @@
-import { NodePropertyValues } from './abstract/NodePropertyValues';
+import { NodePropertyValues } from './NodePropertyValues';
 
 /**
  * Getter interface for node properties.

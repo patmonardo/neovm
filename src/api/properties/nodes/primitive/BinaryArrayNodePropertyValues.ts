@@ -1,4 +1,4 @@
-import { NodePropertyValues } from '../abstract/NodePropertyValues';
+import { NodePropertyValues } from '../NodePropertyValues';
 import { ValueType } from '@/api/ValueType';
 import { HugeObjectArray } from '@/collections/ha/HugeObjectArray';
 import { HugeAtomicBitSet } from '@/core/utils/paged/HugeAtomicBitSet';

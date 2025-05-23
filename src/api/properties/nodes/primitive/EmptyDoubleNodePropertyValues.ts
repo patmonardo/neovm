@@ -1,6 +1,6 @@
-import { DoubleNodePropertyValues } from '../abstract/DoubleNodePropertyValues'; // Assuming this interface exists
-import { ValueType } from '@/api/ValueType'; // Adjusted path
-// import { MemoryEstimations } from '@/mem/MemoryEstimations'; // If memoryEstimation is needed
+import { ValueType } from '@/api';
+import { DoubleNodePropertyValues } from '../abstract/DoubleNodePropertyValues';
+import { UnsupportedOperationError } from '../NodePropertyValues';
 
 /**
  * An implementation of DoubleNodePropertyValues that represents an empty set of double properties.
@@ -32,6 +32,15 @@ export class EmptyDoubleNodePropertyValues implements DoubleNodePropertyValues {
   }
 
   /**
+   * Returns the object representation of the property value.
+   * @param nodeId The node ID
+   * @returns NaN as a Number object
+   */
+  public getObject(_nodeId: number): number {
+    return this.doubleValue(_nodeId);
+  }
+
+  /**
    * Returns the type of values stored, which is DOUBLE.
    * @returns ValueType.DOUBLE
    */
@@ -47,28 +56,92 @@ export class EmptyDoubleNodePropertyValues implements DoubleNodePropertyValues {
     return 0;
   }
 
-  // Assuming DoubleNodePropertyValues might extend a base NodePropertyValues,
-  // include other necessary methods with "empty" behavior.
+  /**
+   * Checks if a value exists for the given node ID, which is always false.
+   * @param _nodeId - The node ID (ignored).
+   * @returns false
+   */
+  public hasValue(_nodeId: number): boolean {
+    return false; // NaN indicates absence of a value
+  }
 
-  // public hasValue(_nodeId: number): boolean {
-  //   return false; // Or true if NaN is considered a "value" but usually it indicates absence
-  // }
+  /**
+   * No-op release method.
+   */
+  public release(): void {
+    // No-op
+  }
 
-  // public release(): void {
-  //   // No-op
-  // }
+  /**
+   * Returns the dimension of this property.
+   * @returns 1 (for scalar values)
+   */
+  public dimension(): number {
+    return 1; // For scalar doubles, the dimension is 1
+  }
+  /**
+   * Returns the maximum double property value across all nodes.
+   * @returns undefined since there are no values
+   */
+  public getMaxLongPropertyValue(): number | undefined {
+    return undefined;
+  }
 
-  // public memoryEstimation(): MemoryEstimation {
-  //   return MemoryEstimations.empty(); // Or MemoryEstimations.ZERO
-  // }
+  /**
+   * Returns the maximum double property value across all nodes.
+   * @returns undefined since there are no values
+   */
+  public getMaxDoublePropertyValue(): number | undefined {
+    return undefined;
+  }
 
-  // If DoubleNodePropertyValues has specific methods like getMaxDoublePropertyValue:
-  // public getMaxDoublePropertyValue(): number | undefined {
-  //   return undefined; // Or NaN
-  // }
+  // Type conversion methods
 
-  // If DoubleNodePropertyValues has dimension(): number | undefined;
-  // public dimension(): number | undefined {
-  //    return 1; // For scalar doubles, even if empty, the conceptual dimension is 1
-  // }
+  /**
+   * Converts to long value.
+   */
+  public longValue(_nodeId: number): number {
+    return 0; // Default long value when converting from empty double
+  }
+
+  /**
+   * Converts to float value.
+   */
+  public floatValue(_nodeId: number): number {
+    return Number.NaN; // Same as double value
+  }
+
+  /**
+   * Cannot convert to boolean.
+   * @throws UnsupportedOperationError
+   */
+  public booleanValue(_nodeId: number): boolean {
+    throw new UnsupportedOperationError("Cannot convert DOUBLE to BOOLEAN");
+  }
+
+  /**
+   * Cannot convert scalar to array.
+   * @throws UnsupportedOperationError
+   */
+  public doubleArrayValue(_nodeId: number): Float64Array {
+    throw new UnsupportedOperationError(
+      "Cannot convert DOUBLE to DOUBLE_ARRAY"
+    );
+  }
+
+  /**
+   * Cannot convert scalar to array.
+   * @throws UnsupportedOperationError
+   */
+  public longArrayValue(_nodeId: number): number[] {
+    throw new UnsupportedOperationError("Cannot convert DOUBLE to LONG_ARRAY");
+  }
+
+  /**
+   * Cannot convert scalar to array.
+   * @throws UnsupportedOperationError
+   */
+  public floatArrayValue(_nodeId: number): Float32Array {
+    throw new UnsupportedOperationError("Cannot convert DOUBLE to FLOAT_ARRAY");
+  }
 }

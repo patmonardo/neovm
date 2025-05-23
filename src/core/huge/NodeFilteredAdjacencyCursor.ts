@@ -1,5 +1,5 @@
-import { AdjacencyCursor } from "@/api/AdjacencyCursor";
-import { FilteredIdMap } from "@/api/FilteredIdMap";
+import { AdjacencyCursor } from "@/api";
+import { FilteredIdMap } from "@/api";
 
 /**
  * Filters an AdjacencyCursor so that only nodes present in the FilteredIdMap are returned.

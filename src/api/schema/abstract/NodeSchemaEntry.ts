@@ -1,6 +1,6 @@
-import { NodeLabel } from '@/projection/primitive/NodeLabel';
-import { PropertySchema } from './PropertySchema';
-import { ElementSchemaEntry } from './ElementSchemaEntry';
+import { NodeLabel } from "@/projection";
+import { PropertySchema } from "./PropertySchema";
+import { ElementSchemaEntry } from "./ElementSchemaEntry";
 
 /**
  * Schema entry for a node label in a graph.

@@ -1,13 +1,13 @@
 import { RelationshipType } from "@/projection";
-import { NodePropertyContainer } from "./properties/nodes/NodePropertyContainer";
-import { RelationshipConsumer } from "./properties/relationships";
+import { NodePropertyContainer } from "./properties/nodes";
 import { RelationshipIterator } from "./properties/relationships";
 import { RelationshipProperties } from "./properties/relationships";
-import { GraphSchema } from "./schema/abstract/GraphSchema";
+import { RelationshipConsumer } from "./properties/relationships";
+import { GraphSchema } from "./schema";
 import { GraphCharacteristics } from "./GraphCharacteristics";
 import { IdMap } from "./IdMap";
-import { Degrees } from "./Degrees";
 import { FilteredIdMap } from "./FilteredIdMap";
+import { Degrees } from "./Degrees";
 
 /**
  * Core interface representing a graph with nodes, relationships, and their properties.
@@ -101,7 +101,7 @@ export interface Graph
 /**
  * Utility functions for Graph operations.
  */
-export namespace GraphUtils {
+export namespace Graph {
   /**
    * Get the n-th target node id for a given source node in the specified graph.
    *

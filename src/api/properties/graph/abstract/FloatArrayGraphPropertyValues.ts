@@ -1,6 +1,6 @@
 import { ValueType } from "@/api/ValueType";
-import { GraphPropertyValues } from "../abstract/GraphPropertyValues";
-import { FloatArrayGraphPropertyValuesImpl } from "../primitive/FloatArrayGraphPropertyValuesImpl";
+import { GraphPropertyValues } from "../GraphPropertyValues";
+import { DefFloatArrayGraphPropertyValues } from "../primitive/DefFloatArrayGraphPropertyValues";
 
 /**
  * Graph property values specifically for arrays of float values.
@@ -64,10 +64,10 @@ export namespace FloatArrayGraphPropertyValues {
   ): FloatArrayGraphPropertyValues {
     if (param.length === 0 || !Array.isArray(param[0])) {
       // It's a single array (or empty array)
-      return new FloatArrayGraphPropertyValuesImpl([param as number[]]);
+      return new DefFloatArrayGraphPropertyValues([param as number[]]);
     } else {
       // It's already a 2D array
-      return new FloatArrayGraphPropertyValuesImpl(param as number[][]);
+      return new DefFloatArrayGraphPropertyValues(param as number[][]);
     }
   }
 }

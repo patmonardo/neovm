@@ -1,4 +1,4 @@
-import { AdjacencyProperties } from "@/api/AdjacencyProperties";
+import { AdjacencyProperties } from "@/api";
 
 /**
  * Represents properties of relationships in a graph.

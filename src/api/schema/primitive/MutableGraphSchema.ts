@@ -1,4 +1,4 @@
-import { NodeLabel } from '@/projection/primitive/NodeLabel';
+import { NodeLabel } from '@/projection';
 import { RelationshipType } from '@/projection';
 import { GraphSchema } from '../abstract/GraphSchema';
 import { PropertySchema } from '../abstract/PropertySchema';

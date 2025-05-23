@@ -1,9 +1,9 @@
-import { NodeLabel } from '@/projection/primitive/NodeLabel';
+import { NodeLabel } from '@/projection';
 import { ValueType } from '@/api/ValueType';
+import { DefaultValue } from '@/api/DefaultValue';
 import { PropertyState } from '@/api/PropertyState';
 import { PropertySchema } from '../abstract/PropertySchema';
 import { NodeSchemaEntry } from '../abstract/NodeSchemaEntry';
-import { DefaultValue } from '@/api/DefaultValue';
 
 /**
  * Mutable implementation of NodeSchemaEntry.

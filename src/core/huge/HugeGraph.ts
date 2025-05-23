@@ -1,12 +1,12 @@
 import { NodeLabel } from "@/projection";
 import { RelationshipType } from "@/projection";
 import { IdMap } from "@/api/IdMap";
-import { FilteredIdMap } from "@/api/FilteredIdMap";
-import { GraphCharacteristics } from "@/api/GraphCharacteristics";
-import { Topology, ImmutableTopology } from "@/api/Topology";
-import { AdjacencyList } from "@/api/AdjacencyList";
-import { AdjacencyCursor } from "@/api/AdjacencyCursor";
-import { AdjacencyProperties } from "@/api/AdjacencyProperties";
+import { FilteredIdMap } from "@/api";
+import { GraphCharacteristics } from "@/api";
+import { Topology, ImmutableTopology } from "@/api";
+import { AdjacencyList } from "@/api";
+import { AdjacencyCursor } from "@/api";
+import { AdjacencyProperties } from "@/api";
 import { Concurrency } from "@/concurrency";
 import { PrimitiveLongIterable } from "@/collections";
 import { PrimitiveIterator } from "@/collections";
@@ -14,9 +14,10 @@ import { LongPredicate } from "@/collections";
 import { CSRGraph } from "@/api/CSRGraph";
 import { Graph } from "@/api/Graph";
 import { GraphSchema } from "@/api/schema";
-import { PropertyCursor } from "@/api/properties/relationships";
+import { NodePropertyValues } from "@/api/properties/nodes";
 import {
   Properties,
+  PropertyCursor,
   ImmutableProperties,
 } from "@/api/properties/relationships";
 import {
@@ -24,7 +25,6 @@ import {
   RelationshipWithPropertyConsumer,
   RelationshipCursor,
 } from "@/api/properties/relationships";
-import { NodePropertyValues } from "@/api/properties/nodes";
 import { AdjacencySpliterator } from "./AdjacencySpliterator";
 
 const NOT_FOUND = -1;
@@ -424,8 +424,8 @@ export class HugeGraph implements CSRGraph {
   public hasLabel(mappedNodeId: number, label: NodeLabel): boolean {
     return this._idMap.hasLabel(mappedNodeId, label);
   }
-  /** Filters nodes by labels with concurrency. */
 
+  /** Filters nodes by labels with concurrency. */
   public withFilteredLabels(
     nodeLabels: Set<NodeLabel>,
     concurrency: Concurrency

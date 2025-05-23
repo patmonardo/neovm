@@ -1,6 +1,6 @@
-import { RelationshipProperty } from "./abstract/RelationshipProperty";
+import { RelationshipProperty } from "./RelationshipProperty";
 import { RelationshipPropertyStore } from "./RelationshipPropertyStore";
-import { RelationshipPropertyStoreImpl } from "./primitive/RelationshipPropertyStoreImpl";
+import { DefRelationshipPropertyStore } from "./primitive/DefRelationshipPropertyStore";
 
 /**
  * RelationshipPropertyBuilder {class for constructing a RelationshipPropertyStore.
@@ -43,6 +43,6 @@ export class RelationshipPropertyBuilder {
   }
 
   public build(): RelationshipPropertyStore {
-    return new RelationshipPropertyStoreImpl(new Map(this.propertyMap));
+    return new DefRelationshipPropertyStore(new Map(this.propertyMap));
   }
 }
