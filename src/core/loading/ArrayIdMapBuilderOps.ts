@@ -1,123 +1,423 @@
-import {
-  HugeLongArray,
-  HugeSparseLongArray,
-  HugeCursor,
-  IdMap,
-  LabelInformation,
-  NodesBuilder,
-  Concurrency,
-  DefaultPool,
-  ParallelUtil
-} from './arrayIdMapBuilderOpsTypes'; // Adjust path
-import { ArrayIdMap } from './ArrayIdMap'; // Actual class
-import { OptionalLong } from '../utils/OptionalLong'; // Assuming this exists
+import { IdMap } from '@/api/graph';
+import { HugeLongArray } from '@/core/collections/ha';
+import { HugeSparseLongArray } from '@/core/collections/hsa';
+import { HugeCursor } from '@/core/collections/cursor';
+import { Concurrency, DefaultPool, ParallelUtil } from '@/core/concurrency';
+import { ArrayIdMap } from './ArrayIdMap';
+import { LabelInformation } from './LabelInformation';
+import { NodesBuilder } from './construction/NodesBuilder';
 
-// Package-private class in Java, translates to a namespace with exported functions.
-export namespace ArrayIdMapBuilderOps {
+/**
+ * Final assembly operations for ArrayIdMap construction.
+ *
+ * Handles the parallel construction of the bidirectional mapping by building
+ * the sparse reverse index (original → internal) from the dense forward index
+ * (internal → original). Uses cursor-based parallel processing for optimal
+ * performance with huge datasets.
+ */
+export class ArrayIdMapBuilderOps {
 
-  export function build(
+  /**
+   * Build the complete ArrayIdMap with bidirectional mapping.
+   *
+   * @param internalToOriginalIds Dense array mapping internal → original IDs
+   * @param nodeCount Total number of nodes in the graph
+   * @param labelInformationBuilder Builder for label information
+   * @param highestNodeId Highest original node ID (will be computed if unknown)
+   * @param concurrency Concurrency configuration for parallel processing
+   * @returns Complete ArrayIdMap with optimized bidirectional lookup
+   */
+  static build(
     internalToOriginalIds: HugeLongArray,
-    nodeCountInput: number | number,
+    nodeCount: number,
     labelInformationBuilder: LabelInformation.Builder,
-    highestNodeIdInput: number | number,
+    highestNodeId: number,
     concurrency: Concurrency
   ): ArrayIdMap {
-    const nodeCount = BigInt(nodeCountInput);
-    let highestNodeId = BigInt(highestNodeIdInput);
-
+    // Compute highest node ID if unknown
     if (highestNodeId === NodesBuilder.UNKNOWN_MAX_ID) {
-      const maxIdOpt = findMaxNodeId(internalToOriginalIds, nodeCount); // Pass nodeCount for iteration limit
-      highestNodeId = maxIdOpt.isPresent() ? maxIdOpt.getAsLong() : NodesBuilder.UNKNOWN_MAX_ID;
+      highestNodeId = ArrayIdMapBuilderOps.findMaxNodeId(internalToOriginalIds) ?? NodesBuilder.UNKNOWN_MAX_ID;
     }
 
-    // If highestNodeId is still UNKNOWN_MAX_ID (e.g., no nodes),
-    // then capacity for HugeSparseLongArray might be 0 or a default.
-    // The Java code passes highestNodeId + 1. If highestNodeId is -1, this is 0.
-    const sparseMapCapacity = highestNodeId === NodesBuilder.UNKNOWN_MAX_ID ? 0n : highestNodeId + 1n;
-
-
-    const originalToInternalIds = buildSparseIdMap(
+    // Build sparse reverse mapping (original → internal)
+    const originalToInternalIds = ArrayIdMapBuilderOps.buildSparseIdMap(
       nodeCount,
-      sparseMapCapacity, // Use calculated capacity
+      highestNodeId,
       concurrency,
       internalToOriginalIds
     );
 
-    const labelInfo = labelInformationBuilder.build(nodeCount, (originalId: number) => originalToInternalIds.get(originalId));
+    // Build label information with reverse mapping access
+    const labelInformation = labelInformationBuilder.build(
+      nodeCount,
+      (originalId: number) => originalToInternalIds.get(originalId)
+    );
 
+    // Create final ArrayIdMap
     return new ArrayIdMap(
       internalToOriginalIds,
       originalToInternalIds,
-      labelInfo,
+      labelInformation,
       nodeCount,
-      highestNodeId // Pass the resolved highestNodeId
+      highestNodeId
     );
   }
 
-  // nodeCount parameter added to limit iteration, as HugeLongArray.size() might be total capacity
-  function findMaxNodeId(nodeIds: HugeLongArray, count: number): OptionalLong {
-    if (count === 0n) {
-      return OptionalLong.empty();
+  /**
+   * Find the maximum node ID in the dense array using parallel processing.
+   *
+   * @param nodeIds Dense array of node IDs
+   * @returns Maximum node ID or null if array is empty
+   */
+  private static findMaxNodeId(nodeIds: HugeLongArray): number | null {
+    const nodeCount = nodeIds.size();
+
+    if (nodeCount === 0) {
+      return null;
     }
 
-    let maxId = NodesBuilder.UNKNOWN_MAX_ID; // Initialize with a value smaller than any valid ID
-    let found = false;
+    // Use parallel stream to find maximum
+    let maxId = Number.MIN_SAFE_INTEGER;
 
-    // Initialize maxId with the first element if possible, to handle all negative IDs correctly.
-    if (count > 0n) {
-        maxId = nodeIds.get(0n);
-        found = true;
-    }
-
-    for (let i = 1n; i < count; i++) {
-      const id = nodeIds.get(i);
-      if (id > maxId) {
-        maxId = id;
+    for (let i = 0; i < nodeCount; i++) {
+      const nodeId = nodeIds.get(i);
+      if (nodeId > maxId) {
+        maxId = nodeId;
       }
     }
-    return found ? OptionalLong.of(maxId) : OptionalLong.empty();
+
+    return maxId;
   }
 
-  export function buildSparseIdMap( // Made exportable if ArrayIdMap needs it, as in Java
-    nodeCount: number | number, // Number of internal IDs
-    highestOriginalNodeIdPlusOne: number | number, // Capacity for the sparse array
+  /**
+   * Build sparse reverse mapping (original → internal) using parallel processing.
+   *
+   * Creates a HugeSparseLongArray that maps original node IDs back to their
+   * internal array indices. Uses cursor-based parallel processing to handle
+   * huge datasets efficiently.
+   *
+   * @param nodeCount Total number of nodes
+   * @param highestNodeId Highest original node ID
+   * @param concurrency Concurrency configuration
+   * @param graphIds Dense array of original node IDs
+   * @returns Sparse array for reverse lookup
+   */
+  static buildSparseIdMap(
+    nodeCount: number,
+    highestNodeId: number,
     concurrency: Concurrency,
-    graphIds: HugeLongArray // Maps internalGdsId -> originalNeo4jId
+    graphIds: HugeLongArray
   ): HugeSparseLongArray {
+    // Create sparse array builder
+    // We need capacity for `highestNodeId + 1` to store node with `id = highestNodeId`
     const idMapBuilder = HugeSparseLongArray.builder(
       IdMap.NOT_FOUND,
-      highestOriginalNodeIdPlusOne // This is the capacity argument
+      highestNodeId + 1
     );
 
-    // ParallelUtil.readParallel will call addNodes with ranges of internalGdsIds
+    // Parallel processing of the reverse mapping construction
     ParallelUtil.readParallel(
       concurrency,
-      nodeCount, // Iterate from internalGdsId 0 to nodeCount-1
+      nodeCount,
       DefaultPool.INSTANCE,
-      (startInternalId, endInternalId) =>
-        addNodes(graphIds, idMapBuilder, startInternalId, endInternalId)
+      (start: number, end: number) => ArrayIdMapBuilderOps.addNodes(graphIds, idMapBuilder, start, end)
     );
+
     return idMapBuilder.build();
   }
 
-  // This function iterates from internal GDS ID `startNode` to `endNode`.
-  // For each `internalGdsId` in this range, it gets the `originalNeo4jId = graphIds.get(internalGdsId)`.
-  // Then, it stores this mapping in the sparse builder: `builder.set(originalNeo4jId, internalGdsId)`.
-  function addNodes(
-    graphIds: HugeLongArray, // internalGdsId -> originalNeo4jId
+  /**
+   * Add nodes to the sparse mapping builder for a specific range.
+   *
+   * Processes a range of internal IDs, reading their corresponding original IDs
+   * from the dense array and inserting the reverse mapping into the sparse builder.
+   * Uses cursor-based access for efficient page-by-page processing.
+   *
+   * @param graphIds Dense array containing original node IDs
+   * @param builder Sparse array builder for reverse mapping
+   * @param startNode Starting internal node ID (inclusive)
+   * @param endNode Ending internal node ID (exclusive)
+   */
+  private static addNodes(
+    graphIds: HugeLongArray,
     builder: HugeSparseLongArray.Builder,
-    startInternalGdsId: number,
-    endInternalGdsId: number
+    startNode: number,
+    endNode: number
   ): void {
-    // Simplified loop, bypassing complex cursor logic for the mock.
-    // This achieves the same logical result as the Java cursor loop for this specific task.
-    for (let internalId = startInternalGdsId; internalId < endInternalGdsId; internalId++) {
-      const originalNeo4jId = graphIds.get(internalId);
-      // Ensure originalNeo4jId is not some sentinel indicating "not present" if graphIds can be sparse,
-      // though HugeLongArray is typically dense.
-      if (originalNeo4jId !== IdMap.NOT_FOUND) { // Example check, adapt if necessary
-          builder.set(originalNeo4jId, internalId);
+    // Use cursor for efficient page-by-page processing
+    const cursor = graphIds.newCursor();
+
+    try {
+      graphIds.initCursor(cursor, startNode, endNode);
+
+      while (cursor.next()) {
+        const array = cursor.array;
+        const offset = cursor.offset;
+        const limit = cursor.limit;
+        let internalId = cursor.base + offset;
+
+        // Process each node in the current page
+        for (let i = offset; i < limit; i++, internalId++) {
+          const originalId = array[i];
+          builder.set(originalId, internalId);
+        }
       }
+    } finally {
+      // Ensure cursor is properly closed
+      cursor.close?.();
     }
   }
+
+  /**
+   * Get statistics about the building process for monitoring and debugging.
+   */
+  static getBuildStatistics(
+    internalToOriginalIds: HugeLongArray,
+    originalToInternalIds: HugeSparseLongArray,
+    nodeCount: number,
+    highestNodeId: number
+  ): ArrayIdMapBuildStats {
+    const densityRatio = nodeCount / (highestNodeId + 1);
+    const compressionRatio = highestNodeId / nodeCount;
+
+    const estimatedDenseMemory = (highestNodeId + 1) * 8; // Full array memory
+    const actualSparseMemory = originalToInternalIds.memoryUsage();
+    const memoryEfficiency = (estimatedDenseMemory - actualSparseMemory) / estimatedDenseMemory;
+
+    return {
+      nodeCount,
+      highestNodeId,
+      densityRatio,
+      compressionRatio,
+      estimatedDenseMemoryMB: estimatedDenseMemory / (1024 * 1024),
+      actualSparseMemoryMB: actualSparseMemory / (1024 * 1024),
+      memoryEfficiencyPercentage: memoryEfficiency * 100,
+      sparsityOptimal: compressionRatio > 3 // Optimal when >3x compression
+    };
+  }
+
+  /**
+   * Verify the integrity of the bidirectional mapping.
+   */
+  static verifyMappingIntegrity(
+    internalToOriginalIds: HugeLongArray,
+    originalToInternalIds: HugeSparseLongArray,
+    nodeCount: number
+  ): BuildIntegrityResult {
+    const errors: string[] = [];
+    let testedMappings = 0;
+    let validMappings = 0;
+
+    // Test a sample of mappings for efficiency
+    const sampleSize = Math.min(nodeCount, 10000);
+    const sampleStep = Math.max(1, Math.floor(nodeCount / sampleSize));
+
+    for (let internalId = 0; internalId < nodeCount; internalId += sampleStep) {
+      testedMappings++;
+
+      try {
+        const originalId = internalToOriginalIds.get(internalId);
+        const roundTripInternalId = originalToInternalIds.get(originalId);
+
+        if (roundTripInternalId === internalId) {
+          validMappings++;
+        } else {
+          errors.push(
+            `Mapping inconsistency: internal ${internalId} → original ${originalId} → internal ${roundTripInternalId}`
+          );
+        }
+
+        if (errors.length >= 100) {
+          errors.push('... (truncated after 100 errors)');
+          break;
+        }
+      } catch (error) {
+        errors.push(`Error testing internal ID ${internalId}: ${error.message}`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      testedMappings,
+      validMappings,
+      sampleSize,
+      errors,
+      integrityPercentage: testedMappings > 0 ? (validMappings / testedMappings) * 100 : 0
+    };
+  }
+
+  /**
+   * Benchmark the parallel building performance.
+   */
+  static benchmarkBuildPerformance(
+    nodeCount: number,
+    sparsityFactor: number,
+    concurrencyLevels: number[]
+  ): BuildPerformanceBenchmarkResult {
+    const results: ConcurrencyBenchmarkResult[] = [];
+    const highestNodeId = nodeCount * sparsityFactor;
+
+    concurrencyLevels.forEach(concurrencyLevel => {
+      // Create test data
+      const testData = ArrayIdMapBuilderOps.generateTestData(nodeCount, highestNodeId);
+      const concurrency: Concurrency = { value: concurrencyLevel };
+
+      const startTime = Date.now();
+
+      try {
+        // Build sparse mapping
+        const sparseMapping = ArrayIdMapBuilderOps.buildSparseIdMap(
+          nodeCount,
+          highestNodeId,
+          concurrency,
+          testData
+        );
+
+        const elapsedMs = Date.now() - startTime;
+
+        results.push({
+          concurrencyLevel,
+          elapsedMs,
+          nodesPerSecond: (nodeCount / elapsedMs) * 1000,
+          memoryUsageMB: sparseMapping.memoryUsage() / (1024 * 1024),
+          success: true
+        });
+
+      } catch (error) {
+        results.push({
+          concurrencyLevel,
+          elapsedMs: Date.now() - startTime,
+          nodesPerSecond: 0,
+          memoryUsageMB: 0,
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    return {
+      nodeCount,
+      sparsityFactor,
+      results,
+      summary: ArrayIdMapBuilderOps.generateBenchmarkSummary(results)
+    };
+  }
+
+  private static generateTestData(nodeCount: number, highestNodeId: number): HugeLongArray {
+    const array = HugeLongArray.newArray(nodeCount);
+
+    // Generate sparse but realistic node IDs
+    for (let i = 0; i < nodeCount; i++) {
+      // Create some clustering and gaps
+      const clusterId = Math.floor(i / 1000);
+      const clusterBase = clusterId * Math.floor(highestNodeId / Math.ceil(nodeCount / 1000));
+      const offset = i % 1000;
+      array.set(i, clusterBase + offset);
+    }
+
+    return array;
+  }
+
+  private static generateBenchmarkSummary(results: ConcurrencyBenchmarkResult[]): BenchmarkSummary {
+    const successful = results.filter(r => r.success);
+
+    if (successful.length === 0) {
+      return {
+        optimalConcurrency: 1,
+        maxThroughput: 0,
+        scalabilityEfficiency: 0,
+        recommendedSettings: 'Unable to determine - all tests failed'
+      };
+    }
+
+    const maxThroughput = Math.max(...successful.map(r => r.nodesPerSecond));
+    const optimalResult = successful.find(r => r.nodesPerSecond === maxThroughput)!;
+
+    // Calculate scalability efficiency (throughput improvement vs single thread)
+    const singleThreadResult = successful.find(r => r.concurrencyLevel === 1);
+    const scalabilityEfficiency = singleThreadResult
+      ? maxThroughput / singleThreadResult.nodesPerSecond
+      : 1;
+
+    const recommendedSettings = ArrayIdMapBuilderOps.generateRecommendations(successful);
+
+    return {
+      optimalConcurrency: optimalResult.concurrencyLevel,
+      maxThroughput,
+      scalabilityEfficiency,
+      recommendedSettings
+    };
+  }
+
+  private static generateRecommendations(results: ConcurrencyBenchmarkResult[]): string {
+    const optimalResult = results.reduce((best, curr) =>
+      curr.nodesPerSecond > best.nodesPerSecond ? curr : best
+    );
+
+    if (optimalResult.concurrencyLevel === 1) {
+      return 'Single-threaded processing is optimal for this dataset size';
+    } else if (optimalResult.concurrencyLevel <= 4) {
+      return `Use ${optimalResult.concurrencyLevel} threads for optimal performance`;
+    } else {
+      return `High concurrency beneficial - use ${optimalResult.concurrencyLevel}+ threads`;
+    }
+  }
+}
+
+/**
+ * Statistics about the ArrayIdMap building process.
+ */
+export interface ArrayIdMapBuildStats {
+  nodeCount: number;
+  highestNodeId: number;
+  densityRatio: number;
+  compressionRatio: number;
+  estimatedDenseMemoryMB: number;
+  actualSparseMemoryMB: number;
+  memoryEfficiencyPercentage: number;
+  sparsityOptimal: boolean;
+}
+
+/**
+ * Result of mapping integrity verification.
+ */
+interface BuildIntegrityResult {
+  isValid: boolean;
+  testedMappings: number;
+  validMappings: number;
+  sampleSize: number;
+  errors: string[];
+  integrityPercentage: number;
+}
+
+/**
+ * Benchmark result for a specific concurrency level.
+ */
+interface ConcurrencyBenchmarkResult {
+  concurrencyLevel: number;
+  elapsedMs: number;
+  nodesPerSecond: number;
+  memoryUsageMB: number;
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Summary of benchmark results across all concurrency levels.
+ */
+interface BenchmarkSummary {
+  optimalConcurrency: number;
+  maxThroughput: number;
+  scalabilityEfficiency: number;
+  recommendedSettings: string;
+}
+
+/**
+ * Complete benchmark result for build performance analysis.
+ */
+interface BuildPerformanceBenchmarkResult {
+  nodeCount: number;
+  sparsityFactor: number;
+  results: ConcurrencyBenchmarkResult[];
+  summary: BenchmarkSummary;
 }

@@ -1,29 +1,43 @@
-import {
-  AtomicLong,
-  CloseableThreadLocal,
-  HugeCursor,
-  HugeLongArray,
-  IdMap,
-  IdMapAllocator,
-  LabelInformation,
-  Concurrency,
-  IdMapBuilder,
-  ArrayIdMapBuilderOps,
-  systemArraycopy
-} from './arrayIdMapBuilderTypes'; // Adjust path as needed
+import { IdMap } from '@/api/graph';
+import { HugeCursor } from '@/core/collections/cursor';
+import { HugeLongArray } from '@/core/collections/ha';
+import { Concurrency } from '@/core/concurrency';
+import { CloseableThreadLocal } from '@/utils';
+import { IdMapBuilder } from './IdMapBuilder';
+import { IdMapAllocator } from './IdMapAllocator';
+import { LabelInformation } from './LabelInformation';
+import { ArrayIdMapBuilderOps } from './ArrayIdMapBuilderOps';
 
+/**
+ * High-performance array-based ID map builder with concurrent allocation.
+ *
+ * Uses atomic allocation for thread-safe space reservation and thread-local
+ * bulk adders for contention-free insertion. Optimized for dense, sequential
+ * node ID patterns with excellent cache locality.
+ *
+ * Key features:
+ * - Atomic batch allocation with zero insertion contention
+ * - Cursor-based huge array access for >2GB datasets
+ * - Thread-local bulk adders for maximum throughput
+ * - Streaming insertion with automatic page management
+ */
 export class ArrayIdMapBuilder implements IdMapBuilder {
-  public static readonly ID = "array";
+  public static readonly ID = 'array';
 
   private readonly array: HugeLongArray;
   private readonly capacity: number;
   private readonly allocationIndex: AtomicLong;
-  private readonly adders: CloseableThreadLocal<ArrayIdMapBuilder.BulkAdder>;
+  private readonly adders: CloseableThreadLocal<BulkAdder>;
 
-  public static of(capacity: number | number): ArrayIdMapBuilder {
-    const cap = BigInt(capacity);
-    const array = HugeLongArray.newArray(cap);
-    return new ArrayIdMapBuilder(array, cap);
+  /**
+   * Create a new ArrayIdMapBuilder with the specified capacity.
+   *
+   * @param capacity Maximum number of nodes this builder can handle
+   * @returns A new ArrayIdMapBuilder instance
+   */
+  static of(capacity: number): ArrayIdMapBuilder {
+    const array = HugeLongArray.newArray(capacity);
+    return new ArrayIdMapBuilder(array, capacity);
   }
 
   private constructor(array: HugeLongArray, capacity: number) {
@@ -33,122 +47,231 @@ export class ArrayIdMapBuilder implements IdMapBuilder {
     this.adders = CloseableThreadLocal.withInitial(() => this.newBulkAdder());
   }
 
-  public allocate(batchLength: number): ArrayIdMapBuilder.BulkAdder {
-    const startIndex = this.allocationIndex.getAndAccumulate(batchLength, (current, len) => this.upperAllocation(current, len));
+  allocate(batchLength: number): BulkAdder {
+    // Atomically reserve space in the array
+    const startIndex = this.allocationIndex.getAndAccumulate(batchLength, (lower, nodes) =>
+      this.upperAllocation(lower, nodes)
+    );
+
+    // Get thread-local bulk adder and configure it for this allocation
     const adder = this.adders.get();
-    adder.reset(startIndex, this.upperAllocation(startIndex, BigInt(batchLength)));
+    adder.reset(startIndex, this.upperAllocation(startIndex, batchLength));
     return adder;
   }
 
-  private newBulkAdder(): ArrayIdMapBuilder.BulkAdder {
-    return new ArrayIdMapBuilder.BulkAdder(this.array, this.array.newCursor());
-  }
-
-  private upperAllocation(lower: number, nodes: number): number {
-    return BigInt(Math.min(Number(this.capacity), Number(lower + nodes)));
-  }
-
-  public build(
+  build(
     labelInformationBuilder: LabelInformation.Builder,
-    highestNodeId: number | number,
+    highestNodeId: number,
     concurrency: Concurrency
   ): IdMap {
+    // Close all thread-local resources
     this.adders.close();
-    const nodeCount = this.getSize(); // Renamed from size()
-    const internalToOriginalIds = this.getArray(); // Renamed from array()
+
+    // Get final state
+    const nodeCount = this.size();
+    const internalToOriginalIds = this.array();
+
+    // Delegate to ArrayIdMapBuilderOps for final assembly
     return ArrayIdMapBuilderOps.build(
       internalToOriginalIds,
       nodeCount,
       labelInformationBuilder,
-      BigInt(highestNodeId),
+      highestNodeId,
       concurrency
     );
   }
 
-  public getArray(): HugeLongArray { // Renamed from array()
+  /**
+   * Get the underlying huge array.
+   */
+  array(): HugeLongArray {
     return this.array;
   }
 
-  private getSize(): number { // Renamed from size()
+  /**
+   * Get the current number of allocated nodes.
+   */
+  size(): number {
     return this.allocationIndex.get();
   }
 
-  // --- Nested BulkAdder Class ---
-  public static BulkAdder = class implements IdMapAllocator {
-    private buffer: number[] | null = null; // Java long[] -> number[]
-    private allocationSize: number = 0;
-    private offset: number = 0;
-    private length: number = 0;
-    private readonly array: HugeLongArray;
-    private readonly cursor: HugeCursor<number[]>;
+  /**
+   * Get builder statistics for monitoring and debugging.
+   */
+  getBuilderStats(): ArrayIdMapBuilderStats {
+    return {
+      builderId: ArrayIdMapBuilder.ID,
+      capacity: this.capacity,
+      allocatedNodes: this.size(),
+      remainingCapacity: this.capacity - this.size(),
+      utilizationPercentage: (this.size() / this.capacity) * 100,
+      hasActiveAdders: !this.adders.isClosed()
+    };
+  }
 
-    constructor(array: HugeLongArray, cursor: HugeCursor<number[]>) { // Made public for CloseableThreadLocal
-      this.array = array;
-      this.cursor = cursor;
+  /**
+   * Calculate the upper bound of an allocation.
+   */
+  private upperAllocation(lower: number, nodes: number): number {
+    return Math.min(this.capacity, lower + nodes);
+  }
+
+  private newBulkAdder(): BulkAdder {
+    return new BulkAdder(this.array, this.array.newCursor());
+  }
+}
+
+/**
+ * Thread-local bulk adder for efficient batch insertion with cursor-based access.
+ *
+ * Handles streaming insertion across multiple memory pages using HugeCursor
+ * for efficient page-by-page processing. Designed for zero-contention operation
+ * within a pre-allocated address space.
+ */
+export class BulkAdder implements IdMapAllocator {
+  private buffer: number[] | null = null;
+  private allocationSize: number = 0;
+  private offset: number = 0;
+  private length: number = 0;
+  private readonly array: HugeLongArray;
+  private readonly cursor: HugeCursor<number[]>;
+
+  constructor(array: HugeLongArray, cursor: HugeCursor<number[]>) {
+    this.array = array;
+    this.cursor = cursor;
+  }
+
+  /**
+   * Reset this bulk adder for a new allocation range.
+   *
+   * @param start Starting index in the huge array
+   * @param end Ending index (exclusive) in the huge array
+   */
+  reset(start: number, end: number): void {
+    this.array.initCursor(this.cursor, start, end);
+    this.buffer = null;
+    this.allocationSize = end - start;
+    this.offset = 0;
+    this.length = 0;
+  }
+
+  /**
+   * Move to the next buffer page.
+   *
+   * @returns true if a next buffer is available, false if at end
+   */
+  nextBuffer(): boolean {
+    if (!this.cursor.next()) {
+      return false;
     }
 
-    public reset(start: number, end: number): void { // Made public
-      this.array.initCursor(this.cursor, start, end);
-      this.buffer = null;
-      this.allocationSize = Number(end - start);
-      this.offset = 0;
-      this.length = 0;
+    this.buffer = this.cursor.array;
+    this.offset = this.cursor.offset;
+    this.length = this.cursor.limit - this.cursor.offset;
+    return true;
+  }
+
+  allocatedSize(): number {
+    return this.allocationSize;
+  }
+
+  insert(nodeIds: number[]): void {
+    if (nodeIds.length !== this.allocationSize) {
+      throw new Error(
+        `Insert size mismatch: expected ${this.allocationSize}, got ${nodeIds.length}`
+      );
     }
 
-    private nextBuffer(): boolean { // Kept private
-      if (!this.cursor.next()) {
-        this.buffer = null; // Ensure buffer is null if no next segment
-        return false;
+    let batchOffset = 0;
+
+    // Stream insertion across multiple pages
+    while (this.nextBuffer()) {
+      if (!this.buffer) {
+        throw new Error('Buffer is null after successful nextBuffer()');
       }
-      this.buffer = this.cursor.array;
-      this.offset = this.cursor.offset;
-      // Ensure length is non-negative and reflects actual data in the segment
-      this.length = Math.max(0, this.cursor.limit - this.cursor.offset);
-      return true;
+
+      // Copy chunk to current page
+      this.buffer.splice(this.offset, this.length, ...nodeIds.slice(batchOffset, batchOffset + this.length));
+      batchOffset += this.length;
     }
 
-    public allocatedSize(): number {
-      return this.allocationSize;
+    if (batchOffset !== nodeIds.length) {
+      throw new Error(
+        `Incomplete insertion: wrote ${batchOffset} of ${nodeIds.length} nodes`
+      );
     }
+  }
 
-    public insert(nodeIds: number[]): void { // nodeIds is long[] in Java
-      let batchOffset = 0;
-      let remainingToCopy = nodeIds.length;
+  /**
+   * Check if this bulk adder is properly initialized.
+   */
+  isInitialized(): boolean {
+    return this.allocationSize > 0;
+  }
 
-      // The loop condition `while (nextBuffer())` implies that `nextBuffer` might return true
-      // even if the buffer segment it provides is empty (length 0).
-      // The copy logic needs to handle this.
-      while (remainingToCopy > 0 && this.nextBuffer()) {
-        if (this.buffer === null || this.length === 0) {
-            // This case should ideally not happen if nextBuffer() returned true and there's data to copy,
-            // unless the cursor logic is very specific.
-            // If it means no more space in the target HugeLongArray for this allocation,
-            // it's an issue. For now, assume nextBuffer()=true means a valid (possibly zero-length) segment.
-            continue;
-        }
+  /**
+   * Get debug information about the current state.
+   */
+  getDebugInfo(): BulkAdderDebugInfo {
+    return {
+      allocationSize: this.allocationSize,
+      currentOffset: this.offset,
+      currentLength: this.length,
+      hasBuffer: this.buffer !== null,
+      bufferSize: this.buffer?.length ?? 0
+    };
+  }
+}
 
-        const countToCopyInThisSegment = Math.min(remainingToCopy, this.length);
-        if (countToCopyInThisSegment > 0) {
-            systemArraycopy(nodeIds, batchOffset, this.buffer, this.offset, countToCopyInThisSegment);
-            batchOffset += countToCopyInThisSegment;
-            remainingToCopy -= countToCopyInThisSegment;
-        }
-      }
-      // If remainingToCopy > 0 here, it means the allocated space in HugeLongArray (via cursor segments)
-      // was not enough for all nodeIds. The Java code doesn't explicitly check/throw for this
-      // in `insert`, relying on `System.arraycopy` to throw if `this.length` (from cursor)
-      // is too small, or on the overall allocation logic.
-      // Our mock `HugeLongArray` and `HugeCursor` are simplified, so this exact behavior
-      // might differ. The key is that `systemArraycopy` copies `this.length` items.
-      // The loop in Java is `while (nextBuffer())`, and inside it copies `this.length` items.
-      // This implies the sum of `this.length` over all buffers from the cursor for this allocation
-      // must equal `nodeIds.length`.
-      // The `BulkAdder.reset` sets up the cursor for a range `end - start`.
-      // `allocatedSize` is `end - start`. So, `nodeIds.length` should be <= `allocatedSize`.
-      if (nodeIds.length > this.allocatedSize) {
-          // This check might be useful, though not explicitly in the Java `insert`.
-          // console.warn("Attempting to insert more node IDs than allocated space.");
-      }
-    }
-  };
+/**
+ * Statistics about ArrayIdMapBuilder state.
+ */
+export interface ArrayIdMapBuilderStats {
+  builderId: string;
+  capacity: number;
+  allocatedNodes: number;
+  remainingCapacity: number;
+  utilizationPercentage: number;
+  hasActiveAdders: boolean;
+}
+
+/**
+ * Debug information about BulkAdder state.
+ */
+interface BulkAdderDebugInfo {
+  allocationSize: number;
+  currentOffset: number;
+  currentLength: number;
+  hasBuffer: boolean;
+  bufferSize: number;
+}
+
+/**
+ * Simple atomic long implementation for allocation indexing.
+ */
+class AtomicLong {
+  private value: number = 0;
+
+  get(): number {
+    return this.value;
+  }
+
+  getAndAccumulate(delta: number, accumulatorFunction: (current: number, delta: number) => number): number {
+    const currentValue = this.value;
+    this.value = accumulatorFunction(currentValue, delta);
+    return currentValue;
+  }
+
+  set(newValue: number): void {
+    this.value = newValue;
+  }
+
+  incrementAndGet(): number {
+    return ++this.value;
+  }
+
+  addAndGet(delta: number): number {
+    this.value += delta;
+    return this.value;
+  }
 }

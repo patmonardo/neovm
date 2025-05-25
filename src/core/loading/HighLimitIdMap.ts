@@ -1,133 +1,239 @@
-import { NodeLabel } from "../../NodeLabel"; // Adjust path
-import { FilteredIdMap } from "../../api/FilteredIdMap"; // Adjust path
-import { IdMap, ID_MAP_NOT_FOUND } from "../../api/IdMap"; // Adjust path
-import { IdMapAdapter } from "../../api/IdMapAdapter"; // Adjust path
-import { Concurrency } from "../concurrency/Concurrency"; // Adjust path
-import {
-  ShardedLongLongMap,
-  SHARDED_LONG_LONG_MAP_NOT_FOUND,
-} from "../utils/paged/ShardedLongLongMap"; // Adjust path
-import { Optional } from "../../utils/Optional"; // Adjust path
-import { HighLimitIdMapBuilder } from "./HighLimitIdMapBuilder";
-import { OptionalLong } from "../utils/OptionalLong"; // Adjust path
+import { NodeLabel } from '@/api';
+import { FilteredIdMap, IdMap } from '@/api/graph';
+import { IdMapAdapter } from '@/api/graph';
+import { Concurrency } from '@/core/concurrency';
+import { ShardedLongLongMap } from '@/core/utils/paged';
 
+/**
+ * Two-level ID mapping implementation for handling very large node ID spaces.
+ *
+ * Uses an intermediate mapping layer to compress sparse, high-value original IDs
+ * into a dense, low-value space before applying the final internal mapping.
+ * This approach is memory-efficient for graphs with large gaps in node IDs.
+ *
+ * Architecture:
+ * Original ID → Intermediate ID → Internal ID
+ *
+ * Example:
+ * Original: [1000000, 2000000, 3000000]
+ * Intermediate: [0, 1, 2]
+ * Internal: [0, 1, 2]
+ */
 export class HighLimitIdMap extends IdMapAdapter {
   private readonly highToLowIdSpace: ShardedLongLongMap;
-  // Use the same NOT_FOUND sentinel consistently
-  private static readonly NOT_FOUND = ID_MAP_NOT_FOUND;
 
   constructor(intermediateIdMap: ShardedLongLongMap, internalIdMap: IdMap) {
     super(internalIdMap);
     this.highToLowIdSpace = intermediateIdMap;
   }
 
-  public override typeId(): string {
-    return HighLimitIdMapBuilder.ID + "-" + super.typeId();
+  override typeId(): string {
+    return `${HighLimitIdMapBuilder.ID}-${super.typeId()}`;
   }
 
-  public override toOriginalNodeId(mappedNodeId: number): number {
-    return this.highToLowIdSpace.toOriginalNodeId(
-      super.toOriginalNodeId(mappedNodeId)
-    );
+  override toOriginalNodeId(mappedNodeId: number): number {
+    // Two-step reverse mapping: Internal → Intermediate → Original
+    const intermediateId = super.toOriginalNodeId(mappedNodeId);
+    return this.highToLowIdSpace.toOriginalNodeId(intermediateId);
   }
 
-  public override toMappedNodeId(originalNodeId: number): number {
-    const mappedNodeId = this.highToLowIdSpace.toMappedNodeId(originalNodeId);
-    if (mappedNodeId === SHARDED_LONG_LONG_MAP_NOT_FOUND) {
-      // Use the specific NOT_FOUND from the source
-      return HighLimitIdMap.NOT_FOUND;
+  override toMappedNodeId(originalNodeId: number): number {
+    // Two-step forward mapping: Original → Intermediate → Internal
+    const intermediateId = this.highToLowIdSpace.toMappedNodeId(originalNodeId);
+    if (intermediateId === IdMap.NOT_FOUND) {
+      return IdMap.NOT_FOUND;
     }
-    return super.toMappedNodeId(mappedNodeId);
+    return super.toMappedNodeId(intermediateId);
   }
 
-  public override containsOriginalId(originalNodeId: number): boolean {
-    const mappedNodeId = this.highToLowIdSpace.toMappedNodeId(originalNodeId);
-    if (mappedNodeId === SHARDED_LONG_LONG_MAP_NOT_FOUND) {
+  override containsOriginalId(originalNodeId: number): boolean {
+    // Check if original ID exists in the intermediate mapping
+    const intermediateId = this.highToLowIdSpace.toMappedNodeId(originalNodeId);
+    if (intermediateId === IdMap.NOT_FOUND) {
       return false;
     }
-    return super.containsOriginalId(mappedNodeId);
+    // Then check if intermediate ID exists in the internal mapping
+    return super.containsOriginalId(intermediateId);
   }
 
-  public override highestOriginalId(): number {
+  override highestOriginalId(): number {
     return this.highToLowIdSpace.maxOriginalId();
   }
 
-  public override withFilteredLabels(
-    nodeLabels: ReadonlyArray<NodeLabel>,
+  override withFilteredLabels(
+    nodeLabels: NodeLabel[],
     concurrency: Concurrency
-  ): Optional<FilteredIdMap> {
-    return super
-      .withFilteredLabels(nodeLabels, concurrency)
-      .map(
-        (filteredIdMap) =>
-          new HighLimitIdMap.FilteredHighLimitIdMap(
-            this.highToLowIdSpace,
-            filteredIdMap
-          )
-      );
+  ): FilteredIdMap | null {
+    const filteredIdMap = super.withFilteredLabels(nodeLabels, concurrency);
+    return filteredIdMap
+      ? new FilteredHighLimitIdMap(this.highToLowIdSpace, filteredIdMap)
+      : null;
   }
 
-  public static isHighLimitIdMap(typeId: string): boolean {
+  /**
+   * Check if a type ID represents a HighLimitIdMap.
+   */
+  static isHighLimitIdMap(typeId: string): boolean {
     return typeId.startsWith(HighLimitIdMapBuilder.ID);
   }
 
-  public static innerTypeId(typeId: string): Optional<string> {
-    const separatorIndex = typeId.indexOf("-");
-    if (
-      HighLimitIdMap.isHighLimitIdMap(typeId) &&
-      separatorIndex > 0 &&
-      separatorIndex < typeId.length - 1
-    ) {
+  /**
+   * Extract the inner type ID from a HighLimitIdMap type ID.
+   *
+   * @param typeId The full type ID (e.g., "highlimit-compressed")
+   * @returns The inner type ID or null if not extractable
+   */
+  static innerTypeId(typeId: string): string | null {
+    const separatorIndex = typeId.indexOf('-');
+
+    if (HighLimitIdMap.isHighLimitIdMap(typeId) &&
+        separatorIndex > 0 &&
+        separatorIndex < typeId.length - 1) {
+
       const substring = typeId.substring(separatorIndex + 1);
-      return substring === HighLimitIdMapBuilder.ID
-        ? Optional.empty()
-        : Optional.of(substring);
+      return substring === HighLimitIdMapBuilder.ID ? null : substring;
     }
-    return Optional.empty();
+
+    return null;
+  }
+
+  /**
+   * Get the intermediate mapping structure (for testing/debugging).
+   */
+  getHighToLowIdSpace(): ShardedLongLongMap {
+    return this.highToLowIdSpace;
+  }
+
+  /**
+   * Get statistics about the two-level mapping.
+   */
+  getMappingStats(): HighLimitIdMapStats {
+    return {
+      typeId: this.typeId(),
+      nodeCount: this.nodeCount(),
+      highestOriginalId: this.highestOriginalId(),
+      intermediateMapSize: this.highToLowIdSpace.size(),
+      compressionRatio: this.calculateCompressionRatio(),
+      memoryUsageMB: this.estimateMemoryUsage() / (1024 * 1024)
+    };
+  }
+
+  private calculateCompressionRatio(): number {
+    const originalRange = this.highestOriginalId();
+    const compressedRange = this.nodeCount();
+    return originalRange > 0 ? originalRange / compressedRange : 1;
+  }
+
+  private estimateMemoryUsage(): number {
+    // Rough estimate: intermediate map + internal map
+    const intermediateMemory = this.highToLowIdSpace.size() * 16; // 8 bytes key + 8 bytes value
+    const internalMemory = this.nodeCount() * 8; // Depends on internal implementation
+    return intermediateMemory + internalMemory;
   }
 }
 
-// Nested class equivalent using a namespace
-export namespace HighLimitIdMap {
-  export class FilteredHighLimitIdMap
-    extends HighLimitIdMap
-    implements FilteredIdMap
-  {
-    private readonly _filteredIdMapDelegate: FilteredIdMap; // Renamed to avoid conflict
+/**
+ * Filtered view of a HighLimitIdMap that maintains the two-level mapping structure.
+ */
+class FilteredHighLimitIdMap extends HighLimitIdMap implements FilteredIdMap {
+  private readonly filteredIdMap: FilteredIdMap;
 
-    constructor(
-      intermediateIdMap: ShardedLongLongMap,
-      filteredIdMapDelegate: FilteredIdMap
-    ) {
-      // The 'super' call needs an IdMap. FilteredIdMap is an IdMap.
-      super(intermediateIdMap, filteredIdMapDelegate);
-      this._filteredIdMapDelegate = filteredIdMapDelegate;
-    }
+  constructor(intermediateIdMap: ShardedLongLongMap, filteredIdMap: FilteredIdMap) {
+    super(intermediateIdMap, filteredIdMap);
+    this.filteredIdMap = filteredIdMap;
+  }
 
-    // Implement FilteredIdMap specific methods by delegating
-    public toFilteredNodeId(rootNodeId: number): number {
-      return this._filteredIdMapDelegate.toFilteredNodeId(rootNodeId);
-    }
+  toFilteredNodeId(rootNodeId: number): number {
+    return this.filteredIdMap.toFilteredNodeId(rootNodeId);
+  }
 
-    public toRootNodeId(mappedNodeId: number): number {
-      return this._filteredIdMapDelegate.toRootNodeId(mappedNodeId);
-    }
+  toRootNodeId(mappedNodeId: number): number {
+    return this.filteredIdMap.toRootNodeId(mappedNodeId);
+  }
 
-    public containsRootNodeId(rootNodeId: number): boolean {
-      return this._filteredIdMapDelegate.containsRootNodeId(rootNodeId);
-    }
+  containsRootNodeId(rootNodeId: number): boolean {
+    return this.filteredIdMap.containsRootNodeId(rootNodeId);
+  }
 
-    // This method is from FilteredIdMap interface, ensure it's implemented
-    // It was also on our IdMapAdapter, so super.rootNodeCount() would call the delegate's version.
-    public override rootNodeCount(): OptionalLong {
-      return this._filteredIdMapDelegate.rootNodeCount();
-    }
+  /**
+   * Get statistics about the filtered two-level mapping.
+   */
+  getFilteredStats(): FilteredHighLimitIdMapStats {
+    const baseStats = this.getMappingStats();
+    return {
+      ...baseStats,
+      filteredNodeCount: this.filteredIdMap.nodeCount(),
+      filterEfficiency: this.filteredIdMap.nodeCount() / this.nodeCount()
+    };
+  }
+}
 
-    // If FilteredIdMap has rootIdMap, delegate it
-    public rootIdMap?(): IdMap {
-      return this._filteredIdMapDelegate.rootIdMap
-        ? this._filteredIdMapDelegate.rootIdMap()
-        : undefined;
-    }
+/**
+ * Statistics about HighLimitIdMap performance and memory usage.
+ */
+export interface HighLimitIdMapStats {
+  typeId: string;
+  nodeCount: number;
+  highestOriginalId: number;
+  intermediateMapSize: number;
+  compressionRatio: number;
+  memoryUsageMB: number;
+}
+
+/**
+ * Extended statistics for filtered HighLimitIdMap.
+ */
+export interface FilteredHighLimitIdMapStats extends HighLimitIdMapStats {
+  filteredNodeCount: number;
+  filterEfficiency: number;
+}
+
+// Mock HighLimitIdMapBuilder for the examples
+const HighLimitIdMapBuilder = {
+  ID: 'highlimit'
+};
+
+// Mock IdMapAdapter for the examples
+abstract class IdMapAdapter implements IdMap {
+  protected readonly delegate: IdMap;
+
+  constructor(delegate: IdMap) {
+    this.delegate = delegate;
+  }
+
+  typeId(): string {
+    return this.delegate.typeId();
+  }
+
+  nodeCount(): number {
+    return this.delegate.nodeCount();
+  }
+
+  toOriginalNodeId(mappedNodeId: number): number {
+    return this.delegate.toOriginalNodeId(mappedNodeId);
+  }
+
+  toMappedNodeId(originalNodeId: number): number {
+    return this.delegate.toMappedNodeId(originalNodeId);
+  }
+
+  containsOriginalId(originalNodeId: number): boolean {
+    return this.delegate.containsOriginalId(originalNodeId);
+  }
+
+  highestOriginalId(): number {
+    return this.delegate.highestOriginalId();
+  }
+
+  withFilteredLabels(nodeLabels: NodeLabel[], concurrency: Concurrency): FilteredIdMap | null {
+    return this.delegate.withFilteredLabels(nodeLabels, concurrency);
+  }
+
+  rootIdMap(): IdMap {
+    return this.delegate.rootIdMap();
+  }
+
+  forEachNode(consumer: (nodeId: number) => boolean): void {
+    return this.delegate.forEachNode(consumer);
   }
 }

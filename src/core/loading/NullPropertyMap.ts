@@ -1,110 +1,129 @@
-import { ValueType } from "../../api/nodeproperties/ValueType"; // Adjust path
-import { LongNodePropertyValues } from "../../api/properties/nodes/LongNodePropertyValues"; // Adjust path
-import { NodePropertyValues } from "../../api/properties/nodes/NodePropertyValues"; // Adjust path
-import { Optional } from "../../utils/Optional"; // Adjust path
-import { OptionalDouble, OptionalLong } from "../../utils/OptionalPrimitive"; // Adjust path
+import { ValueType } from '@/api';
+import { NodePropertyValues, LongNodePropertyValues } from '@/api/properties/nodes';
 
 /**
- * Base class for NodePropertyValues implementations that always return a given default property value.
+ * NodePropertyValues implementation which always returns a given default property value.
+ * Used as a fallback when properties are missing or for providing default values.
  */
 export abstract class NullPropertyMap implements NodePropertyValues {
-  public dimension(): Optional<number> {
-    return Optional.of(1); // Corresponds to Java's Optional.of(1) for Integer
+
+  dimension(): number | undefined {
+    return 1;
   }
 
-  // Abstract methods that concrete classes must implement
-  public abstract valueType(): ValueType;
-  public abstract nodeCount(): number;
+  // Abstract methods that subclasses must implement
+  abstract getObject(nodeId: number): any;
+  abstract valueType(): ValueType;
+  abstract nodeCount(): number;
+}
 
-  // Optional methods from NodePropertyValues that can be overridden if needed,
-  // but for a "null" map, they might return empty/default or throw if not applicable.
-  public doubleValue?(nodeId: number): number {
-    throw new Error("doubleValue not supported by this NullPropertyMap type.");
+/**
+ * Null property map that returns a constant double value for all nodes.
+ */
+export class DoubleNullPropertyMap extends NullPropertyMap {
+  private readonly defaultValue: number;
+
+  constructor(defaultValue: number) {
+    super();
+    this.defaultValue = defaultValue;
   }
-  public longValue?(nodeId: number): number {
-    throw new Error("longValue not supported by this NullPropertyMap type.");
+
+  doubleValue(nodeId: number): number {
+    return this.defaultValue;
   }
-  public getObject?(nodeId: number): any {
-    throw new Error("getObject not supported by this NullPropertyMap type.");
+
+  getObject(nodeId: number): number {
+    return this.doubleValue(nodeId);
   }
-  public getMaxDoublePropertyValue?(): OptionalDouble {
-    return OptionalDouble.empty();
+
+  valueType(): ValueType {
+    return ValueType.DOUBLE;
   }
-  public getMaxLongPropertyValue?(): OptionalLong {
-    return OptionalLong.empty();
+
+  getMaxDoublePropertyValue(): number | undefined {
+    return undefined;
+  }
+
+  nodeCount(): number {
+    return 0;
   }
 }
 
-export namespace NullPropertyMap {
+/**
+ * Null property map that returns a constant long value for all nodes.
+ */
+export class LongNullPropertyMap extends NullPropertyMap implements LongNodePropertyValues {
+  private readonly defaultValue: number;
+
+  constructor(defaultValue: number) {
+    super();
+    this.defaultValue = defaultValue;
+  }
+
+  longValue(nodeId: number): number {
+    return this.defaultValue;
+  }
+
+  getObject(nodeId: number): number {
+    return this.longValue(nodeId);
+  }
+
+  getMaxLongPropertyValue(): number | undefined {
+    return undefined;
+  }
+
+  valueType(): ValueType {
+    return ValueType.LONG;
+  }
+
+  nodeCount(): number {
+    return 0;
+  }
+}
+
+/**
+ * Factory for creating null property maps with common default values.
+ */
+export class NullPropertyMapFactory {
   /**
-   * A NullPropertyMap that always returns a default double value.
+   * Create a double null property map with zero default.
    */
-  export class DoubleNullPropertyMap extends NullPropertyMap {
-    private readonly defaultValue: number;
-
-    constructor(defaultValue: number) {
-      super();
-      this.defaultValue = defaultValue;
-    }
-
-    public override doubleValue(nodeId: number): number {
-      return this.defaultValue;
-    }
-
-    public override getObject(nodeId: number): number {
-      return this.doubleValue(nodeId);
-    }
-
-    public override valueType(): ValueType {
-      return ValueType.DOUBLE;
-    }
-
-    public override getMaxDoublePropertyValue(): OptionalDouble {
-      // For a constant value map, min/max could be the value itself if nodeCount > 0,
-      // but the Java version returns empty.
-      return OptionalDouble.empty();
-    }
-
-    public override nodeCount(): number {
-      return 0n; // Java version returns 0
-    }
+  static doubleZero(): DoubleNullPropertyMap {
+    return new DoubleNullPropertyMap(0.0);
   }
 
   /**
-   * A NullPropertyMap that always returns a default long value.
-   * Implements LongNodePropertyValues for type specificity.
+   * Create a double null property map with NaN default.
    */
-  export class LongNullPropertyMap
-    extends NullPropertyMap
-    implements LongNodePropertyValues
-  {
-    private readonly defaultValue: number;
+  static doubleNaN(): DoubleNullPropertyMap {
+    return new DoubleNullPropertyMap(NaN);
+  }
 
-    constructor(defaultValue: number) {
-      super();
-      this.defaultValue = defaultValue;
-    }
+  /**
+   * Create a double null property map with custom default.
+   */
+  static doubleDefault(defaultValue: number): DoubleNullPropertyMap {
+    return new DoubleNullPropertyMap(defaultValue);
+  }
 
-    public override longValue(nodeId: number): number {
-      return this.defaultValue;
-    }
+  /**
+   * Create a long null property map with zero default.
+   */
+  static longZero(): LongNullPropertyMap {
+    return new LongNullPropertyMap(0);
+  }
 
-    public override getObject(nodeId: number): number {
-      return this.longValue(nodeId);
-    }
+  /**
+   * Create a long null property map with -1 default (common for missing IDs).
+   */
+  static longMissing(): LongNullPropertyMap {
+    return new LongNullPropertyMap(-1);
+  }
 
-    public override valueType(): ValueType.LONG {
-      // Specific to Long
-      return ValueType.LONG;
-    }
-
-    public override getMaxLongPropertyValue(): OptionalLong {
-      // Java version returns empty.
-      return OptionalLong.empty();
-    }
-
-    public override nodeCount(): number {
-      return 0n; // Java version returns 0
-    }
+  /**
+   * Create a long null property map with custom default.
+   */
+  static longDefault(defaultValue: number): LongNullPropertyMap {
+    return new LongNullPropertyMap(defaultValue);
   }
 }

@@ -8,3 +8,8 @@ export * from "./abstract/PropertySchema";
 export * from "./abstract/RelationshipSchema";
 export * from "./abstract/RelationshipSchemaEntry";
 export * from "./abstract/RelationshipPropertySchema";
+export * from "./primitive/MutableGraphSchema";
+export * from "./primitive/MutableNodeSchema";
+export * from "./primitive/MutableNodeSchemaEntry";
+export * from "./primitive/MutableRelationshipSchema";
+export * from "./primitive/MutableRelationshipSchemaEntry";

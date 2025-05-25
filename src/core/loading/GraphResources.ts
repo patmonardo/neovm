@@ -1,6 +1,6 @@
-import { Graph } from "../../api/Graph"; // Adjust path as needed
-import { GraphStore } from "../../api/GraphStore"; // Adjust path as needed
-import { ResultStore } from "../../api/ResultStore"; // Adjust path as needed
+import { Graph } from "@/api"; // Adjust path as needed
+import { GraphStore } from "@/api"; // Adjust path as needed
+import { ResultStore } from "@/api"; // Adjust path as needed
 
 /**
  * A container for graph-related resources.

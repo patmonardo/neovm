@@ -1,4 +1,4 @@
-import { GraphDimensions } from "../GraphDimensions"; // Adjust path as needed
+import { GraphDimensions } from "../GraphDimensions";
 
 /**
  * Represents a set of node label tokens.

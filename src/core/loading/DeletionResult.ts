@@ -35,7 +35,7 @@ class DeletionResultImpl implements DeletionResult {
  * Builder for DeletionResult.
  */
 export class DeletionResultBuilder {
-  private _deletedRelationships: number = 0n;
+  private _deletedRelationships: number = 0;
   private _deletedProperties: Map<string, number> = new Map();
 
   /**

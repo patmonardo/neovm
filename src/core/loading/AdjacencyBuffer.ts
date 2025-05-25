@@ -1,8 +1,48 @@
-// Assuming mocks are in a way that they can be imported, e.g.:
-// import { MutableLong, RelationshipType, ... } from './mocks';
+import { RelationshipType } from '@/api';
+import { AdjacencyCompressor, AdjacencyCompressorFactory, LongArrayBuffer } from '@/api/compress';
+import { Aggregation } from '@/core';
+import { AdjacencyCompression } from '@/core/compression/common';
+import { ZigZagLongDecoding } from '@/core/compression/common';
+import { Concurrency } from '@/core/concurrency';
+import { MemoryEstimation, MemoryEstimations } from '@/mem';
+import { BitUtil } from '@/mem';
+import { ReentrantLock } from '@/core/utils';
+import { LongAdder } from '@/core/utils';
+import { ChunkedAdjacencyLists } from './ChunkedAdjacencyLists';
+import { ImportSizing } from './ImportSizing';
+import { SingleTypeRelationshipImporter } from './SingleTypeRelationshipImporter';
+import { AdjacencyPreAggregation } from './AdjacencyPreAggregation';
 
-// Use the placeholder definitions from above
-
+/**
+ * Advanced buffering system for relationship adjacency data during graph import.
+ *
+ * AdjacencyBuffer is the core component responsible for efficiently collecting,
+ * compressing, and organizing relationship data during large-scale graph imports.
+ * It exists exactly once per relationship type and handles the complex process of:
+ *
+ * 1. **Raw Data Collection**: Receives relationship records from import buffers
+ * 2. **Compression**: Compresses raw records into efficient long arrays
+ * 3. **Paging**: Distributes data across pages for parallel processing
+ * 4. **Task Generation**: Creates builder tasks for final adjacency list construction
+ *
+ * Key architectural features:
+ * - **Paged storage**: Distributes relationships across multiple pages for parallelism
+ * - **Chunk-based locking**: Fine-grained synchronization for concurrent writes
+ * - **Adaptive compression**: Uses specialized compressors for different data patterns
+ * - **Property support**: Handles relationship properties with aggregation
+ * - **Memory optimization**: Estimates and manages memory usage efficiently
+ *
+ * Architecture:
+ * ```
+ * Raw Relationships → AdjacencyBuffer → Compressed Pages → Final Adjacency Lists
+ * [src→tgt, props]   [Page 0, 1, 2]     [Compressed]      [Graph Structure]
+ * ```
+ *
+ * Memory Management:
+ * - Automatically estimates memory requirements based on node count and degree
+ * - Uses paged allocation to handle large graphs that exceed memory limits
+ * - Provides configurable page sizes for different workload characteristics
+ */
 export class AdjacencyBuffer {
   private readonly adjacencyCompressorFactory: AdjacencyCompressorFactory;
   private readonly chunkLocks: ReentrantLock[];
@@ -14,8 +54,109 @@ export class AdjacencyBuffer {
   private readonly aggregations: Aggregation[];
   private readonly atLeastOnePropertyToLoad: boolean;
 
+  /**
+   * Estimate memory usage for an AdjacencyBuffer based on relationship type characteristics.
+   *
+   * @param relationshipType Type of relationships to estimate for
+   * @param propertyCount Number of properties per relationship
+   * @param undirected Whether relationships are undirected (doubles storage)
+   * @returns Memory estimation function
+   */
+  static memoryEstimation(
+    relationshipType: RelationshipType,
+    propertyCount: number,
+    undirected: boolean
+  ): MemoryEstimation {
+    return MemoryEstimations.setup('AdjacencyBuffer', (dimensions, concurrency) => {
+      const nodeCount = dimensions.nodeCount();
+      const relCountForType = dimensions
+        .relationshipCounts()
+        .get(relationshipType) ?? dimensions.relCountUpperBound();
+      const relCount = undirected ? relCountForType * 2 : relCountForType;
+      const avgDegree = nodeCount > 0 ? BitUtil.ceilDiv(relCount, nodeCount) : 0;
+
+      return AdjacencyBuffer.memoryEstimationWithMetrics(avgDegree, nodeCount, propertyCount, concurrency);
+    });
+  }
+
+  /**
+   * Estimate memory usage with specific metrics.
+   *
+   * @param avgDegree Average degree per node
+   * @param nodeCount Total number of nodes
+   * @param propertyCount Number of properties per relationship
+   * @param concurrency Concurrency configuration
+   * @returns Memory estimation
+   */
+  static memoryEstimationWithMetrics(
+    avgDegree: number,
+    nodeCount: number,
+    propertyCount: number,
+    concurrency: Concurrency
+  ): MemoryEstimation {
+    const importSizing = ImportSizing.of(concurrency, nodeCount);
+    const numberOfPages = importSizing.numberOfPages();
+    const pageSize = importSizing.pageSize();
+
+    return MemoryEstimations
+      .builder('AdjacencyBuffer')
+      .fixed('ChunkedAdjacencyLists pages', numberOfPages * 8) // Object array overhead
+      .add(
+        'ChunkedAdjacencyLists',
+        ChunkedAdjacencyLists.memoryEstimation(avgDegree, pageSize, propertyCount).times(numberOfPages)
+      )
+      .build();
+  }
+
+  /**
+   * Create a new AdjacencyBuffer with the specified configuration.
+   *
+   * @param importMetaData Metadata about the import (property keys, aggregations, etc.)
+   * @param adjacencyCompressorFactory Factory for creating compressors
+   * @param importSizing Sizing configuration for import pages
+   * @returns New AdjacencyBuffer instance
+   */
+  static of(
+    importMetaData: SingleTypeRelationshipImporter.ImportMetaData,
+    adjacencyCompressorFactory: AdjacencyCompressorFactory,
+    importSizing: ImportSizing
+  ): AdjacencyBuffer {
+    const numPages = importSizing.numberOfPages();
+    const pageSize = importSizing.pageSize();
+
+    // Create locks and chunked lists for each page
+    const chunkLocks: ReentrantLock[] = new Array(numPages);
+    const compressedAdjacencyLists: ChunkedAdjacencyLists[] = new Array(numPages);
+
+    for (let page = 0; page < numPages; page++) {
+      compressedAdjacencyLists[page] = ChunkedAdjacencyLists.of(
+        importMetaData.propertyKeyIds().length,
+        pageSize
+      );
+      chunkLocks[page] = new ReentrantLock();
+    }
+
+    // Determine if we have any properties to load
+    const atLeastOnePropertyToLoad = importMetaData.propertyKeyIds()
+      .some(keyId => keyId !== NO_SUCH_PROPERTY_KEY);
+
+    // Choose paging strategy based on whether page size is known
+    const paging: AdjacencyBufferPaging = pageSize !== null
+      ? new PagingWithKnownPageSize(pageSize)
+      : new PagingWithUnknownPageSize(numPages);
+
+    return new AdjacencyBuffer(
+      importMetaData,
+      adjacencyCompressorFactory,
+      chunkLocks,
+      compressedAdjacencyLists,
+      paging,
+      atLeastOnePropertyToLoad
+    );
+  }
+
   private constructor(
-    importMetaData: ImportMetaData,
+    importMetaData: SingleTypeRelationshipImporter.ImportMetaData,
     adjacencyCompressorFactory: AdjacencyCompressorFactory,
     chunkLocks: ReentrantLock[],
     chunkedAdjacencyLists: ChunkedAdjacencyLists[],
@@ -33,200 +174,404 @@ export class AdjacencyBuffer {
     this.atLeastOnePropertyToLoad = atLeastOnePropertyToLoad;
   }
 
-  public static memoryEstimation(
-    relationshipType: RelationshipType,
-    propertyCount: number,
-    undirected: boolean
-  ): MemoryEstimation {
-    return MemoryEstimations.setup("", (dimensions, concurrency) => {
-      const nodeCount = dimensions.nodeCount();
-      const relCountForType = dimensions.relationshipCounts().get(relationshipType) ?? dimensions.relCountUpperBound();
-      const relCount = undirected ? relCountForType * 2n : relCountForType;
-      const avgDegree = nodeCount > 0n ? BitUtil.ceilDiv(relCount, nodeCount) : 0n;
-      return AdjacencyBuffer._memoryEstimation(avgDegree, nodeCount, propertyCount, concurrency);
-    });
-  }
-
-  private static _memoryEstimation(
-    avgDegree: number,
-    nodeCount: number,
-    propertyCount: number,
-    concurrency: Concurrency
-  ): MemoryEstimation {
-    const importSizing = ImportSizing.of(concurrency, nodeCount);
-    const numberOfPages = importSizing.numberOfPages();
-    const pageSizeOpt = importSizing.pageSize();
-    return MemoryEstimations.builder(AdjacencyBuffer)
-      .fixed("ChunkedAdjacencyLists pages", Estimate.sizeOfObjectArray(numberOfPages))
-      .add("ChunkedAdjacencyLists",
-        ChunkedAdjacencyLists.memoryEstimation(avgDegree, pageSizeOpt.orElse(0), propertyCount).times(numberOfPages)
-      )
-      .build();
-  }
-
-  public static of(
-    importMetaData: ImportMetaData,
-    adjacencyCompressorFactory: AdjacencyCompressorFactory,
-    importSizing: ImportSizing
-  ): AdjacencyBuffer {
-    const numPages = importSizing.numberOfPages();
-    const pageSizeOpt = importSizing.pageSize();
-    const chunkLocks: ReentrantLock[] = Array.from({ length: numPages }, () => new ReentrantLock());
-    const chunkedLists: ChunkedAdjacencyLists[] = Array.from({ length: numPages }, () =>
-      ChunkedAdjacencyLists.of(importMetaData.propertyKeyIds().length, pageSizeOpt.orElse(0))
-    );
-    const atLeastOneProperty = importMetaData.propertyKeyIds().some(id => id !== NO_SUCH_PROPERTY_KEY);
-    const paging = pageSizeOpt.isPresent()
-      ? new PagingWithKnownPageSize(pageSizeOpt.get())
-      : new PagingWithUnknownPageSize(numPages);
-    return new AdjacencyBuffer(importMetaData, adjacencyCompressorFactory, chunkLocks, chunkedLists, paging, atLeastOneProperty);
-  }
-
-  public addAll(
-    batch: number[], // (source, target, source, target, ...)
-    targetsSlice: number[], // all targets from batch
-    propertyValues: number[][] | null, // properties for each target in targetsSlice
-    offsets: number[], // end-offsets for each source node's targets in targetsSlice
-    length: number // number of source nodes in this batch (length of relevant part of offsets)
+  /**
+   * Add a batch of relationships to the buffer.
+   *
+   * This is the core method that receives relationship data from importers and
+   * distributes it across pages with proper synchronization. The method handles:
+   * - Page-based distribution for parallel processing
+   * - Fine-grained locking to minimize contention
+   * - Property aggregation when required
+   * - Efficient batch processing of source-grouped relationships
+   *
+   * @param batch Two-tuple values sorted by source (source, target)
+   * @param targets Slice of batch on second position; all targets in source-sorted order
+   * @param propertyValues Index-synchronized with targets (null if no properties)
+   * @param offsets Offsets into targets; every offset indicates a source node group
+   * @param length Length of offsets array (number of source tuples to import)
+   */
+  addAll(
+    batch: number[],
+    targets: number[],
+    propertyValues: number[][] | null,
+    offsets: number[],
+    length: number
   ): void {
-    const pagingImpl = this.paging;
-    let currentLock: ReentrantLock | null = null;
+    const paging = this.paging;
+
+    let lock: ReentrantLock | null = null;
     let lastPageIndex = -1;
-    let currentSegmentStartOffset = 0; // Start index in targetsSlice for the current source node
+    let endOffset: number;
+    let startOffset = 0;
 
     try {
-      for (let i = 0; i < length; ++i) {
-        const currentSegmentEndOffset = offsets[i];
+      for (let i = 0; i < length; i++) {
+        endOffset = offsets[i];
 
-        if (currentSegmentEndOffset <= currentSegmentStartOffset) {
-          currentSegmentStartOffset = currentSegmentEndOffset; // Advance for next iteration
+        // Skip if there are no relationships for this node
+        if (endOffset <= startOffset) {
           continue;
         }
 
-        const sourceNodeId = batch[currentSegmentStartOffset * 2]; // Source for the current segment
-        const pageIndex = pagingImpl.pageId(sourceNodeId);
+        const source = batch[startOffset << 1]; // Get source from batch[startOffset * 2]
+        const pageIndex = paging.pageId(source);
 
+        // Switch to the appropriate page lock if needed
         if (pageIndex !== lastPageIndex) {
-          currentLock?.unlock();
-          currentLock = this.chunkLocks[pageIndex];
-          currentLock.lock();
+          if (lock !== null) {
+            lock.unlock();
+          }
+          const newLock = this.chunkLocks[pageIndex];
+          newLock.lock();
+          lock = newLock;
           lastPageIndex = pageIndex;
         }
 
-        const localId = pagingImpl.localId(sourceNodeId);
-        const listForPage = this.chunkedAdjacencyLists[pageIndex];
-        let targetsInSegmentToImport = currentSegmentEndOffset - currentSegmentStartOffset;
+        const localId = paging.localId(source);
+        const compressedTargets = this.chunkedAdjacencyLists[pageIndex];
+
+        let targetsToImport = endOffset - startOffset;
 
         if (propertyValues === null) {
-          listForPage.add(localId, targetsSlice, currentSegmentStartOffset, currentSegmentEndOffset, targetsInSegmentToImport);
+          // No properties - simple case
+          compressedTargets.add(localId, targets, startOffset, endOffset, targetsToImport);
         } else {
-          if (this.aggregations.length > 0 && this.aggregations[0] !== Aggregation.NONE && targetsInSegmentToImport > 1) {
-            // preAggregate works on the segment [currentSegmentStartOffset, currentSegmentEndOffset)
-            // of targetsSlice and propertyValues. It returns the new count of targets for this segment.
-            targetsInSegmentToImport = AdjacencyPreAggregation.preAggregate(
-              targetsSlice, propertyValues, currentSegmentStartOffset, currentSegmentEndOffset, this.aggregations
+          // Handle property aggregation if needed
+          if (this.aggregations[0] !== Aggregation.NONE && targetsToImport > 1) {
+            targetsToImport = AdjacencyPreAggregation.preAggregate(
+              targets,
+              propertyValues,
+              startOffset,
+              endOffset,
+              this.aggregations
             );
           }
-          listForPage.add(localId, targetsSlice, propertyValues, currentSegmentStartOffset, currentSegmentEndOffset, targetsInSegmentToImport);
+          compressedTargets.add(localId, targets, propertyValues, startOffset, endOffset, targetsToImport);
         }
-        currentSegmentStartOffset = currentSegmentEndOffset; // Move to the start of the next segment
+
+        startOffset = endOffset;
       }
     } finally {
-      currentLock?.unlock();
+      // Always release the lock if we acquired it
+      if (lock !== null && lock.isHeldByCurrentThread()) {
+        lock.unlock();
+      }
     }
   }
 
-  public adjacencyListBuilderTasks(
-    mapperOpt: Optional<AdjacencyCompressor.ValueMapper>,
-    drainCountConsumerOpt: Optional<LongConsumer>
+  /**
+   * Create builder tasks for constructing the final adjacency lists.
+   *
+   * This method generates a collection of tasks that can be executed in parallel
+   * to build the final compressed adjacency lists from the buffered data.
+   * Each task handles one page of the buffer.
+   *
+   * @param mapper Optional value mapper for node ID transformation
+   * @param drainCountConsumer Optional consumer for relationship count tracking
+   * @returns Collection of tasks for parallel execution
+   */
+  adjacencyListBuilderTasks(
+    mapper?: AdjacencyCompressor.ValueMapper,
+    drainCountConsumer?: (count: number) => void
   ): AdjacencyListBuilderTask[] {
     this.adjacencyCompressorFactory.init();
+
     const tasks: AdjacencyListBuilderTask[] = [];
+
     for (let page = 0; page < this.chunkedAdjacencyLists.length; page++) {
       tasks.push(new AdjacencyListBuilderTask(
-        page, this.paging, this.adjacencyCompressorFactory,
-        this.chunkedAdjacencyLists[page], this.relationshipCounter,
-        mapperOpt.orElse(ZigZagLongDecoding.Identity.INSTANCE),
-        drainCountConsumerOpt.orElse(() => {}) // Empty function for no-op
+        page,
+        this.paging,
+        this.adjacencyCompressorFactory,
+        this.chunkedAdjacencyLists[page],
+        this.relationshipCounter,
+        mapper ?? ZigZagLongDecoding.Identity.INSTANCE,
+        drainCountConsumer ?? (() => {})
       ));
     }
+
     return tasks;
   }
 
-  public getPropertyKeyIds = (): number[] => this.propertyKeyIds;
-  public getDefaultValues = (): number[] => this.defaultValues;
-  public getAggregations = (): Aggregation[] => this.aggregations;
-  public atLeastOnePropertyToLoad = (): boolean => this.atLeastOnePropertyToLoad;
+  /**
+   * Get the property key IDs for this buffer.
+   */
+  getPropertyKeyIds(): number[] {
+    return this.propertyKeyIds;
+  }
+
+  /**
+   * Get the default values for properties.
+   */
+  getDefaultValues(): number[] {
+    return this.defaultValues;
+  }
+
+  /**
+   * Get the aggregation strategies for properties.
+   */
+  getAggregations(): Aggregation[] {
+    return this.aggregations;
+  }
+
+  /**
+   * Check if this buffer has at least one property to load.
+   */
+  atLeastOnePropertyToLoad(): boolean {
+    return this.atLeastOnePropertyToLoad;
+  }
+
+  /**
+   * Get statistics about the current state of this buffer.
+   */
+  getStatistics(): AdjacencyBufferStatistics {
+    let totalMemoryBytes = 0;
+    let totalRelationships = 0;
+
+    for (const chunkedList of this.chunkedAdjacencyLists) {
+      const stats = chunkedList.getStatistics();
+      totalMemoryBytes += stats.memoryUsageBytes;
+      totalRelationships += stats.relationshipCount;
+    }
+
+    return {
+      pageCount: this.chunkedAdjacencyLists.length,
+      totalRelationships,
+      totalMemoryBytes,
+      propertyCount: this.propertyKeyIds.length,
+      hasProperties: this.atLeastOnePropertyToLoad,
+      averageRelationshipsPerPage: totalRelationships / this.chunkedAdjacencyLists.length
+    };
+  }
+
+  /**
+   * Estimate the current memory usage of this buffer.
+   */
+  estimateMemoryUsage(): number {
+    let totalBytes = 0;
+
+    // Memory for locks array
+    totalBytes += this.chunkLocks.length * 64; // Estimated lock overhead
+
+    // Memory for chunked adjacency lists
+    for (const chunkedList of this.chunkedAdjacencyLists) {
+      totalBytes += chunkedList.estimateMemoryUsage?.() || 0;
+    }
+
+    // Memory for arrays
+    totalBytes += this.propertyKeyIds.length * 4;
+    totalBytes += this.defaultValues.length * 8;
+    totalBytes += this.aggregations.length * 8;
+
+    return totalBytes;
+  }
 }
 
+/**
+ * Task responsible for building adjacency lists from a single page of buffered data.
+ *
+ * This task takes the compressed relationship data from one page and builds the
+ * final adjacency list structures using the configured compressor. It handles:
+ * - Decompression of ZigZag-encoded targets
+ * - Value mapping for node ID transformation
+ * - Property handling and compression
+ * - Relationship counting and statistics
+ */
 export class AdjacencyListBuilderTask implements Runnable {
-  constructor(
-    private readonly page: number,
-    private readonly paging: AdjacencyBufferPaging,
-    private readonly adjacencyCompressorFactory: AdjacencyCompressorFactory,
-    private readonly chunkedAdjacencyLists: ChunkedAdjacencyLists,
-    private readonly relationshipCounter: LongAdder,
-    private readonly valueMapper: AdjacencyCompressor.ValueMapper,
-    private readonly drainCountConsumer: LongConsumer
-  ) {}
+  private readonly page: number;
+  private readonly paging: AdjacencyBufferPaging;
+  private readonly adjacencyCompressorFactory: AdjacencyCompressorFactory;
+  private readonly chunkedAdjacencyLists: ChunkedAdjacencyLists;
+  private readonly relationshipCounter: LongAdder;
+  private readonly valueMapper: AdjacencyCompressor.ValueMapper;
+  private readonly drainCountConsumer: (count: number) => void;
 
-  public run(): void {
+  constructor(
+    page: number,
+    paging: AdjacencyBufferPaging,
+    adjacencyCompressorFactory: AdjacencyCompressorFactory,
+    chunkedAdjacencyLists: ChunkedAdjacencyLists,
+    relationshipCounter: LongAdder,
+    valueMapper: AdjacencyCompressor.ValueMapper,
+    drainCountConsumer: (count: number) => void
+  ) {
+    this.page = page;
+    this.paging = paging;
+    this.adjacencyCompressorFactory = adjacencyCompressorFactory;
+    this.chunkedAdjacencyLists = chunkedAdjacencyLists;
+    this.relationshipCounter = relationshipCounter;
+    this.valueMapper = valueMapper;
+    this.drainCountConsumer = drainCountConsumer;
+  }
+
+  /**
+   * Execute the adjacency list building for this page.
+   *
+   * This method processes all the chunked adjacency data for this page:
+   * 1. Creates a compressor instance
+   * 2. Iterates through all stored adjacency data
+   * 3. Decompresses ZigZag-encoded targets
+   * 4. Applies value mapping for node ID transformation
+   * 5. Compresses the final adjacency list
+   * 6. Updates relationship counters
+   */
+  async run(): Promise<void> {
     const compressor = this.adjacencyCompressorFactory.createCompressor();
+    const buffer = new LongArrayBuffer();
+    let importedRelationships = 0;
+
     try {
-      const buffer = new LongArrayBuffer();
-      const importedRelationships = new MutableLong(0n);
-      this.chunkedAdjacencyLists.consume((localId, targets, properties, compressedByteSize, numberOfCompressedTargets) => {
+      this.chunkedAdjacencyLists.consume((
+        localId: number,
+        targets: number[],
+        properties: number[][] | null,
+        compressedByteSize: number,
+        numberOfCompressedTargets: number
+      ) => {
+        // Convert local ID back to global source node ID
         const sourceNodeId = this.paging.sourceNodeId(localId, this.page);
         const nodeId = this.valueMapper.map(sourceNodeId);
 
-        AdjacencyCompression.zigZagUncompressFrom(buffer, targets, numberOfCompressedTargets, compressedByteSize, this.valueMapper);
+        // Decompress the ZigZag-encoded targets
+        AdjacencyCompression.zigZagUncompressFrom(
+          buffer,
+          targets,
+          numberOfCompressedTargets,
+          compressedByteSize,
+          this.valueMapper
+        );
 
-        importedRelationships.add(compressor.compress(
-          nodeId, buffer.buffer.slice(0, buffer.length), properties, numberOfCompressedTargets
-        ));
+        // Compress the final adjacency list
+        const compressedCount = compressor.compress(
+          nodeId,
+          buffer.buffer,
+          properties,
+          numberOfCompressedTargets
+        );
+
+        importedRelationships += compressedCount;
       });
-      this.relationshipCounter.add(importedRelationships.longValue());
-      this.drainCountConsumer(importedRelationships.longValue());
+
+      // Update global counters
+      this.relationshipCounter.add(importedRelationships);
+      this.drainCountConsumer(importedRelationships);
     } finally {
-        // Simulate try-with-resources for compressor
-        if (typeof (compressor as any)[Symbol.dispose] === 'function') {
-            ((compressor as any)[Symbol.dispose] as () => void)();
-        } else if (typeof (compressor as any).close === 'function') {
-            ((compressor as any).close as () => void)();
-        }
+      compressor.close?.();
     }
+  }
+
+  /**
+   * Get statistics about this task.
+   */
+  getTaskStatistics(): AdjacencyListBuilderTaskStatistics {
+    return {
+      page: this.page,
+      estimatedRelationships: this.chunkedAdjacencyLists.estimateRelationshipCount?.() || 0,
+      estimatedMemoryUsage: this.chunkedAdjacencyLists.estimateMemoryUsage?.() || 0
+    };
   }
 }
 
+/**
+ * Paging strategy interface for distributing relationships across pages.
+ */
+export interface AdjacencyBufferPaging {
+  /**
+   * Get the page ID for a given source node.
+   */
+  pageId(source: number): number;
+
+  /**
+   * Get the local ID within a page for a given source node.
+   */
+  localId(source: number): number;
+
+  /**
+   * Convert local ID and page back to global source node ID.
+   */
+  sourceNodeId(localId: number, pageId: number): number;
+}
+
+/**
+ * Paging implementation when page size is known at construction time.
+ *
+ * This uses bit shifting for efficient page/offset calculations when
+ * the page size is a power of 2.
+ */
 class PagingWithKnownPageSize implements AdjacencyBufferPaging {
   private readonly pageShift: number;
   private readonly pageMask: number;
+
   constructor(pageSize: number) {
-    if (pageSize <= 0) throw new Error("Page size must be positive");
-    // Ensure pageSize is a power of 2 for bitwise operations to be equivalent to division/modulo
-    if ((pageSize & (pageSize - 1)) !== 0 && pageSize !== 1) {
-        console.warn(`PagingWithKnownPageSize: pageSize ${pageSize} is not a power of 2. Paging logic might be incorrect if division/modulo was intended for non-power-of-2 sizes.`);
-    }
-    this.pageShift = numberOfTrailingZeros(pageSize);
+    this.pageShift = Math.clz32(pageSize - 1) === Math.clz32(pageSize)
+      ? 32 - Math.clz32(pageSize) - 1  // Power of 2
+      : Math.floor(Math.log2(pageSize)); // Approximate for non-power-of-2
     this.pageMask = pageSize - 1;
   }
-  pageId = (source: number): number => Number(source >> BigInt(this.pageShift));
-  localId = (source: number): number => source & BigInt(this.pageMask);
-  sourceNodeId = (localId: number, pageId: number): number => (BigInt(pageId) << BigInt(this.pageShift)) + localId;
+
+  pageId(source: number): number {
+    return Math.floor(source / (1 << this.pageShift));
+  }
+
+  localId(source: number): number {
+    return source & this.pageMask;
+  }
+
+  sourceNodeId(localId: number, pageId: number): number {
+    return (pageId << this.pageShift) + localId;
+  }
 }
 
+/**
+ * Paging implementation when page size is unknown at construction time.
+ *
+ * This uses a hash-based approach to distribute nodes across pages
+ * when the final page size cannot be determined upfront.
+ */
 class PagingWithUnknownPageSize implements AdjacencyBufferPaging {
   private readonly pageShift: number;
   private readonly pageMask: number;
+
   constructor(numberOfPages: number) {
-    if (numberOfPages <= 0) throw new Error("Number of pages must be positive");
-    if ((numberOfPages & (numberOfPages - 1)) !== 0 && numberOfPages !== 1) {
-        console.warn(`PagingWithUnknownPageSize: numberOfPages ${numberOfPages} is not a power of 2. Paging logic might be incorrect.`);
-    }
-    this.pageShift = numberOfTrailingZeros(numberOfPages);
+    this.pageShift = Math.floor(Math.log2(numberOfPages));
     this.pageMask = numberOfPages - 1;
   }
-  pageId = (source: number): number => Number(source & BigInt(this.pageMask));
-  localId = (source: number): number => source >> BigInt(this.pageShift);
-  sourceNodeId = (localId: number, pageId: number): number => (localId << BigInt(this.pageShift)) + BigInt(pageId);
+
+  pageId(source: number): number {
+    // Use least significant bits for page distribution
+    // TODO: Could shift source by a few bits for better locality
+    return source & this.pageMask;
+  }
+
+  localId(source: number): number {
+    return source >>> this.pageShift;
+  }
+
+  sourceNodeId(localId: number, pageId: number): number {
+    return (localId << this.pageShift) + pageId;
+  }
+}
+
+// Constants
+const NO_SUCH_PROPERTY_KEY = -1;
+
+// Statistics interfaces
+export interface AdjacencyBufferStatistics {
+  pageCount: number;
+  totalRelationships: number;
+  totalMemoryBytes: number;
+  propertyCount: number;
+  hasProperties: boolean;
+  averageRelationshipsPerPage: number;
+}
+
+export interface AdjacencyListBuilderTaskStatistics {
+  page: number;
+  estimatedRelationships: number;
+  estimatedMemoryUsage: number;
+}
+
+// Runnable interface for TypeScript
+export interface Runnable {
+  run(): void | Promise<void>;
 }

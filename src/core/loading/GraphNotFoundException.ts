@@ -1,5 +1,5 @@
-import { GraphStoreCatalog } from "./catalog/GraphStoreCatalog"; // Adjust path as needed
-import { StringFormatting } from "../../utils/StringFormatting"; // Adjust path as needed
+import { GraphStoreCatalog } from "./GraphStoreCatalog";
+import { StringFormatting } from "@/utils/StringFormatting";
 
 export class GraphNotFoundException extends Error {
   public readonly userCatalogKey: GraphStoreCatalog.UserCatalog.UserCatalogKey;

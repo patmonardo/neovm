@@ -1,45 +1,107 @@
-import { IntObjectMap } from '../collections/IntObjectMap'; // Adjust path
-import { NodeLabel } from '../NodeLabel'; // Adjust path
-import { RawValues } from '../utils/RawValues'; // Adjust path
-import { Optional } from '../utils/Optional'; // Adjust path
-import { IdMapBuilder } from './IdMapBuilder';
-import { LabelInformation } from './LabelInformation';
-import { NodeLabelTokenSet } from './NodeLabelTokenSet';
-import { NodesBatchBuffer } from './NodesBatchBuffer';
-import { IdMapAllocator } from './IdMapAllocator';
+import { NodeLabel } from '@/api';
+import { RawValues } from '@/core/utils';
+import { IdMapBuilder, LabelInformation } from '@/core/loading';
+import {
+  NodesBatchBuffer,
+  NodeLabelTokenSet,
+  IdMapAllocator
+} from '@/core/loading/batching';
 
 /**
- * Reads properties for a single node.
+ * Handles the import of nodes from batch buffers into the graph structure.
+ * Orchestrates ID mapping, label assignment, and property import.
+ *
+ * This is a key component in the node loading pipeline that:
+ * - Builds ID mappings from original to internal node IDs
+ * - Associates nodes with their labels
+ * - Imports node properties through configurable readers
  */
-export interface PropertyReader<PROPERTY_REF> {
-  /**
-   * Reads and processes properties for a given node.
-   * @param nodeReference The original reference/ID of the node (long in Java).
-   * @param labelTokens The set of label tokens for this node.
-   * @param propertiesReference A reference to the properties data for this node.
-   * @returns The number of properties successfully read/imported for this node (int in Java).
-   */
-  readProperty(nodeReference: number, labelTokens: NodeLabelTokenSet, propertiesReference: PROPERTY_REF): number;
-}
-
-/**
- * A function that extracts a node ID from a batch at a given position.
- */
-interface IdFunction {
-  apply(batch: number[], pos: number): number;
-}
-
 export class NodeImporter {
   private readonly idMapBuilder: IdMapBuilder;
   private readonly labelInformationBuilder: LabelInformation.Builder;
-  private readonly labelTokenNodeLabelMapping: Optional<IntObjectMap<NodeLabel[]>>;
-  private readonly importPropertiesFlag: boolean; // Renamed from importProperties to avoid conflict
+  private readonly labelTokenNodeLabelMapping?: Map<number, NodeLabel[]>;
+  private readonly importProperties: boolean;
+
+  constructor(config: NodeImporterConfig) {
+    this.idMapBuilder = config.idMapBuilder;
+    this.labelInformationBuilder = config.labelInformationBuilder;
+    this.labelTokenNodeLabelMapping = config.labelTokenNodeLabelMapping;
+    this.importProperties = config.importProperties ?? true;
+  }
 
   /**
-   * Helper static method to import properties for a batch of nodes.
+   * Import nodes from a batch buffer using the configured label mapping.
+   */
+  importNodes<PROPERTY_REF>(
+    buffer: NodesBatchBuffer<PROPERTY_REF>,
+    reader: NodeImporter.PropertyReader<PROPERTY_REF>
+  ): number {
+    if (!this.labelTokenNodeLabelMapping) {
+      throw new Error('Missing Token-to-NodeLabel mapping');
+    }
+    return this.importNodesWithMapping(buffer, this.labelTokenNodeLabelMapping, reader);
+  }
+
+  /**
+   * Import nodes from a batch buffer with explicit label mapping.
+   */
+  importNodesWithMapping<PROPERTY_REF>(
+    buffer: NodesBatchBuffer<PROPERTY_REF>,
+    tokenToNodeLabelsMap: Map<number, NodeLabel[]>,
+    reader: NodeImporter.PropertyReader<PROPERTY_REF>
+  ): number {
+    let batchLength = buffer.length();
+    if (batchLength === 0) {
+      return 0;
+    }
+
+    // Allocate space in the ID map for this batch
+    const idMapAllocator = this.idMapBuilder.allocate(batchLength);
+
+    // Since we read the graph size in one transaction and load in multiple
+    // different transactions, any new data that is being added during loading
+    // will show up while scanning, but would not be accounted for when
+    // sizing the data structures used for loading.
+    //
+    // The node loading part only accepts nodes that are within the
+    // calculated capacity that we have available.
+    batchLength = idMapAllocator.allocatedSize();
+
+    if (batchLength === 0) {
+      return 0;
+    }
+
+    const batch = buffer.batch();
+    const properties = buffer.propertyReferences();
+    const labelTokens = buffer.labelTokens();
+
+    // Import node IDs
+    idMapAllocator.insert(batch);
+
+    // Import node labels
+    if (buffer.hasLabelInformation()) {
+      this.setNodeLabelInformation(
+        batch,
+        batchLength,
+        labelTokens,
+        (nodeIds, pos) => nodeIds[pos],
+        tokenToNodeLabelsMap
+      );
+    }
+
+    // Import node properties
+    const importedProperties = this.importProperties
+      ? NodeImporter.importProperties(reader, batch, properties, labelTokens, batchLength)
+      : 0;
+
+    return RawValues.combineIntInt(batchLength, importedProperties);
+  }
+
+  /**
+   * Import properties for a batch of nodes.
    */
   private static importProperties<PROPERTY_REF>(
-    reader: PropertyReader<PROPERTY_REF>,
+    reader: NodeImporter.PropertyReader<PROPERTY_REF>,
     batch: number[],
     properties: PROPERTY_REF[],
     labelTokens: NodeLabelTokenSet[],
@@ -57,113 +119,190 @@ export class NodeImporter {
   }
 
   /**
-   * Constructs a NodeImporter.
-   * The @Builder.Constructor annotation in Java suggests this might be typically called by a builder.
-   * @param idMapBuilder Builder for the ID map.
-   * @param labelInformationBuilder Builder for label information.
-   * @param labelTokenNodeLabelMapping Optional mapping from label tokens to NodeLabel arrays.
-   * @param importPropertiesFlag Whether to import properties.
+   * Set label information for nodes in the batch.
    */
-  constructor(
-    idMapBuilder: IdMapBuilder,
-    labelInformationBuilder: LabelInformation.Builder,
-    labelTokenNodeLabelMapping: Optional<IntObjectMap<NodeLabel[]>>,
-    importPropertiesFlag: boolean
-  ) {
-    this.idMapBuilder = idMapBuilder;
-    this.labelInformationBuilder = labelInformationBuilder;
-    this.labelTokenNodeLabelMapping = labelTokenNodeLabelMapping;
-    this.importPropertiesFlag = importPropertiesFlag;
-  }
-
-  /**
-   * Imports nodes from the given buffer, using the configured token-to-NodeLabel mapping.
-   * @throws Error if token-to-NodeLabel mapping is required but not provided.
-   */
-  public importNodes<PROPERTY_REF>(
-    buffer: NodesBatchBuffer<PROPERTY_REF>,
-    reader: PropertyReader<PROPERTY_REF>
-  ): number {
-    const tokenToLabelMap = this.labelTokenNodeLabelMapping.orElseThrow(
-      () => new Error("Missing Token-to-NodeLabel mapping") // IllegalStateException in Java
-    );
-    return this._importNodesInternal(buffer, tokenToLabelMap, reader);
-  }
-
-  /**
-   * Imports nodes from the given buffer using the provided token-to-NodeLabel mapping.
-   * This is the core import logic.
-   */
-  private _importNodesInternal<PROPERTY_REF>(
-    buffer: NodesBatchBuffer<PROPERTY_REF>,
-    tokenToNodeLabelsMap: IntObjectMap<NodeLabel[]>,
-    reader: PropertyReader<PROPERTY_REF>
-  ): number {
-    let batchLength = buffer.length();
-    if (batchLength === 0) {
-      return 0n;
-    }
-
-    const idMapAllocator: IdMapAllocator = this.idMapBuilder.allocate(batchLength);
-
-    // Adjust batchLength based on actual allocation, as graph size might change during loading.
-    batchLength = idMapAllocator.allocatedSize();
-
-    if (batchLength === 0) {
-      return 0n;
-    }
-
-    const batchNodeIds = buffer.batch();
-    const properties = buffer.propertyReferences();
-    const labelTokensArray = buffer.labelTokens();
-
-    // Import node IDs
-    idMapAllocator.insert(batchNodeIds); // Assumes insert considers only up to batchLength (or allocatedSize)
-
-    // Import node labels
-    if (buffer.hasLabelInformation()) {
-      this.setNodeLabelInformation(
-        batchNodeIds,
-        batchLength,
-        labelTokensArray,
-        (nodeIds, pos) => nodeIds[pos], // Simple IdFunction
-        tokenToNodeLabelsMap
-      );
-    }
-
-    // Import node properties
-    const importedPropertiesCount = this.importPropertiesFlag
-      ? NodeImporter.importProperties(reader, batchNodeIds, properties, labelTokensArray, batchLength)
-      : 0;
-
-    // Combine batchLength (nodes imported) and importedPropertiesCount into a single number
-    return RawValues.combineIntInt(batchLength, importedPropertiesCount);
-  }
-
   private setNodeLabelInformation(
-    batchNodeIds: number[],
+    batch: number[],
     batchLength: number,
-    labelIdsPerNode: NodeLabelTokenSet[],
+    labelIds: NodeLabelTokenSet[],
     idFunction: IdFunction,
-    tokenToNodeLabelsMap: IntObjectMap<NodeLabel[]>
+    tokenToNodeLabelsMap: Map<number, NodeLabel[]>
   ): void {
-    // Ensure we don't go out of bounds if labelIds.length is less than batchLength
-    const cappedBatchLength = Math.min(labelIdsPerNode.length, batchLength);
+    const cappedBatchLength = Math.min(labelIds.length, batchLength);
 
     for (let i = 0; i < cappedBatchLength; i++) {
-      const nodeId = idFunction.apply(batchNodeIds, i); // Get the actual node ID
-      const labelTokensForNode = labelIdsPerNode[i];
-
-      if (!labelTokensForNode) continue; // Safety check
+      const nodeId = idFunction(batch, i);
+      const labelTokensForNode = labelIds[i];
 
       for (let j = 0; j < labelTokensForNode.length(); j++) {
-        const token = labelTokensForNode.get(j);
-        // Collections.emptyList() in Java becomes an empty array [] here
-        const nodeLabels = tokenToNodeLabelsMap.getOrDefault(token, []);
+        const labelToken = labelTokensForNode.get(j);
+        const nodeLabels = tokenToNodeLabelsMap.get(labelToken) || [];
+
         for (const nodeLabel of nodeLabels) {
           this.labelInformationBuilder.addNodeIdToLabel(nodeLabel, nodeId);
         }
       }
     }
+  }
+
+  /**
+   * Get statistics about the import process.
+   */
+  getImportStats(): NodeImportStats {
+    return {
+      totalNodesProcessed: this.idMapBuilder.nodeCount(),
+      labelsRegistered: this.labelInformationBuilder.labelCount(),
+      propertiesImported: this.importProperties,
+      idMapType: this.idMapBuilder.typeId()
+    };
+  }
+}
+
+export namespace NodeImporter {
+  /**
+   * Interface for reading node properties during import.
+   */
+  export interface PropertyReader<PROPERTY_REF> {
+    /**
+     * Read properties for a single node.
+     *
+     * @param nodeReference    The node ID/reference
+     * @param labelTokens      The label tokens for this node
+     * @param propertiesReference Reference to the property data
+     * @returns Number of properties imported for this node
+     */
+    readProperty(
+      nodeReference: number,
+      labelTokens: NodeLabelTokenSet,
+      propertiesReference: PROPERTY_REF
+    ): number;
+  }
+
+  /**
+   * Factory for creating commonly used property readers.
+   */
+  export class PropertyReaderFactory {
+    /**
+     * Create a no-op property reader that imports no properties.
+     */
+    static noProperties<PROPERTY_REF>(): PropertyReader<PROPERTY_REF> {
+      return {
+        readProperty: () => 0
+      };
+    }
+
+    /**
+     * Create a property reader that counts properties without importing them.
+     */
+    static countingOnly<PROPERTY_REF>(): PropertyReader<PROPERTY_REF> {
+      return {
+        readProperty: (nodeRef, labelTokens, propRef) => {
+          // In a real implementation, this would count the properties
+          // in the property reference without importing them
+          return propRef ? 1 : 0;
+        }
+      };
+    }
+
+    /**
+     * Create a property reader that delegates to a custom function.
+     */
+    static custom<PROPERTY_REF>(
+      readFunction: (nodeRef: number, labelTokens: NodeLabelTokenSet, propRef: PROPERTY_REF) => number
+    ): PropertyReader<PROPERTY_REF> {
+      return {
+        readProperty: readFunction
+      };
+    }
+  }
+}
+
+/**
+ * Configuration for creating a NodeImporter.
+ */
+export interface NodeImporterConfig {
+  idMapBuilder: IdMapBuilder;
+  labelInformationBuilder: LabelInformation.Builder;
+  labelTokenNodeLabelMapping?: Map<number, NodeLabel[]>;
+  importProperties?: boolean;
+}
+
+/**
+ * Statistics about the node import process.
+ */
+export interface NodeImportStats {
+  totalNodesProcessed: number;
+  labelsRegistered: number;
+  propertiesImported: boolean;
+  idMapType: string;
+}
+
+/**
+ * Function type for extracting node IDs from batch arrays.
+ */
+type IdFunction = (batch: number[], pos: number) => number;
+
+/**
+ * Factory for creating NodeImporter instances with common configurations.
+ */
+export class NodeImporterFactory {
+  /**
+   * Create a node importer for basic ID mapping only.
+   */
+  static idMappingOnly(idMapBuilder: IdMapBuilder): NodeImporter {
+    return new NodeImporter({
+      idMapBuilder,
+      labelInformationBuilder: LabelInformation.builder(),
+      importProperties: false
+    });
+  }
+
+  /**
+   * Create a node importer with label support.
+   */
+  static withLabels(
+    idMapBuilder: IdMapBuilder,
+    labelMapping: Map<number, NodeLabel[]>
+  ): NodeImporter {
+    return new NodeImporter({
+      idMapBuilder,
+      labelInformationBuilder: LabelInformation.builder(),
+      labelTokenNodeLabelMapping: labelMapping,
+      importProperties: false
+    });
+  }
+
+  /**
+   * Create a full-featured node importer with labels and properties.
+   */
+  static fullImport(
+    idMapBuilder: IdMapBuilder,
+    labelMapping: Map<number, NodeLabel[]>
+  ): NodeImporter {
+    return new NodeImporter({
+      idMapBuilder,
+      labelInformationBuilder: LabelInformation.builder(),
+      labelTokenNodeLabelMapping: labelMapping,
+      importProperties: true
+    });
+  }
+
+  /**
+   * Create a node importer optimized for single-label graphs.
+   */
+  static singleLabel(
+    idMapBuilder: IdMapBuilder,
+    label: NodeLabel,
+    labelToken: number = 0
+  ): NodeImporter {
+    const labelMapping = new Map<number, NodeLabel[]>();
+    labelMapping.set(labelToken, [label]);
+
+    return new NodeImporter({
+      idMapBuilder,
+      labelInformationBuilder: LabelInformation.builder(),
+      labelTokenNodeLabelMapping: labelMapping,
+      importProperties: true
+    });
   }
 }
