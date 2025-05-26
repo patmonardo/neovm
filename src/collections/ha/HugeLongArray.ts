@@ -1,100 +1,593 @@
-import { HugeCursor } from '../cursor/HugeCursor';
-import { HugeArrays } from '../HugeArrays';
-import { PageUtil } from '../PageUtil';
-import { Estimate } from '../../mem/Estimate';
+import { ArrayUtil } from "@/collections";
+import { PageUtil } from "@/collections";
+import { HugeCursor, SinglePageCursor, PagedCursor } from "@/collections";
+import { HugeArrays } from "@/mem";
+import { Estimate } from "@/mem";
+import { HugeArray } from "./HugeArray";
 
 /**
- * Interface for functions that generate long values from indices
- */
-export interface LongUnaryOperator {
-  applyAsLong(value: number): number;
-}
-
-/**
- * A long-indexable version of a primitive long array (BigInt64Array) that can contain more elements
- * than JavaScript's standard array size limitations.
+ * A number-indexable version of a primitive number array that can contain more than 2 billion elements.
  *
- * It is implemented by paging of smaller long-arrays (BigInt64Array[]) to support very large collections.
- * If the provided size is small enough, an optimized view of a single BigInt64Array might be used.
+ * This is the **core numeric array implementation** for the graph data science system, designed to
+ * handle massive datasets that exceed standard JavaScript array limitations while maintaining
+ * high performance for graph algorithms and analytics.
+ *
+ * **Design Philosophy:**
+ * It is implemented by paging of smaller number arrays (`number[][]`) to support approximately
+ * 32,000 billion elements. If the provided size is small enough, an optimized view of a single
+ * `number[]` might be used for maximum performance.
+ *
+ * **Key Characteristics:**
+ *
+ * **1. Fixed Size Architecture:**
+ * - The array is of a **fixed size** and cannot grow or shrink dynamically
+ * - Size is determined at creation time and remains constant throughout lifecycle
+ * - This enables optimal memory layout and performance optimization
+ *
+ * **2. Dense Storage Optimization:**
+ * - Not optimized for sparseness and has a large memory overhead if values are very sparse
+ * - For sparse data, consider `HugeSparseLongArray` which can benefit from sparse patterns
+ * - Every element position consumes memory regardless of whether it contains meaningful data
+ *
+ * **3. Zero Default Values:**
+ * - Does not support custom default values
+ * - Returns the same default for unset values that a regular `number[]` does (`0`)
+ * - All elements are automatically initialized to `0` when the array is created
+ *
+ * **Performance Characteristics:**
+ *
+ * **Memory Layout:**
+ * ```
+ * Single Array (≤ MAX_ARRAY_LENGTH):
+ * [0][1][2][3][4][5]...[n]  ← Direct access, optimal performance
+ *
+ * Paged Array (> MAX_ARRAY_LENGTH):
+ * Page 0: [0][1][2][3]       ← 4 elements per page (example)
+ * Page 1: [4][5][6][7]       ← Page-based lookup required
+ * Page 2: [8][9][10][11]     ← Slightly more overhead
+ * ```
+ *
+ * **Access Patterns:**
+ * - **Random access**: O(1) for both single and paged implementations
+ * - **Sequential access**: Optimal cache performance with cursor-based iteration
+ * - **Bulk operations**: Highly optimized using native array operations where possible
+ *
+ * **Memory Efficiency:**
+ * Uses JavaScript's native number arrays (`Float64Array` could be used for better memory density,
+ * but `number[]` provides better compatibility and debugging experience):
+ * - **Single array**: 8 bytes per element + minimal overhead
+ * - **Paged array**: 8 bytes per element + small page management overhead
+ * - **Memory estimation**: Accurate pre-allocation size calculation available
+ *
+ * **Graph Algorithm Integration:**
+ *
+ * **Node Properties Storage:**
+ * ```typescript
+ * // Store node ages for 10 million nodes
+ * const nodeAges = HugeLongArray.newArray(10_000_000);
+ * nodeAges.setAll(nodeId => computeNodeAge(nodeId));
+ *
+ * // Fast random access during algorithm execution
+ * const age = nodeAges.get(randomNodeId); // O(1) access
+ * ```
+ *
+ * **Algorithm Working Arrays:**
+ * ```typescript
+ * // Dijkstra's algorithm distance array
+ * const distances = HugeLongArray.newArray(nodeCount);
+ * distances.fill(Number.POSITIVE_INFINITY);
+ * distances.set(startNode, 0);
+ *
+ * // PageRank computation values
+ * const pageRankValues = HugeLongArray.newArray(nodeCount);
+ * pageRankValues.fill(1.0 / nodeCount); // Initialize with uniform distribution
+ * ```
+ *
+ * **Bulk Data Processing:**
+ * ```typescript
+ * // Process huge arrays efficiently using cursors
+ * const cursor = hugeArray.newCursor();
+ * try {
+ *   hugeArray.initCursor(cursor);
+ *   while (cursor.next()) {
+ *     const page = cursor.array!;
+ *     for (let i = cursor.offset; i < cursor.limit; i++) {
+ *       const value = page[i];
+ *       // Process value with optimal cache performance
+ *       processValue(cursor.base + i, value);
+ *     }
+ *   }
+ * } finally {
+ *   cursor.close();
+ * }
+ * ```
+ *
+ * **Memory Management Best Practices:**
+ * ```typescript
+ * // Large-scale processing with explicit memory management
+ * const tempArray = HugeLongArray.newArray(HUGE_SIZE);
+ * try {
+ *   // Perform memory-intensive operations
+ *   processLargeDataset(tempArray);
+ * } finally {
+ *   const freedBytes = tempArray.release(); // Free memory immediately
+ *   console.log(`Freed ${freedBytes} bytes of memory`);
+ * }
+ * ```
+ *
+ * **Apache Arrow Integration Readiness:**
+ * The architecture aligns with Apache Arrow's columnar format:
+ * - **Chunked arrays**: Pages map naturally to Arrow chunks
+ * - **Primitive types**: Direct compatibility with Arrow's primitive array types
+ * - **Memory layout**: Contiguous memory blocks suitable for zero-copy operations
+ * - **Bulk operations**: Vectorized operations can be applied at the page level
+ *
+ * **Thread Safety:**
+ * - **Read operations**: Safe for concurrent reads from multiple threads
+ * - **Write operations**: NOT thread-safe; use external synchronization if needed
+ * - **Cursors**: Each thread should have its own cursor instance
+ * - **Atomic operations**: Use `HugeAtomicLongArray` for thread-safe modifications
  */
-export abstract class HugeLongArray extends HugeArrays<LongArray, number, HugeLongArray> {
+export abstract class HugeLongArray extends HugeArray<
+  number[],
+  number,
+  HugeLongArray
+> {
+  public _size: number = 0;
+
+  // Optional properties that implementations may use
+  public _page?: number[] | null;
+  public _pages?: number[][] | null;
+
   /**
-   * Estimate memory usage for an array of the given size
+   * Estimates the memory required for a HugeLongArray of the specified size.
+   *
+   * This method provides **accurate memory forecasting** essential for:
+   * - **Memory budgeting**: Ensuring operations stay within available memory limits
+   * - **Capacity planning**: Determining optimal array sizes for available resources
+   * - **Resource allocation**: Making informed decisions about data structure choices
+   * - **Performance optimization**: Avoiding memory pressure and excessive GC activity
+   *
+   * **Estimation Strategy:**
+   * The calculation considers the actual implementation that will be chosen:
+   * - **Small arrays**: Uses `SingleHugeLongArray` with minimal overhead
+   * - **Large arrays**: Uses `PagedHugeLongArray` with page management overhead
+   * - **Accurate accounting**: Includes object overhead, page arrays, and metadata
+   *
+   * **Memory Components:**
+   * - **Instance overhead**: Object header and field storage
+   * - **Page storage**: The actual data arrays (the majority of memory usage)
+   * - **Page array**: Array of references to pages (for paged implementation)
+   * - **Metadata**: Size tracking, memory accounting, and structural information
+   *
+   * @param size The desired array size in elements
+   * @returns Estimated memory usage in bytes
    */
   public static memoryEstimation(size: number): number {
-    if (size <= 0) {
-      return 0;
-    }
+    console.assert(size >= 0, `Size must be non-negative, got ${size}`);
 
     if (size <= HugeArrays.MAX_ARRAY_LENGTH) {
       // Single array implementation
-      return Estimate.sizeOfInstance("16bit") + Estimate.sizeOfLongArray(size);
+      return (
+        Estimate.sizeOfInstance(SingleHugeLongArray.name) +
+        Estimate.sizeOfLongArray(size)
+      );
     }
 
-    // Paged implementation
-    const instanceSize = Estimate.sizeOfInstance("32bit");
+    // Paged array implementation
+    const sizeOfInstance = Estimate.sizeOfInstance(PagedHugeLongArray.name);
     const numPages = HugeArrays.numberOfPages(size);
 
+    // Calculate memory for page reference array
     let memoryUsed = Estimate.sizeOfObjectArray(numPages);
+
+    // Calculate memory for full pages
     const pageBytes = Estimate.sizeOfLongArray(HugeArrays.PAGE_SIZE);
     memoryUsed += (numPages - 1) * pageBytes;
 
+    // Calculate memory for the last (potentially partial) page
     const lastPageSize = HugeArrays.exclusiveIndexOfPage(size);
     memoryUsed += Estimate.sizeOfLongArray(lastPageSize);
 
-    return instanceSize + memoryUsed;
+    return sizeOfInstance + memoryUsed;
   }
 
   /**
-   * Get the long value at the given index
-   * @throws Error if the index is not within the array bounds
+   * Returns the number value at the given index.
+   *
+   * This is the **primary random access method** for reading individual elements
+   * from the array. It provides O(1) access time regardless of array size or
+   * whether the array uses single or paged implementation.
+   *
+   * **Performance Characteristics:**
+   * - **Single array**: Direct array access, optimal performance
+   * - **Paged array**: Page lookup + index calculation, still very fast
+   * - **Bounds checking**: Includes validation in debug builds for safety
+   * - **No boxing overhead**: Returns primitive number directly
+   *
+   * **Index Addressing:**
+   * For paged arrays, the method automatically handles the translation:
+   * ```typescript
+   * // Logical index 1000000 might map to:
+   * // Page 15, index 23456 within that page
+   * const value = array.get(1000000); // Transparent to caller
+   * ```
+   *
+   * @param index The index of the element to retrieve (must be in [0, size()))
+   * @returns The number value at the specified index
+   * @throws Error if index is negative or >= size()
    */
   public abstract get(index: number): number;
 
   /**
-   * Set the long value at the given index
-   * @throws Error if the index is not within the array bounds
+   * Sets the number value at the given index to the given value.
+   *
+   * This is the **primary random access method** for writing individual elements
+   * to the array. Like `get()`, it provides O(1) access time with automatic
+   * page management for large arrays.
+   *
+   * **Performance Characteristics:**
+   * - **Single array**: Direct array assignment, optimal performance
+   * - **Paged array**: Page lookup + index calculation, still very fast
+   * - **Bounds checking**: Includes validation in debug builds for safety
+   * - **No unboxing overhead**: Accepts primitive number directly
+   *
+   * **Thread Safety Warning:**
+   * This method is **NOT thread-safe**. Concurrent writes to the same index
+   * from multiple threads may result in data corruption. Use external
+   * synchronization or `HugeAtomicLongArray` for thread-safe operations.
+   *
+   * @param index The index where to store the value (must be in [0, size()))
+   * @param value The number value to store at the specified index
+   * @throws Error if index is negative or >= size()
    */
   public abstract set(index: number, value: number): void;
 
   /**
    * Computes the bit-wise OR (|) of the existing value and the provided value at the given index.
-   * If there was no previous value, the final result is set to the provided value (x | 0 == x).
+   *
+   * This method provides **atomic bit manipulation** for flag and bitmask operations
+   * commonly used in graph algorithms. The operation is equivalent to:
+   * `array[index] = array[index] | value`
+   *
+   * **Bit-wise OR Semantics:**
+   * - If there was no previous value (0), the result is set to the provided value (`x | 0 == x`)
+   * - Each bit in the result is 1 if either corresponding bit in the operands is 1
+   * - Commonly used for **setting flags** and **accumulating bitmasks**
+   *
+   * **Common Use Cases:**
+   *
+   * **Flag Accumulation:**
+   * ```typescript
+   * // Accumulate node visit flags during graph traversal
+   * const VISITED = 1;
+   * const PROCESSED = 2;
+   * const IN_QUEUE = 4;
+   *
+   * nodeFlags.or(nodeId, VISITED);    // Mark as visited
+   * nodeFlags.or(nodeId, PROCESSED);  // Also mark as processed
+   * // nodeFlags[nodeId] now contains (VISITED | PROCESSED) = 3
+   * ```
+   *
+   * **Bit Set Operations:**
+   * ```typescript
+   * // Set multiple bits in a compact representation
+   * const permissions = HugeLongArray.newArray(userCount);
+   * permissions.or(userId, READ_PERMISSION | WRITE_PERMISSION);
+   * ```
+   *
+   * **Algorithm State Tracking:**
+   * ```typescript
+   * // Track multiple states for nodes in complex algorithms
+   * const nodeStates = HugeLongArray.newArray(nodeCount);
+   * nodeStates.or(nodeId, STATE_ACTIVE | STATE_DIRTY);
+   * ```
+   *
+   * @param index The index of the element to modify (must be in [0, size()))
+   * @param value The value to OR with the existing value
+   * @throws Error if index is negative or >= size()
    */
   public abstract or(index: number, value: number): void;
 
   /**
    * Computes the bit-wise AND (&) of the existing value and the provided value at the given index.
-   * If there was no previous value, the final result is set to the 0 (x & 0 == 0).
-   * @return the now current value after the operation
+   *
+   * This method provides **atomic bit manipulation** for masking and filtering operations.
+   * The operation is equivalent to: `array[index] = array[index] & value`
+   *
+   * **Bit-wise AND Semantics:**
+   * - If there was no previous value (0), the result is 0 (`x & 0 == 0`)
+   * - Each bit in the result is 1 only if both corresponding bits in the operands are 1
+   * - Commonly used for **clearing flags**, **applying masks**, and **filtering bits**
+   *
+   * **Return Value:**
+   * Returns the **new current value** after the AND operation, which is useful
+   * for checking the result of the operation without a separate read.
+   *
+   * **Common Use Cases:**
+   *
+   * **Flag Clearing:**
+   * ```typescript
+   * // Clear specific flags while preserving others
+   * const VISITED = 1;
+   * const PROCESSED = 2;
+   * const IN_QUEUE = 4;
+   *
+   * // Clear the IN_QUEUE flag while keeping others
+   * const newValue = nodeFlags.and(nodeId, ~IN_QUEUE);
+   * if (newValue & VISITED) {
+   *   console.log('Node is still marked as visited');
+   * }
+   * ```
+   *
+   * **Bit Masking:**
+   * ```typescript
+   * // Extract only the lower 16 bits of a value
+   * const LOWER_16_BITS = 0xFFFF;
+   * const maskedValue = values.and(index, LOWER_16_BITS);
+   * ```
+   *
+   * **Permission Filtering:**
+   * ```typescript
+   * // Check if user has specific permissions
+   * const requiredPermissions = READ_PERMISSION | EXECUTE_PERMISSION;
+   * const actualPermissions = permissions.and(userId, requiredPermissions);
+   * const hasAllPermissions = actualPermissions === requiredPermissions;
+   * ```
+   *
+   * @param index The index of the element to modify (must be in [0, size()))
+   * @param value The value to AND with the existing value
+   * @returns The current value after the AND operation
+   * @throws Error if index is negative or >= size()
    */
   public abstract and(index: number, value: number): number;
 
   /**
-   * Adds (+) the existing value and the provided value at the given index and stored the result into the given index.
-   * If there was no previous value, the final result is set to the provided value (x + 0 == x).
+   * Adds the existing value and the provided value at the given index and stores the result.
+   *
+   * This method provides **atomic arithmetic addition** for accumulation operations
+   * commonly used in graph algorithms. The operation is equivalent to:
+   * `array[index] = array[index] + value`
+   *
+   * **Addition Semantics:**
+   * - If there was no previous value (0), the result is set to the provided value (`x + 0 == x`)
+   * - Standard arithmetic addition with overflow behavior following JavaScript number semantics
+   * - Commonly used for **counters**, **accumulators**, and **weight summation**
+   *
+   * **Common Use Cases:**
+   *
+   * **Degree Counting:**
+   * ```typescript
+   * // Count node degrees during graph construction
+   * const nodeDegrees = HugeLongArray.newArray(nodeCount);
+   * for (const edge of edges) {
+   *   nodeDegrees.addTo(edge.source, 1);  // Increment out-degree
+   *   nodeDegrees.addTo(edge.target, 1);  // Increment in-degree
+   * }
+   * ```
+   *
+   * **Weight Accumulation:**
+   * ```typescript
+   * // Accumulate edge weights per node
+   * const nodeWeights = HugeLongArray.newArray(nodeCount);
+   * for (const edge of weightedEdges) {
+   *   nodeWeights.addTo(edge.source, edge.weight);
+   * }
+   * ```
+   *
+   * **Algorithm Counters:**
+   * ```typescript
+   * // Count visits during graph traversal
+   * const visitCounts = HugeLongArray.newArray(nodeCount);
+   * for (const nodeId of traversalPath) {
+   *   visitCounts.addTo(nodeId, 1);
+   * }
+   * ```
+   *
+   * **Histogram Construction:**
+   * ```typescript
+   * // Build histogram of node property values
+   * const histogram = HugeLongArray.newArray(NUM_BUCKETS);
+   * for (let nodeId = 0; nodeId < nodeCount; nodeId++) {
+   *   const bucket = computeBucket(nodeProperty.get(nodeId));
+   *   histogram.addTo(bucket, 1);
+   * }
+   * ```
+   *
+   * @param index The index of the element to modify (must be in [0, size()))
+   * @param value The value to add to the existing value
+   * @throws Error if index is negative or >= size()
    */
   public abstract addTo(index: number, value: number): void;
 
   /**
-   * Set all elements using the provided generator function to compute each element.
+   * Sets all elements using the provided generator function to compute each element.
+   *
+   * This method provides **high-performance bulk initialization** of array elements
+   * using a function that computes each value based on its index. It's the most
+   * efficient way to populate large arrays with computed values.
+   *
+   * **Performance Optimization:**
+   * The behavior is identical to JavaScript's `Array.prototype.forEach()` combined
+   * with assignment, but optimized for the HugeArray's paged architecture to
+   * provide maximum performance and optimal memory access patterns.
+   *
+   * **Generator Function Contract:**
+   * - **Input**: The index of the element to compute (0 to size()-1)
+   * - **Output**: The number value to store at that index
+   * - **Pure function**: Should return the same output for the same input
+   * - **Index-based**: Can use the index to compute mathematically derived values
+   *
+   * **Implementation Strategy:**
+   * - **Page-aware processing**: Processes elements page by page for optimal cache usage
+   * - **Sequential access**: Writes elements in order to maximize memory bandwidth
+   * - **Minimal overhead**: Direct assignment without unnecessary intermediate operations
+   *
+   * @param gen Generator function that computes the value for each index
    */
-  public abstract setAll(gen: LongUnaryOperator): void;
+  public abstract setAll(gen: (index: number) => number): void;
 
   /**
-   * Assigns the specified long value to each element.
+   * Assigns the specified number value to each element in the array.
+   *
+   * This method provides **efficient bulk assignment** of the same value to all
+   * array elements. It's the fastest way to initialize or reset large arrays
+   * to a uniform value.
+   *
+   * **Performance Optimization:**
+   * The behavior is identical to JavaScript's `Array.prototype.fill()`, but
+   * optimized for HugeArray's paged architecture to provide maximum throughput
+   * and minimal memory allocation overhead.
+   *
+   * **Implementation Strategy:**
+   * - **Page-level operations**: Uses native array fill operations on each page
+   * - **Sequential memory access**: Optimal cache usage and memory bandwidth
+   * - **Zero intermediate allocation**: Direct assignment without temporary objects
+   *
+   * @param value The value to assign to every element in the array
    */
   public abstract fill(value: number): void;
 
   /**
-   * Find the index where (values[idx] <= searchValue) && (values[idx + 1] > searchValue).
-   * Returns a positive index even if the array does not directly contain the searched value.
-   * Returns -1 if the value is smaller than the smallest one in the array.
+   * Returns the logical length of this array in elements.
+   *
+   * @returns The total number of elements in this array
+   */
+  public abstract size(): number;
+
+  /**
+   * Returns the amount of memory used by this array instance in bytes.
+   *
+   * @returns The memory footprint of this array in bytes
+   */
+  public abstract sizeOf(): number;
+
+  /**
+   * Performs binary search to find the insertion point for a value in a sorted array.
+   *
+   * This method provides **optimized search capability** for sorted HugeLongArrays,
+   * essential for algorithms that maintain sorted data structures or need to perform
+   * range queries on ordered data.
+   *
+   * **Search Semantics:**
+   * The result differs from standard binary search in that this method returns a
+   * **positive index even if the array does not directly contain the searched value**.
+   *
+   * **Return Value Interpretation:**
+   * - **Exact match**: Returns the index where `array[index] === searchValue`
+   * - **Insertion point**: Returns index where `array[index] <= searchValue < array[index + 1]`
+   * - **Value too small**: Returns -1 if `searchValue < array[0]`
+   * - **Value too large**: Returns `size() - 1` if `searchValue >= array[size() - 1]`
+   *
+   * **Algorithm Behavior:**
+   * Finds the index where `(values[idx] <= searchValue) && (values[idx + 1] > searchValue)`.
+   * This is particularly useful for:
+   * - **Range queries**: Finding the start/end of a range in sorted data
+   * - **Insertion points**: Determining where to insert a value to maintain sort order
+   * - **Histogram lookups**: Finding the appropriate bucket for a value
+   *
+   * **Use Cases:**
+   *
+   * **Sorted Node IDs:**
+   * ```typescript
+   * // Find position in sorted array of node IDs
+   * const sortedNodeIds = HugeLongArray.newArray(nodeCount);
+   * // ... populate and sort ...
+   * const insertionPoint = sortedNodeIds.binarySearch(newNodeId);
+   * ```
+   *
+   * **Timestamp Ranges:**
+   * ```typescript
+   * // Find events within a time range
+   * const timestamps = HugeLongArray.newArray(eventCount);
+   * // ... populate with sorted timestamps ...
+   * const startIndex = timestamps.binarySearch(rangeStart);
+   * const endIndex = timestamps.binarySearch(rangeEnd);
+   * ```
+   *
+   * **Weight Distributions:**
+   * ```typescript
+   * // Find position in cumulative weight distribution
+   * const cumulativeWeights = HugeLongArray.newArray(nodeCount);
+   * // ... populate with cumulative sums ...
+   * const selectedIndex = cumulativeWeights.binarySearch(randomValue);
+   * ```
+   *
+   * @param searchValue The value to search for in the sorted array
+   * @returns Index where value should be inserted, or -1 if value is smaller than all elements
    */
   public abstract binarySearch(searchValue: number): number;
 
   /**
-   * Creates a new array of the given size
+   * Destroys the array data and releases all associated memory for garbage collection.
+   *
+   * @returns The amount of memory freed in bytes (0 for subsequent calls)
+   */
+  public abstract release(): number;
+
+  /**
+   * Creates a new cursor for iterating over this array.
+   *
+   * @returns A new, uninitialized cursor for this array
+   */
+  public abstract newCursor(): HugeCursor<number[]>;
+
+  /**
+   * Copies the content of this array into the target array.
+   *
+   * @param dest Target array to copy data into
+   * @param length Number of elements to copy from start of this array
+   */
+  public abstract copyTo(dest: HugeLongArray, length: number): void;
+
+  /**
+   * Creates a copy of this array with the specified new length.
+   *
+   * @param newLength The size of the new array
+   * @returns A new array instance with the specified length containing copied data
+   */
+  public copyOf(newLength: number): HugeLongArray {
+    const copy = HugeLongArray.newArray(newLength);
+    this.copyTo(copy, newLength);
+    return copy;
+  }
+
+  // Boxed operation implementations (bridge to HugeArray interface)
+  public boxedGet(index: number): number {
+    return this.get(index);
+  }
+
+  public boxedSet(index: number, value: number): void {
+    this.set(index, value);
+  }
+
+  public boxedSetAll(gen: (index: number) => number): void {
+    this.setAll(gen);
+  }
+
+  public boxedFill(value: number): void {
+    this.fill(value);
+  }
+
+  /**
+   * Returns the contents of this array as a flat primitive array.
+   *
+   * @returns A flat array containing all elements from this HugeArray
+   */
+  public toArray(): number[] {
+    return this.dumpToArray(Array) as number[];
+  }
+
+  /**
+   * Creates a new array of the given size.
+   *
+   * This is the **primary factory method** for creating HugeLongArray instances.
+   * It automatically chooses the optimal implementation based on the requested size:
+   * - Small arrays use `SingleHugeLongArray` for maximum performance
+   * - Large arrays use `PagedHugeLongArray` for memory efficiency
+   *
+   * @param size The desired array size in elements
+   * @returns A new HugeLongArray instance optimized for the given size
    */
   public static newArray(size: number): HugeLongArray {
     if (size <= HugeArrays.MAX_ARRAY_LENGTH) {
@@ -104,566 +597,406 @@ export abstract class HugeLongArray extends HugeArrays<LongArray, number, HugeLo
   }
 
   /**
-   * Create a long array from the given values
+   * Creates a new array initialized with the provided values.
+   *
+   * @param values Initial values for the array
+   * @returns A new HugeLongArray containing the provided values
    */
   public static of(...values: number[]): HugeLongArray {
-    const bigIntArray = new BigInt64Array(values.length);
-    for (let i = 0; i < values.length; i++) {
-      bigIntArray[i] = BigInt(values[i]);
-    }
-    return new SingleHugeLongArray(values.length, bigIntArray);
+    return new SingleHugeLongArray(values.length, values);
   }
 
   /**
-   * Create an array from pages of BigInt64Arrays
+   * Creates a new array from pre-allocated page arrays.
+   *
+   * @param pages Pre-allocated page arrays
+   * @param size Logical size of the array
+   * @returns A new HugeLongArray using the provided pages
    */
-  public static ofPages(pages: BigInt64Array[], size: number): HugeLongArray {
+  public static ofPages(pages: number[][], size: number): HugeLongArray {
     const capacity = PageUtil.capacityFor(pages.length, HugeArrays.PAGE_SHIFT);
     if (size > capacity) {
-      throw new Error(`Size should be smaller than or equal to capacity ${capacity}, but got size ${size}`);
+      throw new Error(
+        `Size should be smaller than or equal to capacity ${capacity}, but got size ${size}`
+      );
     }
-    return new PagedHugeLongArray(size, pages, PagedHugeLongArray.memoryUsed(pages, capacity));
+    return new PagedHugeLongArray(
+      size,
+      pages,
+      PagedHugeLongArray.memoryUsed(pages, capacity)
+    );
   }
 
-  /**
-   * Create a paged array of the given size (for testing)
-   */
+  // Test-only factory methods
+  /** @internal */
   public static newPagedArray(size: number): HugeLongArray {
     return PagedHugeLongArray.of(size);
   }
 
-  /**
-   * Create a single array of the given size (for testing)
-   */
+  /** @internal */
   public static newSingleArray(size: number): HugeLongArray {
     return SingleHugeLongArray.of(size);
+  }
+
+  // Helper methods for array operations
+  protected getArrayLength(array: number[]): number {
+    return array.length;
+  }
+
+  protected getArrayElement(array: number[], index: number): number {
+    return array[index];
+  }
+
+  protected arrayCopy(
+    source: number[],
+    sourceIndex: number,
+    dest: number[],
+    destIndex: number,
+    length: number
+  ): void {
+    for (let i = 0; i < length; i++) {
+      dest[destIndex + i] = source[sourceIndex + i];
+    }
   }
 }
 
 /**
- * Implementation for arrays that fit in a single BigInt64Array
+ * Single-page implementation for arrays that fit within JavaScript's array size limits.
+ *
+ * This implementation provides **optimal performance** for smaller arrays by using
+ * a single underlying `number[]` array with no page management overhead.
  */
-export class SingleHugeLongArray extends HugeLongArray {
-  private readonly size: number;
-  page: BigInt64Array | null;
+class SingleHugeLongArray extends HugeLongArray {
+  public _size: number;
+  public _page: number[] | null;
 
   /**
-   * Create a new array of the given size
+   * Factory method for creating single-page arrays.
+   *
+   * @param size The desired array size
+   * @returns A new SingleHugeLongArray instance
    */
   public static of(size: number): HugeLongArray {
-    if (size > HugeArrays.MAX_ARRAY_LENGTH) {
-      throw new Error(`Array size ${size} exceeds maximum single array length`);
-    }
-    const page = new BigInt64Array(size);
-    return new SingleHugeLongArray(size, page);
+    console.assert(
+      size <= HugeArrays.MAX_ARRAY_LENGTH,
+      `Size ${size} exceeds maximum array length`
+    );
+    const intSize = Math.floor(size);
+    const page = new Array<number>(intSize).fill(0);
+    return new SingleHugeLongArray(intSize, page);
   }
 
-  constructor(size: number, page: BigInt64Array) {
+  constructor(size: number, page: number[]) {
     super();
-    this.size = size;
-    this.page = page;
+    this._size = size;
+    this._page = page;
   }
 
   public get(index: number): number {
-    if (index >= this.size || !this.page) {
-      throw new Error(`Index ${index} out of bounds for array of size ${this.size}`);
+    console.assert(index < this._size, `index = ${index} size = ${this._size}`);
+    if (index < 0 || index >= this._size) {
+      throw new Error(
+        `Index ${index} out of bounds for array size ${this._size}`
+      );
     }
-    return Number(this.page[index]);
+    return this._page![index];
   }
 
   public set(index: number, value: number): void {
-    if (index >= this.size || !this.page) {
-      throw new Error(`Index ${index} out of bounds for array of size ${this.size}`);
+    console.assert(index < this._size, `index = ${index} size = ${this._size}`);
+    if (index < 0 || index >= this._size) {
+      throw new Error(
+        `Index ${index} out of bounds for array size ${this._size}`
+      );
     }
-    this.page[index] = BigInt(value);
+    this._page![index] = value;
   }
 
   public or(index: number, value: number): void {
-    if (index >= this.size || !this.page) {
-      throw new Error(`Index ${index} out of bounds for array of size ${this.size}`);
-    }
-    this.page[index] |= BigInt(value);
+    console.assert(index < this._size, `index = ${index} size = ${this._size}`);
+    this._page![index] |= value;
   }
 
   public and(index: number, value: number): number {
-    if (index >= this.size || !this.page) {
-      throw new Error(`Index ${index} out of bounds for array of size ${this.size}`);
-    }
-    const result = this.page[index] & BigInt(value);
-    this.page[index] = result;
-    return Number(result);
+    console.assert(index < this._size, `index = ${index} size = ${this._size}`);
+    return (this._page![index] &= value);
   }
 
   public addTo(index: number, value: number): void {
-    if (index >= this.size || !this.page) {
-      throw new Error(`Index ${index} out of bounds for array of size ${this.size}`);
-    }
-    this.page[index] += BigInt(value);
+    console.assert(index < this._size, `index = ${index} size = ${this._size}`);
+    this._page![index] += value;
   }
 
-  public setAll(gen: LongUnaryOperator): void {
-    if (!this.page) {
-      throw new Error("Array has been released");
-    }
-    for (let i = 0; i < this.page.length; i++) {
-      this.page[i] = BigInt(gen.applyAsLong(i));
+  public setAll(gen: (index: number) => number): void {
+    for (let i = 0; i < this._page!.length; i++) {
+      this._page![i] = gen(i);
     }
   }
 
   public fill(value: number): void {
-    if (!this.page) {
-      throw new Error("Array has been released");
-    }
-    this.page.fill(BigInt(value));
+    this._page!.fill(value);
   }
 
-  public binarySearch(searchValue: number): number {
-    if (!this.page) {
-      throw new Error("Array has been released");
-    }
+  public copyTo(dest: HugeLongArray, length: number): void {
+    length = Math.min(length, this._size, dest._size);
 
-    const searchValueBigInt = BigInt(searchValue);
+    if (dest instanceof SingleHugeLongArray) {
+      // dest = dest as SingleHugeLongArray;
+      // Copy to another single array
+      this.arrayCopy(this._page!, 0, dest._page!, 0, length);
+      // Fill remaining positions with 0
+      dest._page!.fill(0, length, dest._size);
+    } else if (dest instanceof PagedHugeLongArray) {
+      // Copy to paged array
+      let start = 0;
+      let remaining = length;
 
-    // Adapted binary lookup for BigInt64Array
-    let low = 0;
-    let high = this.page.length - 1;
-
-    // Special case for empty arrays
-    if (high < 0) {
-      return -1;
-    }
-
-    // Return -1 if the search value is smaller than the smallest value
-    if (this.page[0] > searchValueBigInt) {
-      return -1;
-    }
-
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      const midValue = this.page[mid];
-
-      if (midValue <= searchValueBigInt) {
-        // Check if this is the answer (next element is greater or we're at the end)
-        if (mid === this.page.length - 1 || this.page[mid + 1] > searchValueBigInt) {
-          return mid;
+      for (const dstPage of dest._pages!) {
+        const toCopy = Math.min(remaining, dstPage.length);
+        if (toCopy === 0) {
+          dstPage.fill(0);
+        } else {
+          this.arrayCopy(this._page!, start, dstPage, 0, toCopy);
+          if (toCopy < dstPage.length) {
+            dstPage.fill(0, toCopy, dstPage.length);
+          }
+          start += toCopy;
+          remaining -= toCopy;
         }
-        low = mid + 1;
-      } else {
-        high = mid - 1;
       }
     }
-
-    return -1;
   }
 
   public size(): number {
-    return this.size;
+    return this._size;
   }
 
   public sizeOf(): number {
-    return Estimate.sizeOfLongArray(this.size);
+    return Estimate.sizeOfLongArray(this._size);
+  }
+
+  public binarySearch(searchValue: number): number {
+    return ArrayUtil.binaryLookup(searchValue, this._page!);
   }
 
   public release(): number {
-    if (this.page) {
-      const freed = Estimate.sizeOfLongArray(this.size);
-      this.page = null;
-      return freed;
+    if (this._page !== null) {
+      this._page = null;
+      return Estimate.sizeOfLongArray(this._size);
     }
     return 0;
   }
 
-  public newCursor(): HugeCursor<BigInt64Array> {
-    if (!this.page) {
-      throw new Error("Array has been released");
-    }
-    return new HugeCursor.SinglePageCursor<BigInt64Array>(this.page);
-  }
-
-  public copyTo(dest: HugeLongArray, length: number): void {
-    if (!this.page) {
-      throw new Error("Array has been released");
-    }
-
-    if (length > this.size) {
-      length = this.size;
-    }
-    if (length > dest.size()) {
-      length = dest.size();
-    }
-
-    if (dest instanceof SingleHugeLongArray) {
-      if (!dest.page) {
-        throw new Error("Destination array has been released");
-      }
-
-      // Copy values
-      for (let i = 0; i < length; i++) {
-        dest.page[i] = this.page[i];
-      }
-
-      // Fill remainder with zeros
-      if (length < dest.size()) {
-        dest.page.fill(BigInt(0), length);
-      }
-    } else if (dest instanceof PagedHugeLongArray) {
-      let start = 0;
-      let remaining = length;
-
-      for (let i = 0; i < dest.pages.length && remaining > 0; i++) {
-        const dstPage = dest.pages[i];
-        if (!dstPage) continue;
-
-        const toCopy = Math.min(remaining, dstPage.length);
-
-        for (let j = 0; j < toCopy; j++) {
-          dstPage[j] = this.page[start + j];
-        }
-
-        if (toCopy < dstPage.length) {
-          dstPage.fill(BigInt(0), toCopy);
-        }
-
-        start += toCopy;
-        remaining -= toCopy;
-      }
-    }
-  }
-
-  public toArray(): BigInt64Array {
-    if (!this.page) {
-      throw new Error("Array has been released");
-    }
-    return this.page;
-  }
-
-  public boxedGet(index: number): number {
-    return this.get(index);
-  }
-
-  public boxedSet(index: number, value: number): void {
-    this.set(index, value);
-  }
-
-  public boxedSetAll(gen: (index: number) => number): void {
-    this.setAll({ applyAsLong: gen });
-  }
-
-  public boxedFill(value: number): void {
-    this.fill(value);
-  }
-
-  public copyOf(newLength: number): HugeLongArray {
-    const copy = HugeLongArray.newArray(newLength);
-    this.copyTo(copy, newLength);
-    return copy;
+  public newCursor(): HugeCursor<number[]> {
+    return new SinglePageCursor<number[]>(this._page!);
   }
 
   public toString(): string {
-    if (!this.page) {
-      return "[]";
-    }
-    return "[" + Array.from(this.page, n => Number(n)).join(", ") + "]";
+    return this._page ? `[${this._page.join(", ")}]` : "[]";
+  }
+
+  public toArray(): number[] {
+    return this._page ? [...this._page] : [];
   }
 }
 
 /**
- * Implementation for arrays that require paging
+ * Multi-page implementation for arrays that exceed JavaScript's array size limits.
+ *
+ * This implementation manages multiple smaller arrays (pages) to provide the
+ * appearance of a single large array while working within JavaScript's constraints.
  */
-export class PagedHugeLongArray extends HugeLongArray {
-  private readonly size: number;
-  readonly pages: BigInt64Array[] | null;
-  private readonly memoryUsed: number;
+class PagedHugeLongArray extends HugeLongArray {
+  public _size: number;
+  public _pages: number[][] | null;
+  private _memoryUsed: number;
 
   /**
-   * Calculate memory used by pages
+   * Factory method for creating paged arrays.
+   *
+   * @param size The desired array size
+   * @returns A new PagedHugeLongArray instance
    */
-  static memoryUsed(pages: BigInt64Array[], size: number): number {
+  public static of(size: number): HugeLongArray {
+    const numPages = HugeArrays.numberOfPages(size);
+    const pages: number[][] = new Array(numPages);
+
+    // Create full pages
+    for (let i = 0; i < numPages - 1; i++) {
+      pages[i] = new Array<number>(HugeArrays.PAGE_SIZE).fill(0);
+    }
+
+    // Create last (potentially partial) page
+    const lastPageSize = HugeArrays.exclusiveIndexOfPage(size);
+    pages[numPages - 1] = new Array<number>(lastPageSize).fill(0);
+
+    const memoryUsed = this.memoryUsed(pages, size);
+    return new PagedHugeLongArray(size, pages, memoryUsed);
+  }
+
+  /**
+   * Calculates memory usage for a given page array configuration.
+   *
+   * @param pages Array of pages
+   * @param size Logical array size
+   * @returns Memory usage in bytes
+   */
+  public static memoryUsed(pages: number[][], size: number): number {
     const numPages = pages.length;
     let memoryUsed = Estimate.sizeOfObjectArray(numPages);
+
     const pageBytes = Estimate.sizeOfLongArray(HugeArrays.PAGE_SIZE);
     memoryUsed += pageBytes * (numPages - 1);
 
     const lastPageSize = HugeArrays.exclusiveIndexOfPage(size);
     memoryUsed += Estimate.sizeOfLongArray(lastPageSize);
+
     return memoryUsed;
   }
 
-  /**
-   * Create a new array of the given size
-   */
-  public static of(size: number): HugeLongArray {
-    const numPages = HugeArrays.numberOfPages(size);
-    const pages: BigInt64Array[] = new Array(numPages);
-
-    // Create full pages
-    for (let i = 0; i < numPages - 1; i++) {
-      pages[i] = new BigInt64Array(HugeArrays.PAGE_SIZE);
-    }
-
-    // Create last page (might be smaller)
-    const lastPageSize = HugeArrays.exclusiveIndexOfPage(size);
-    pages[numPages - 1] = new BigInt64Array(lastPageSize);
-
-    const memoryUsed = PagedHugeLongArray.memoryUsed(pages, size);
-
-    return new PagedHugeLongArray(size, pages, memoryUsed);
-  }
-
-  constructor(size: number, pages: BigInt64Array[], memoryUsed: number) {
+  constructor(size: number, pages: number[][], memoryUsed: number) {
     super();
-    this.size = size;
-    this.pages = pages;
-    this.memoryUsed = memoryUsed;
+    this._size = size;
+    this._pages = pages;
+    this._memoryUsed = memoryUsed;
   }
 
   public get(index: number): number {
-    if (index >= this.size || !this.pages) {
-      throw new Error(`Index ${index} out of bounds for array of size ${this.size}`);
+    console.assert(index < this._size, `index = ${index} size = ${this._size}`);
+    if (index < 0 || index >= this._size) {
+      throw new Error(
+        `Index ${index} out of bounds for array size ${this._size}`
+      );
     }
     const pageIndex = HugeArrays.pageIndex(index);
     const indexInPage = HugeArrays.indexInPage(index);
-    return Number(this.pages[pageIndex][indexInPage]);
+    return this._pages![pageIndex][indexInPage];
   }
 
   public set(index: number, value: number): void {
-    if (index >= this.size || !this.pages) {
-      throw new Error(`Index ${index} out of bounds for array of size ${this.size}`);
-    }
+    console.assert(index < this._size, `index = ${index} size = ${this._size}`);
     const pageIndex = HugeArrays.pageIndex(index);
     const indexInPage = HugeArrays.indexInPage(index);
-    this.pages[pageIndex][indexInPage] = BigInt(value);
+    this._pages![pageIndex][indexInPage] = value;
   }
 
   public or(index: number, value: number): void {
-    if (index >= this.size || !this.pages) {
-      throw new Error(`Index ${index} out of bounds for array of size ${this.size}`);
-    }
+    console.assert(index < this._size, `index = ${index} size = ${this._size}`);
     const pageIndex = HugeArrays.pageIndex(index);
     const indexInPage = HugeArrays.indexInPage(index);
-    this.pages[pageIndex][indexInPage] |= BigInt(value);
+    this._pages![pageIndex][indexInPage] |= value;
   }
 
   public and(index: number, value: number): number {
-    if (index >= this.size || !this.pages) {
-      throw new Error(`Index ${index} out of bounds for array of size ${this.size}`);
-    }
+    console.assert(index < this._size, `index = ${index} size = ${this._size}`);
     const pageIndex = HugeArrays.pageIndex(index);
     const indexInPage = HugeArrays.indexInPage(index);
-    const result = this.pages[pageIndex][indexInPage] & BigInt(value);
-    this.pages[pageIndex][indexInPage] = result;
-    return Number(result);
+    return (this._pages![pageIndex][indexInPage] &= value);
   }
 
   public addTo(index: number, value: number): void {
-    if (index >= this.size || !this.pages) {
-      throw new Error(`Index ${index} out of bounds for array of size ${this.size}`);
-    }
+    console.assert(index < this._size, `index = ${index} size = ${this._size}`);
     const pageIndex = HugeArrays.pageIndex(index);
     const indexInPage = HugeArrays.indexInPage(index);
-    this.pages[pageIndex][indexInPage] += BigInt(value);
+    this._pages![pageIndex][indexInPage] += value;
   }
 
-  public setAll(gen: LongUnaryOperator): void {
-    if (!this.pages) {
-      throw new Error("Array has been released");
-    }
-    for (let i = 0; i < this.pages.length; i++) {
-      const t = i << HugeArrays.PAGE_SHIFT;
-      const page = this.pages[i];
+  public setAll(gen: (index: number) => number): void {
+    for (let i = 0; i < this._pages!.length; i++) {
+      const page = this._pages![i];
+      const baseIndex = i << HugeArrays.PAGE_SHIFT;
+
       for (let j = 0; j < page.length; j++) {
-        page[j] = BigInt(gen.applyAsLong(t + j));
+        page[j] = gen(baseIndex + j);
       }
     }
   }
 
   public fill(value: number): void {
-    if (!this.pages) {
-      throw new Error("Array has been released");
+    for (const page of this._pages!) {
+      page.fill(value);
     }
-    const bigValue = BigInt(value);
-    for (const page of this.pages) {
-      page.fill(bigValue);
-    }
-  }
-
-  public binarySearch(searchValue: number): number {
-    if (!this.pages) {
-      throw new Error("Array has been released");
-    }
-
-    const searchValueBigInt = BigInt(searchValue);
-
-    // Start from last page and work backwards
-    for (let pageIndex = this.pages.length - 1; pageIndex >= 0; pageIndex--) {
-      const page = this.pages[pageIndex];
-
-      // Binary search within this page
-      let low = 0;
-      let high = page.length - 1;
-
-      if (high < 0) continue;
-
-      // Skip this page if all values are larger than search value
-      if (page[0] > searchValueBigInt) continue;
-
-      while (low <= high) {
-        const mid = Math.floor((low + high) / 2);
-        const midValue = page[mid];
-
-        if (midValue <= searchValueBigInt) {
-          // Check if this is the answer (next element is greater or we're at the end)
-          if (mid === page.length - 1 || page[mid + 1] > searchValueBigInt) {
-            return HugeArrays.indexFromPageIndexAndIndexInPage(pageIndex, mid);
-          }
-          low = mid + 1;
-        } else {
-          high = mid - 1;
-        }
-      }
-    }
-
-    return -1;
-  }
-
-  public size(): number {
-    return this.size;
-  }
-
-  public sizeOf(): number {
-    return this.memoryUsed;
-  }
-
-  public release(): number {
-    if (this.pages) {
-      const freed = this.memoryUsed;
-      this.pages = null;
-      return freed;
-    }
-    return 0;
-  }
-
-  public newCursor(): HugeCursor<BigInt64Array> {
-    if (!this.pages) {
-      throw new Error("Array has been released");
-    }
-    return new HugeCursor.PagedCursor<BigInt64Array>(this.size, this.pages);
   }
 
   public copyTo(dest: HugeLongArray, length: number): void {
-    if (!this.pages) {
-      throw new Error("Array has been released");
-    }
-
-    if (length > this.size) {
-      length = this.size;
-    }
-    if (length > dest.size()) {
-      length = dest.size();
-    }
+    length = Math.min(length, this._size, dest._size);
 
     if (dest instanceof SingleHugeLongArray) {
-      if (!dest.page) {
-        throw new Error("Destination array has been released");
-      }
-
+      // Copy to single array
       let start = 0;
       let remaining = length;
 
-      for (const page of this.pages) {
-        if (remaining <= 0) break;
-
+      for (const page of this._pages!) {
         const toCopy = Math.min(remaining, page.length);
-        for (let i = 0; i < toCopy; i++) {
-          dest.page[start + i] = page[i];
-        }
+        if (toCopy === 0) break;
 
+        this.arrayCopy(page, 0, dest._page!, start, toCopy);
         start += toCopy;
         remaining -= toCopy;
       }
-
-      // Fill remainder with zeros
-      if (start < dest.size()) {
-        dest.page.fill(BigInt(0), start);
-      }
+      // Fill remaining positions with 0
+      dest._page!.fill(0, start, dest._size);
     } else if (dest instanceof PagedHugeLongArray) {
-      if (!dest.pages) {
-        throw new Error("Destination array has been released");
-      }
-
-      const pageLen = Math.min(this.pages.length, dest.pages.length);
+      // Copy to another paged array
+      const pageLen = Math.min(this._pages!.length, dest._pages!.length);
       const lastPage = pageLen - 1;
       let remaining = length;
 
       // Copy full pages
       for (let i = 0; i < lastPage; i++) {
-        for (let j = 0; j < this.pages[i].length; j++) {
-          dest.pages[i][j] = this.pages[i][j];
-        }
-        remaining -= this.pages[i].length;
+        const page = this._pages![i];
+        const dstPage = dest._pages![i];
+        this.arrayCopy(page, 0, dstPage, 0, page.length);
+        remaining -= page.length;
       }
 
       // Copy last page
       if (remaining > 0) {
-        for (let j = 0; j < remaining; j++) {
-          dest.pages[lastPage][j] = this.pages[lastPage][j];
-        }
-
-        // Fill remainder of last page with zeros
-        if (remaining < dest.pages[lastPage].length) {
-          dest.pages[lastPage].fill(BigInt(0), remaining);
-        }
+        const lastSrcPage = this._pages![lastPage];
+        const lastDstPage = dest._pages![lastPage];
+        this.arrayCopy(lastSrcPage, 0, lastDstPage, 0, remaining);
+        lastDstPage.fill(0, remaining, lastDstPage.length);
       }
 
-      // Fill any remaining pages with zeros
-      for (let i = pageLen; i < dest.pages.length; i++) {
-        dest.pages[i].fill(BigInt(0));
+      // Fill remaining pages with 0
+      for (let i = pageLen; i < dest._pages!.length; i++) {
+        dest._pages![i].fill(0);
       }
     }
   }
 
-  public toArray(): BigInt64Array {
-    if (!this.pages) {
-      throw new Error("Array has been released");
-    }
+  public size(): number {
+    return this._size;
+  }
 
-    // Check if size is within JavaScript array limits
-    if (this.size > Number.MAX_SAFE_INTEGER) {
-      throw new Error(`Array with ${this.size} elements exceeds JavaScript's array size limits`);
-    }
+  public sizeOf(): number {
+    return this._memoryUsed;
+  }
 
-    const result = new BigInt64Array(this.size);
-    let offset = 0;
+  public binarySearch(searchValue: number): number {
+    // Search from last page to first
+    for (let pageIndex = this._pages!.length - 1; pageIndex >= 0; pageIndex--) {
+      const page = this._pages![pageIndex];
+      const value = ArrayUtil.binaryLookup(searchValue, page);
 
-    for (const page of this.pages) {
-      for (let i = 0; i < page.length; i++) {
-        result[offset + i] = page[i];
+      if (value !== -1) {
+        return HugeArrays.indexFromPageIndexAndIndexInPage(pageIndex, value);
       }
-      offset += page.length;
     }
-
-    return result;
+    return -1;
   }
 
-  public boxedGet(index: number): number {
-    return this.get(index);
+  public release(): number {
+    if (this._pages !== null) {
+      this._pages = null;
+      return this._memoryUsed;
+    }
+    return 0;
   }
 
-  public boxedSet(index: number, value: number): void {
-    this.set(index, value);
-  }
-
-  public boxedSetAll(gen: (index: number) => number): void {
-    this.setAll({ applyAsLong: gen });
-  }
-
-  public boxedFill(value: number): void {
-    this.fill(value);
-  }
-
-  public copyOf(newLength: number): HugeLongArray {
-    const copy = HugeLongArray.newArray(newLength);
-    this.copyTo(copy, newLength);
-    return copy;
+  public newCursor(): HugeCursor<number[]> {
+    const cursor = new PagedCursor<number[]>();
+    cursor.setPages(this._pages!, this._size);
+    return cursor;
   }
 }

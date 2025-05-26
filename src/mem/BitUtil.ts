@@ -11,7 +11,7 @@ export class BitUtil {
     if (!Number.isSafeInteger(value)) {
       throw new Error(
         `${paramName} (${value}) is not a safe integer. ` +
-        `Operations may be unreliable if precision has already been lost.`
+          `Operations may be unreliable if precision has already been lost.`
       );
     }
   }
@@ -22,7 +22,7 @@ export class BitUtil {
    * @returns True if the value is a power of two.
    */
   public static isPowerOfTwo(value: number): boolean {
-    BitUtil.validateSafeInteger(value, 'value');
+    BitUtil.validateSafeInteger(value, "value");
     const bigValue = BigInt(value);
     return bigValue > 0n && (bigValue & (~bigValue + 1n)) === bigValue;
   }
@@ -34,7 +34,7 @@ export class BitUtil {
    *          Result may lose precision if it exceeds number limits.
    */
   public static previousPowerOfTwo(v: number): number {
-    BitUtil.validateSafeInteger(v, 'v');
+    BitUtil.validateSafeInteger(v, "v");
     let bigV = BigInt(v);
 
     // Algorithm for BigInt
@@ -56,7 +56,7 @@ export class BitUtil {
    *          Result may lose precision if it exceeds number limits.
    */
   public static nextHighestPowerOfTwo(v: number): number {
-    BitUtil.validateSafeInteger(v, 'v');
+    BitUtil.validateSafeInteger(v, "v");
     if (v <= 0) return 0;
 
     let bigV = BigInt(v);
@@ -78,7 +78,7 @@ export class BitUtil {
    *          Result may lose precision if it exceeds number limits.
    */
   public static nearbyPowerOfTwo(x: number): number {
-    BitUtil.validateSafeInteger(x, 'x');
+    BitUtil.validateSafeInteger(x, "x");
     if (x <= 0) return 0;
 
     const bigX = BigInt(x);
@@ -90,7 +90,7 @@ export class BitUtil {
 
     if (prevBig === 0n && bigX > 0n) return Number(nextBig);
 
-    const resultBigInt = (nextBig - bigX) <= (bigX - prevBig) ? nextBig : prevBig;
+    const resultBigInt = nextBig - bigX <= bigX - prevBig ? nextBig : prevBig;
     return Number(resultBigInt); // WARNING: Potential precision loss
   }
 
@@ -108,7 +108,6 @@ export class BitUtil {
     return current;
   }
 
-
   /**
    * Aligns a number value to the specified power-of-two alignment.
    * @param value The number value to align.
@@ -117,18 +116,60 @@ export class BitUtil {
    *          Result may lose precision if it exceeds number limits.
    */
   public static align(value: number, alignment: number): number {
-    BitUtil.validateSafeInteger(value, 'value');
-    BitUtil.validateSafeInteger(alignment, 'alignment');
+    BitUtil.validateSafeInteger(value, "value");
+    BitUtil.validateSafeInteger(alignment, "alignment");
 
     const intAlignment = alignment | 0; // Ensure alignment is treated as an integer
-    if (intAlignment <= 0 || !BitUtil.isPowerOfTwo(intAlignment)) { // isPowerOfTwo now takes number
-      throw new Error(`Alignment must be a positive power of 2: ${intAlignment}`);
+    if (intAlignment <= 0 || !BitUtil.isPowerOfTwo(intAlignment)) {
+      // isPowerOfTwo now takes number
+      throw new Error(
+        `Alignment must be a positive power of 2: ${intAlignment}`
+      );
     }
 
     const bigValue = BigInt(value);
     const alignmentMinus1 = BigInt(intAlignment - 1);
     const resultBigInt = (bigValue + alignmentMinus1) & ~alignmentMinus1;
     return Number(resultBigInt); // WARNING: Potential precision loss
+  }
+
+  /**
+   * Returns the number of trailing zero bits in the binary representation of the number.
+   *
+   * This is equivalent to finding the position of the lowest set bit.
+   * Essential for power-of-2 calculations and bit manipulation operations.
+   *
+   * @param value The number to analyze
+   * @returns Number of trailing zeros (0-31 for 32-bit integers)
+   */
+  public static numberOfTrailingZeros(value: number): number {
+    if (value === 0) return 32;
+
+    let count = 0;
+    let n = value >>> 0; // Convert to unsigned 32-bit integer
+
+    // Binary search approach for efficiency
+    if ((n & 0xffff) === 0) {
+      count += 16;
+      n >>>= 16;
+    }
+    if ((n & 0xff) === 0) {
+      count += 8;
+      n >>>= 8;
+    }
+    if ((n & 0xf) === 0) {
+      count += 4;
+      n >>>= 4;
+    }
+    if ((n & 0x3) === 0) {
+      count += 2;
+      n >>>= 2;
+    }
+    if ((n & 0x1) === 0) {
+      count += 1;
+    }
+
+    return count;
   }
 
   /**
@@ -141,8 +182,8 @@ export class BitUtil {
    *          Result may lose precision if it exceeds number limits.
    */
   public static ceilDiv(dividend: number, divisor: number): number {
-    BitUtil.validateSafeInteger(dividend, 'dividend');
-    BitUtil.validateSafeInteger(divisor, 'divisor');
+    BitUtil.validateSafeInteger(dividend, "dividend");
+    BitUtil.validateSafeInteger(divisor, "divisor");
 
     const bigDividend = BigInt(dividend);
     const bigDivisor = BigInt(divisor);

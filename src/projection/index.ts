@@ -2,6 +2,7 @@ export * from "./abstract/ElementProjection";
 export * from "./abstract/ElementIdentifier";
 export * from "./abstract/AbstractProjections";
 export * from "./abstract/PropertyMapping";
+export * from "./primitive/PropertyMappings";
 export * from "./primitive/NodeProjection";
 export * from "./primitive/NodeProjections";
 export * from "./primitive/RelationshipProjection";

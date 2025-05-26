@@ -1,11 +1,9 @@
-import { NodeLabel } from '@/api';
+import { NodeLabel } from '@/projection';
 import { RawValues } from '@/core/utils';
-import { IdMapBuilder, LabelInformation } from '@/core/loading';
-import {
-  NodesBatchBuffer,
-  NodeLabelTokenSet,
-  IdMapAllocator
-} from '@/core/loading/batching';
+import { NodeLabelTokenSet } from './NodeLabelTokenSet';
+import { NodesBatchBuffer } from './NodesBatchBuffer';
+import { IdMapBuilder } from './IdMapBuilder';
+import { LabelInformation } from './LabelInformation';
 
 /**
  * Handles the import of nodes from batch buffers into the graph structure.
