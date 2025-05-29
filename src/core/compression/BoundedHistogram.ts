@@ -1,172 +1,225 @@
 /**
- * A simple, exact histogram implementation that is used for small domain spaces.
- * It's main purpose is tracking statistics for compression related logic.
- * If no values are recorded the returned values are undefined.
+ * A simple, exact histogram implementation for small domain spaces.
+ *
+ * **Compression Context:**
+ * This histogram is the statistical foundation for compression decisions in GDS.
+ * It analyzes value distributions to determine optimal compression strategies:
+ *
+ * - **Delta Compression**: If values cluster around a mean, delta encoding works well
+ * - **Dictionary Compression**: High-frequency values get shorter encodings
+ * - **Bit Packing**: Standard deviation determines optimal bit width
+ * - **RLE (Run Length)**: Detects repetitive patterns worth compressing
+ *
+ * **Graph-Specific Usage:**
+ * - **Node IDs**: Often have gaps → histogram reveals clustering patterns
+ * - **Edge Weights**: Distribution determines floating-point compression
+ * - **Adjacency Lists**: Degree distribution affects compression strategy
+ * - **Property Values**: Categorical vs numeric distribution analysis
+ *
+ * If no values are recorded, returned statistical values are undefined.
  */
 export class BoundedHistogram {
   private histogram: number[];
-  private total: number;
+  private totalCount: number;
 
   /**
    * Creates a histogram that accepts values in [0, upperBoundInclusive].
-   * 
-   * @param upperBoundInclusive The maximum value that can be recorded
+   *
+   * **Design Note**: Fixed-size array for O(1) recording and lookup.
+   * This trades memory for speed - perfect for compression analysis
+   * where you need fast statistics during graph loading.
    */
   constructor(upperBoundInclusive: number) {
     this.histogram = new Array(upperBoundInclusive + 1).fill(0);
-    this.total = 0;
+    this.totalCount = 0;
   }
 
   /**
-   * Record the occurrence of the value in the histogram.
-   * 
-   * @param value Value to record
+   * Record the occurrence of a value in the histogram.
+   *
+   * **Performance**: O(1) - critical for compression analysis
+   * where millions of values need statistical tracking.
    */
-  public record(value: number): void {
+  record(value: number): void {
     this.histogram[value]++;
-    this.total++;
+    this.totalCount++;
   }
 
   /**
    * Returns the number of recordings for the given value.
-   * 
-   * @param value The value to get frequency for
-   * @returns Count of occurrences of the value
+   *
+   * **Compression Usage**: High-frequency values are candidates
+   * for dictionary compression with shorter bit codes.
    */
-  public frequency(value: number): number {
+  frequency(value: number): number {
     return this.histogram[value];
   }
 
   /**
    * Returns the total number of recorded values.
-   * 
-   * @returns Total count of all recorded values
    */
-  public total(): number {
-    return this.total;
+  total(): number {
+    return this.totalCount;
   }
 
   /**
    * Return the average value recorded.
-   * 
-   * @returns Mean of all recorded values
+   *
+   * **Compression Insight**: Mean determines the center point for
+   * delta compression. Values close to mean compress better.
    */
-  public mean(): number {
+  mean(): number {
     let sum = 0;
-    const histogram = this.histogram;
-    
-    for (let i = 0; i < histogram.length; i++) {
-      sum += histogram[i] * i;
+
+    for (let i = 0; i < this.histogram.length; i++) {
+      sum += this.histogram[i] * i;
     }
 
-    return sum / this.total;
+    return sum / this.totalCount;
   }
 
   /**
    * Return the median value recorded.
-   * 
-   * @returns Median of all recorded values
+   *
+   * **Compression Insight**: Median is more robust than mean
+   * for skewed distributions common in graph data (power laws).
    */
-  public median(): number {
+  median(): number {
     return this.percentile(50);
   }
 
   /**
    * Return the value that `percentile` percent of all values fall below.
-   * 
-   * @param percentile Percentile to calculate (0-100)
-   * @returns Value at the specified percentile
+   *
+   * **Compression Strategy**:
+   * - p50 = median split point
+   * - p95 = outlier detection threshold
+   * - p99 = extreme value handling
    */
-  public percentile(percentile: number): number {
+  percentile(percentile: number): number {
     let count = 0;
-    const limit = Math.ceil(this.total * (percentile / 100));
-    const histogram = this.histogram;
+    const limit = Math.ceil(this.totalCount * (percentile / 100));
 
-    for (let i = 0; i < histogram.length; i++) {
-      count += histogram[i];
-      if (count > limit) {
+    for (let i = 0; i < this.histogram.length; i++) {
+      count += this.histogram[i];
+      if (count >= limit) {
         return i;
       }
     }
 
-    return histogram.length - 1;
+    return this.histogram.length - 1;
   }
 
   /**
    * Return the standard deviation across all values.
-   * 
-   * @returns Standard deviation of all recorded values
+   *
+   * **Compression Decision**:
+   * - Low stdDev → Values cluster → Good for delta/dictionary compression
+   * - High stdDev → Values spread → May need different strategy
+   * - Very high stdDev → Consider outlier detection + separate encoding
    */
-  public stdDev(): number {
-    const mean = this.mean();
+  stdDev(): number {
+    const meanValue = this.mean();
     let sum = 0;
-    const histogram = this.histogram;
 
-    for (let i = 0; i < histogram.length; i++) {
-      sum += Math.pow(i - mean, 2) * histogram[i];
+    for (let i = 0; i < this.histogram.length; i++) {
+      sum += Math.pow(i - meanValue, 2) * this.histogram[i];
     }
 
-    return Math.sqrt(sum / this.total);
+    return Math.sqrt(sum / this.totalCount);
   }
 
   /**
    * Returns the lowest recorded value in the histogram.
-   * 
-   * @returns Minimum value with non-zero frequency
+   *
+   * **Compression Range**: Defines the minimum value for
+   * range-based compression schemes.
    */
-  public min(): number {
-    const histogram = this.histogram;
-    for (let i = 0; i < histogram.length; i++) {
-      if (histogram[i] > 0) {
+  min(): number {
+    for (let i = 0; i < this.histogram.length; i++) {
+      if (this.histogram[i] > 0) {
         return i;
       }
     }
-    return histogram.length - 1;
+    return this.histogram.length - 1;
   }
 
   /**
    * Returns the highest recorded value in the histogram.
-   * 
-   * @returns Maximum value with non-zero frequency
+   *
+   * **Compression Range**: Defines the maximum value for
+   * bit-width optimization. (max - min) determines encoding bits needed.
    */
-  public max(): number {
-    const histogram = this.histogram;
-    for (let i = histogram.length - 1; i >= 0; i--) {
-      if (histogram[i] > 0) {
+  max(): number {
+    for (let i = this.histogram.length - 1; i >= 0; i--) {
+      if (this.histogram[i] > 0) {
         return i;
       }
     }
-    return histogram.length - 1;
+    return this.histogram.length - 1;
   }
 
   /**
    * Reset the recorded values within the histogram.
+   *
+   * **Usage**: Reuse histogram objects for different data sections
+   * without allocation overhead.
    */
-  public reset(): void {
+  reset(): void {
     this.histogram.fill(0);
-    this.total = 0;
+    this.totalCount = 0;
   }
 
   /**
    * Adds all recorded values of `other` to `this` histogram.
-   * 
-   * @param other Another histogram to merge with this one
+   *
+   * **Parallel Processing**: Merge histograms from different workers
+   * to get global statistics for compression decisions.
    */
-  public add(other: BoundedHistogram): void {
+  add(other: BoundedHistogram): void {
+    // Resize if other histogram is larger
     if (other.histogram.length > this.histogram.length) {
-      const oldHistogram = this.histogram;
-      this.histogram = new Array(other.histogram.length).fill(0);
-      
-      // Copy old values to new array
-      for (let i = 0; i < oldHistogram.length; i++) {
-        this.histogram[i] = oldHistogram[i];
+      const newHistogram = new Array(other.histogram.length).fill(0);
+      for (let i = 0; i < this.histogram.length; i++) {
+        newHistogram[i] = this.histogram[i];
       }
+      this.histogram = newHistogram;
     }
 
-    for (let otherValue = 0; otherValue < other.histogram.length; otherValue++) {
-      this.histogram[otherValue] += other.histogram[otherValue];
+    // Add frequencies from other histogram
+    for (let i = 0; i < other.histogram.length; i++) {
+      this.histogram[i] += other.histogram[i];
     }
 
-    this.total += other.total;
+    this.totalCount += other.totalCount;
+  }
+
+  /**
+   * **Compression Analysis Helper**
+   * Returns a summary of distribution characteristics for compression strategy selection.
+   */
+  getCompressionProfile(): {
+    range: number;
+    concentration: number; // How clustered the values are (inverse of stdDev)
+    skewness: number;      // Asymmetry of distribution
+    sparsity: number;      // Percentage of possible values actually used
+  } {
+    const range = this.max() - this.min();
+    const stdDevValue = this.stdDev();
+    const concentration = range > 0 ? 1 / (1 + stdDevValue / range) : 1;
+
+    // Simple skewness approximation: (mean - median) / stdDev
+    const skewness = stdDevValue > 0 ? (this.mean() - this.median()) / stdDevValue : 0;
+
+    // Sparsity: fraction of possible values that actually occur
+    const nonZeroCount = this.histogram.filter(count => count > 0).length;
+    const sparsity = nonZeroCount / this.histogram.length;
+
+    return {
+      range,
+      concentration,
+      skewness,
+      sparsity
+    };
   }
 }

@@ -1,7 +1,7 @@
-import { HugeIntArray } from "../../collections/ha/HugeIntArray"; // Adjust path as needed
-import { HugeLongArray } from "../../collections/ha/HugeLongArray"; // Adjust path as needed
-import { GdsFeatureToggles } from "../../utils/GdsFeatureToggles"; // Adjust path as needed
-import { PageReordering } from "../../core/utils/PageReordering"; // Adjust path as needed
+import { HugeIntArray } from "@/collections";
+import { HugeLongArray } from "@/collections";
+import { GdsFeatureToggles } from "@/utils/GdsFeatureToggles";
+import { PageReordering } from "../../core/utils/PageReordering";
 
 /**
  * Represents a slice of a PAGE.
