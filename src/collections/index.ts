@@ -2,6 +2,7 @@ export * from "./ArrayUtil";
 export * from "./PageUtil";
 export * from "./BitSet";
 export * from "./LongMultiSet";
+export * from "./IndirectComparator";
 export * from "./primitive/PrimitiveIterator";
 export * from "./primitive/PrimitiveLongIterable";
 export * from "./primitive/PrimitiveLongCollections";

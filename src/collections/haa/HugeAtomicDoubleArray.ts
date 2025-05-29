@@ -1,11 +1,11 @@
+import { HugeArrays } from "@/mem";
+import { Estimate } from "@/mem";
 import {
   HugeCursor,
   SinglePageCursor,
   PagedCursor,
-} from "@/collections/cursor/HugeCursor";
-import { HugeArrays } from "@/mem/HugeArrays";
-import { Estimate } from "@/mem/Estimate";
-import { HugeCursorSupport } from "@/collections/cursor/HugeCursorSupport";
+  HugeCursorSupport,
+} from "@/collections";
 import { DoublePageCreator } from "./PageCreator";
 
 /**
@@ -384,7 +384,10 @@ export abstract class HugeAtomicDoubleArray<TStorage = any>
    * @param pageCreator Strategy for initializing pages with specific values
    * @returns A new HugeAtomicDoubleArray instance optimized for the given size
    */
-  public static of(size: number, pageCreator: DoublePageCreator): HugeAtomicDoubleArray {
+  public static of(
+    size: number,
+    pageCreator: DoublePageCreator
+  ): HugeAtomicDoubleArray {
     if (size <= HugeArrays.MAX_ARRAY_LENGTH) {
       return new SingleHugeAtomicDoubleArray(size, pageCreator);
     }
@@ -405,7 +408,9 @@ export abstract class HugeAtomicDoubleArray<TStorage = any>
       );
     }
 
-    const sizeOfInstance = Estimate.sizeOfInstance("PagedHugeAtomicDoubleArray");
+    const sizeOfInstance = Estimate.sizeOfInstance(
+      "PagedHugeAtomicDoubleArray"
+    );
     const numPages = HugeArrays.numberOfPages(size);
 
     let memoryUsed = Estimate.sizeOfObjectArray(numPages);
@@ -496,7 +501,11 @@ export abstract class HugeAtomicDoubleArray<TStorage = any>
    * @returns true if successful, false if the actual value was not equal to expected
    * @throws Error if index is negative or >= size()
    */
-  public abstract compareAndSet(index: number, expect: number, update: number): boolean;
+  public abstract compareAndSet(
+    index: number,
+    expect: number,
+    update: number
+  ): boolean;
 
   /**
    * Atomically sets the element at position index to the given updated value
@@ -526,7 +535,11 @@ export abstract class HugeAtomicDoubleArray<TStorage = any>
    * @returns The witness value (equals expect if successful, or current value if not)
    * @throws Error if index is negative or >= size()
    */
-  public abstract compareAndExchange(index: number, expect: number, update: number): number;
+  public abstract compareAndExchange(
+    index: number,
+    expect: number,
+    update: number
+  ): number;
 
   /**
    * Atomically updates the element at index with the results of applying the given function.
@@ -551,7 +564,10 @@ export abstract class HugeAtomicDoubleArray<TStorage = any>
    * @param updateFunction A side-effect-free function to transform the current value
    * @throws Error if index is negative or >= size()
    */
-  public abstract update(index: number, updateFunction: DoubleToDoubleFunction): void;
+  public abstract update(
+    index: number,
+    updateFunction: DoubleToDoubleFunction
+  ): void;
 
   /**
    * Returns the length of this array.
@@ -613,7 +629,9 @@ export abstract class HugeAtomicDoubleArray<TStorage = any>
    *
    * @param cursor The cursor to initialize
    */
-  public abstract initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]>;
+  public abstract initCursor(
+    cursor: HugeCursor<number[]>
+  ): HugeCursor<number[]>;
 }
 
 /**
@@ -665,7 +683,11 @@ class SingleHugeAtomicDoubleArray extends HugeAtomicDoubleArray<Float64Array> {
     return false;
   }
 
-  public compareAndExchange(index: number, expect: number, update: number): number {
+  public compareAndExchange(
+    index: number,
+    expect: number,
+    update: number
+  ): number {
     console.assert(index < this._size, `index = ${index} size = ${this._size}`);
     const current = this._storage[index];
     if (current === expect) {
@@ -717,7 +739,11 @@ class SingleHugeAtomicDoubleArray extends HugeAtomicDoubleArray<Float64Array> {
       let srcOffset = 0;
       let remaining = length;
 
-      for (let pageIdx = 0; pageIdx < dest._pages!.length && remaining > 0; pageIdx++) {
+      for (
+        let pageIdx = 0;
+        pageIdx < dest._pages!.length && remaining > 0;
+        pageIdx++
+      ) {
         const dstPage = dest._pages![pageIdx];
         const toCopy = Math.min(remaining, dstPage.length);
 
@@ -731,7 +757,11 @@ class SingleHugeAtomicDoubleArray extends HugeAtomicDoubleArray<Float64Array> {
         remaining -= toCopy;
       }
 
-      for (let pageIdx = Math.ceil(length / HugeArrays.PAGE_SIZE); pageIdx < dest._pages!.length; pageIdx++) {
+      for (
+        let pageIdx = Math.ceil(length / HugeArrays.PAGE_SIZE);
+        pageIdx < dest._pages!.length;
+        pageIdx++
+      ) {
         dest._pages![pageIdx].fill(dest.defaultValue());
       }
     }
@@ -829,7 +859,11 @@ class PagedHugeAtomicDoubleArray extends HugeAtomicDoubleArray<Float64Array> {
     return false;
   }
 
-  public compareAndExchange(index: number, expect: number, update: number): number {
+  public compareAndExchange(
+    index: number,
+    expect: number,
+    update: number
+  ): number {
     console.assert(index < this._size, `index = ${index} size = ${this._size}`);
     const pageIndex = HugeArrays.pageIndex(index);
     const indexInPage = HugeArrays.indexInPage(index);
@@ -911,14 +945,18 @@ class PagedHugeAtomicDoubleArray extends HugeAtomicDoubleArray<Float64Array> {
         remaining -= toCopy;
       }
 
-      for (let i = Math.ceil(length / HugeArrays.PAGE_SIZE); i < dest._pages!.length; i++) {
+      for (
+        let i = Math.ceil(length / HugeArrays.PAGE_SIZE);
+        i < dest._pages!.length;
+        i++
+      ) {
         dest._pages![i].fill(dest.defaultValue());
       }
     }
   }
 
   public newCursor(): HugeCursor<number[]> {
-    const numberPages = this._pages!.map(page => Array.from(page));
+    const numberPages = this._pages!.map((page) => Array.from(page));
     const cursor = new PagedCursor<number[]>();
     cursor.setPages(numberPages, this._size);
     return cursor;
@@ -926,7 +964,7 @@ class PagedHugeAtomicDoubleArray extends HugeAtomicDoubleArray<Float64Array> {
 
   public initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]> {
     if (cursor instanceof PagedCursor) {
-      const numberPages = this._pages!.map(page => Array.from(page));
+      const numberPages = this._pages!.map((page) => Array.from(page));
       cursor.setPages(numberPages, this._size);
     }
     return cursor;

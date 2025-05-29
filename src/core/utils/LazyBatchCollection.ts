@@ -1,181 +1,259 @@
-import { ParallelUtil } from '@/concurrency/ParallelUtil';
-import { PrimitiveLongIterable } from "@/collections/primitive/PrimitiveLongIterable";
-
 /**
- * Interface for supplying batch objects based on start position and length.
+ * Lazy batch collection for efficient parallel processing of large datasets.
+ *
+ * Creates batches on-demand during iteration, enabling memory-efficient
+ * parallel processing of billions of elements without materializing
+ * all work chunks simultaneously.
+ *
+ * Perfect for:
+ * - Graph algorithm parallelization (billion-node processing)
+ * - Stream processing with backpressure
+ * - Memory-constrained batch operations
+ *
+ * @template T The type of batch objects
  */
-export interface BatchSupplier<T> {
-  /**
-   * Creates a new batch.
-   *
-   * @param start The starting position for this batch
-   * @param length The length of this batch
-   * @returns A new batch object
-   */
-  newBatch(start: number, length: number): T;
-}
 
 /**
- * A collection that lazily creates batches when iterated.
- * Optionally caches created batches for reuse.
+ * Function that creates a batch for a given range.
+ * @param start Starting index (inclusive)
+ * @param length Number of elements in this batch
+ * @returns A batch object of type T
+ */
+export type BatchSupplier<T> = (start: number, length: number) => T;
+
+/**
+ * Lazy collection that generates batches on-demand.
+ * Implements standard JavaScript iteration protocols.
  */
 export class LazyBatchCollection<T> implements Iterable<T> {
-  private readonly saveResults: boolean;
-  private readonly supplier: BatchSupplier<T>;
-  private readonly nodeCount: number;
   private readonly batchSize: number;
+  private readonly nodeCount: number;
   private readonly numberOfBatches: number;
+  private readonly supplier: BatchSupplier<T>;
+  private readonly saveResults: boolean;
 
-  private batches: T[] | null = null;
+  private cachedBatches?: T[];
+
+  constructor(
+    nodeCount: number,
+    batchSize: number,
+    supplier: BatchSupplier<T>,
+    saveResults: boolean = false
+  ) {
+    this.nodeCount = nodeCount;
+    this.batchSize = batchSize;
+    this.supplier = supplier;
+    this.saveResults = saveResults;
+    this.numberOfBatches = Math.ceil(nodeCount / batchSize);
+  }
 
   /**
-   * Creates a new collection of lazily generated batches.
+   * Creates a lazy batch collection.
    *
-   * @param nodeCount Total number of nodes/items
-   * @param batchSize Size of each batch
-   * @param supplier Function that creates new batches
-   * @returns A new lazy batch collection
+   * @param nodeCount Total number of elements to process
+   * @param batchSize Maximum elements per batch
+   * @param supplier Function to create each batch
+   * @returns Iterable collection of batches
+   *
+   * @example
+   * ```typescript
+   * // Process 1M nodes in 10K batches
+   * const batches = LazyBatchCollection.of(1_000_000, 10_000, (start, length) => {
+   *   return new NodeProcessingBatch(start, length);
+   * });
+   *
+   * // Batches created lazily during iteration
+   * for (const batch of batches) {
+   *   await processNodesInParallel(batch);
+   * }
+   * ```
    */
   public static of<T>(
     nodeCount: number,
     batchSize: number,
     supplier: BatchSupplier<T>
   ): LazyBatchCollection<T> {
-    return new LazyBatchCollection<T>(batchSize, nodeCount, false, supplier);
+    return new LazyBatchCollection(nodeCount, batchSize, supplier, false);
   }
 
   /**
-   * Creates a new collection of lazily generated batches that are saved for reuse.
-   *
-   * @param nodeCount Total number of nodes/items
-   * @param batchSize Size of each batch
-   * @param supplier Function that creates new batches
-   * @returns A new lazy batch collection with saved results
+   * Creates a lazy batch collection that caches results.
+   * Useful when you need to iterate multiple times.
    */
-  public static cached<T>(
+  public static ofCached<T>(
     nodeCount: number,
     batchSize: number,
     supplier: BatchSupplier<T>
   ): LazyBatchCollection<T> {
-    return new LazyBatchCollection<T>(batchSize, nodeCount, true, supplier);
+    return new LazyBatchCollection(nodeCount, batchSize, supplier, true);
   }
 
   /**
-   * Private constructor, use static factory methods instead.
+   * Returns iterator that creates batches on-demand.
+   * Each call to next() creates a new batch using the supplier function.
    */
-  private constructor(
-    batchSize: number,
-    nodeCount: number,
-    saveResults: boolean,
-    supplier: BatchSupplier<T>
-  ) {
-    this.saveResults = saveResults;
-    this.supplier = supplier;
-    this.nodeCount = nodeCount;
-    this.batchSize = batchSize;
-    this.numberOfBatches = Math.floor(
-      ParallelUtil.threadCount(batchSize, nodeCount)
-    );
-  }
-
-  /**
-   * Returns an iterator over the batches.
-   * Creates batches on-demand as the iterator is consumed.
-   *
-   * @returns Iterator for the batches
-   */
-  public [Symbol.iterator](): Iterator<T> {
-    if (this.batches !== null) {
-      return this.batches[Symbol.iterator]();
+  public *[Symbol.iterator](): Iterator<T> {
+    // If we have cached results, use them
+    if (this.cachedBatches) {
+      yield* this.cachedBatches;
+      return;
     }
 
+    // Initialize cache if saving results
     if (this.saveResults) {
-      this.batches = [];
+      this.cachedBatches = [];
     }
 
-    let i = 0;
+    // Generate batches lazily
     let start = 0;
+    for (let i = 0; i < this.numberOfBatches; i++) {
+      const length = Math.min(this.batchSize, this.nodeCount - start);
+      const batch = this.supplier(start, length);
 
-    return {
-      next: (): IteratorResult<T> => {
-        if (i >= this.numberOfBatches) {
-          return { done: true, value: undefined as unknown as T };
-        }
-
-        const currentStart = start;
-        const length = Math.min(this.batchSize, this.nodeCount - start);
-
-        start += this.batchSize;
-        i++;
-
-        const batch = this.supplier.newBatch(currentStart, length);
-
-        if (this.batches !== null) {
-          this.batches.push(batch);
-        }
-
-        return { done: false, value: batch };
+      // Cache if requested
+      if (this.cachedBatches) {
+        this.cachedBatches.push(batch);
       }
-    };
+
+      yield batch;
+      start += this.batchSize;
+    }
   }
 
   /**
-   * Returns the number of batches in this collection.
-   *
-   * @returns Number of batches
+   * Returns the number of batches that will be created.
+   * Does not trigger batch creation.
    */
-  public size(): number {
-    if (this.batches !== null) {
-      return this.batches.length;
-    }
+  public get size(): number {
     return this.numberOfBatches;
   }
 
   /**
-   * Converts the collection to an array, forcing all lazy batches to be created.
-   *
-   * @returns Array of all batches
+   * Returns array of all batches (forces evaluation if not cached).
+   * Use sparingly - defeats the lazy evaluation purpose!
    */
   public toArray(): T[] {
-    if (this.batches !== null) {
-      return [...this.batches];
+    if (this.cachedBatches) {
+      return [...this.cachedBatches];
     }
+
     return Array.from(this);
   }
 
   /**
-   * Creates a collection of iterables for batch processing.
+   * Processes all batches in parallel using Promise.all.
+   * Each batch is processed by the provided async function.
    *
-   * @param size Total size
-   * @param batchSize Size of each batch
-   * @param iterableFactory Factory function to create iterables for each batch
-   * @returns Array of iterables
+   * @param processor Async function to process each batch
+   * @returns Promise that resolves when all batches are processed
    */
-  public static of(
-    size: number,
-    batchSize: number,
-    iterableFactory: (start: number, end: number) => PrimitiveLongIterable
-  ): PrimitiveLongIterable[] {
-    if (size === 0n) {
-      return [];
+  public async processInParallel<R>(
+    processor: (batch: T) => Promise<R>
+  ): Promise<R[]> {
+    const promises: Promise<R>[] = [];
+
+    for (const batch of this) {
+      promises.push(processor(batch));
     }
 
-    if (batchSize <= 0n) {
-      throw new Error("Batch size must be positive");
+    return Promise.all(promises);
+  }
+
+  /**
+   * Processes batches sequentially with optional progress callback.
+   * More memory efficient than parallel processing for very large datasets.
+   */
+  public async processSequentially<R>(
+    processor: (batch: T, index: number) => Promise<R>,
+    onProgress?: (completed: number, total: number) => void
+  ): Promise<R[]> {
+    const results: R[] = [];
+    let index = 0;
+
+    for (const batch of this) {
+      const result = await processor(batch, index);
+      results.push(result);
+
+      if (onProgress) {
+        onProgress(index + 1, this.numberOfBatches);
+      }
+
+      index++;
     }
 
-    // Calculate number of batches
-    const numberOfBatches = Number((size + batchSize - 1n) / batchSize);
-    const result: PrimitiveLongIterable[] = new Array(numberOfBatches);
+    return results;
+  }
+}
 
-    // Create iterables for each batch
-    let start = 0n;
-    for (let i = 0; i < numberOfBatches; i++) {
-      const end = i === numberOfBatches - 1 ? size : start + batchSize;
-      result[i] = iterableFactory(start, end);
-      start = end;
-    }
+/**
+ * Utility functions for common batch creation patterns.
+ */
+export namespace BatchUtils {
+  /**
+   * Creates batches for node range processing.
+   */
+  export interface NodeBatch {
+    readonly startNode: number;
+    readonly endNode: number;
+    readonly length: number;
+  }
 
-    return result;
+  export function createNodeBatches(
+    nodeCount: number,
+    batchSize: number
+  ): LazyBatchCollection<NodeBatch> {
+    return LazyBatchCollection.of(nodeCount, batchSize, (start, length) => ({
+      startNode: start,
+      endNode: start + length - 1,
+      length
+    }));
+  }
+
+  /**
+   * Creates batches for array slice processing.
+   */
+  export interface ArraySliceBatch<T> {
+    readonly data: T[];
+    readonly startIndex: number;
+    readonly endIndex: number;
+  }
+
+  export function createArraySliceBatches<T>(
+    array: T[],
+    batchSize: number
+  ): LazyBatchCollection<ArraySliceBatch<T>> {
+    return LazyBatchCollection.of(array.length, batchSize, (start, length) => ({
+      data: array.slice(start, start + length),
+      startIndex: start,
+      endIndex: start + length - 1
+    }));
+  }
+
+  /**
+   * Creates batches for HugeArray processing.
+   */
+  export interface HugeArrayBatch {
+    readonly startIndex: number;
+    readonly length: number;
+
+    processRange<T>(array: { get(index: number): T }, processor: (value: T, index: number) => void): void;
+  }
+
+  export function createHugeArrayBatches(
+    totalSize: number,
+    batchSize: number
+  ): LazyBatchCollection<HugeArrayBatch> {
+    return LazyBatchCollection.of(totalSize, batchSize, (start, length) => ({
+      startIndex: start,
+      length,
+
+      processRange<T>(array: { get(index: number): T }, processor: (value: T, index: number) => void): void {
+        for (let i = 0; i < length; i++) {
+          const index = start + i;
+          const value = array.get(index);
+          processor(value, index);
+        }
+      }
+    }));
   }
 }

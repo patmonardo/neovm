@@ -1,377 +1,453 @@
-import { HugeLongArray } from '../../collections/ha/HugeLongArray';
-import { HugeDoubleArray } from '../../collections/ha/HugeDoubleArray';
-import { MemoryEstimation, MemoryEstimations } from '../../mem/MemoryEstimations';
+import { HugeLongArray } from "@/collections";
+import { HugeDoubleArray } from "@/collections";
 
 /**
- * A PriorityQueue specialized for longs that maintains a partial ordering of
- * its elements such that the smallest value can always be found in constant time.
- * The definition of what <i>small</i> means is up to the implementing subclass.
+ * Memory estimation utilities for priority queue
+ */
+export class MemoryEstimations {
+  static builder(clazz: any) {
+    return {
+      perNode: (name: string, estimator: (capacity: number) => number) => ({
+        build: () => estimator,
+      }),
+    };
+  }
+}
+
+/**
+ * A heap-based priority queue specialized for long elements with double priorities.
+ * Maintains a partial ordering where the smallest (or largest) value can always be
+ * found in constant time. Unlike bounded queues, this can grow to full capacity.
  *
- * Put()'s and pop()'s require log(size) time but the remove() cost implemented here is linear.
+ * This is a TRUE PRIORITY QUEUE using heap data structure:
+ * - add(): O(log n) - Insert element with priority
+ * - pop(): O(log n) - Remove and return top element
+ * - top(): O(1) - Peek at top element
+ * - set(): O(log n) - Update element priority and reorder
  *
- * NOTE: Iteration order is not specified.
+ * Perfect for:
+ * - Dijkstra's shortest path algorithm
+ * - A* pathfinding
+ * - Prim's minimum spanning tree
+ * - Huffman coding
+ * - Event-driven simulation
+ * - Any algorithm needing efficient min/max extraction
  *
- * Implementation has been adapted from https://issues.apache.org/jira/browse/SOLR-2092
+ * Key differences from BoundedLongPriorityQueue:
+ * - HEAP-based (not array-based)
+ * - GROWING capacity (not fixed size)
+ * - ELEMENT UPDATE support (set() method)
+ * - POSITION TRACKING (inverted index)
+ *
+ * Implementation adapted from Apache Solr SOLR-2092
  */
 export abstract class HugeLongPriorityQueue implements Iterable<number> {
   /**
-   * Creates a memory estimation for this data structure.
-   *
-   * @returns Memory estimation
+   * Estimates memory usage for a priority queue of given capacity.
+   * Accounts for heap array, position mapping, and cost values.
    */
-  public static memoryEstimation(): MemoryEstimation {
-    return MemoryEstimations.builder(HugeLongPriorityQueue.name)
-      .perNode("heap", HugeLongArray.memoryEstimation)
-      .perNode("costs", HugeDoubleArray.memoryEstimation)
-      .perNode("inverted index", HugeLongArray.memoryEstimation)
-      .build();
+  static memoryEstimation(): (capacity: number) => number {
+    return (capacity: number) => {
+      const heapSize = capacity === 0 ? 2 : capacity + 1; // +1 for 1-based indexing
+      return (
+        HugeLongArray.memoryEstimation(heapSize) + // heap array
+        HugeLongArray.memoryEstimation(heapSize) + // position mapping
+        HugeDoubleArray.memoryEstimation(capacity) // cost values
+      );
+    };
   }
 
   private readonly capacity: number;
-  private heap: HugeLongArray;
-  private mapIndexTo: HugeLongArray;
-  private size = 0;
-
-  protected costValues: HugeDoubleArray;
+  private heap!: HugeLongArray; // The actual heap (1-indexed)
+  private mapIndexTo!: HugeLongArray; // element → heap position mapping
+  private _size: number = 0; // Current number of elements
+  protected costValues!: HugeDoubleArray; // element → priority mapping
 
   /**
    * Creates a new priority queue with the given capacity.
-   * The size is fixed, the queue cannot shrink or grow.
+   * The size is fixed at creation - the queue cannot shrink or grow beyond this.
    *
-   * @param capacity Maximum capacity of the queue
+   * @param capacity Maximum number of elements the queue can hold
    */
   protected constructor(capacity: number) {
-    let heapSize: number;
-    if (0 === capacity) {
-      // We allocate 1 extra to avoid if statement in top()
-      heapSize = 2;
-    } else {
-      // NOTE: we add +1 because all access to heap is
-      // 1-based not 0-based. heap[0] is unused.
-      heapSize = capacity + 1;
-    }
     this.capacity = capacity;
+
+    // Calculate heap size with 1-based indexing
+    // We add +1 because heap[0] is unused (makes parent/child math cleaner)
+    const heapSize = capacity === 0 ? 2 : capacity + 1;
+
     this.heap = HugeLongArray.newArray(heapSize);
     this.mapIndexTo = HugeLongArray.newArray(heapSize);
     this.costValues = HugeDoubleArray.newArray(capacity);
   }
 
   /**
-   * Adds the element at the specified position in the heap array.
+   * Places an element at the specified position in the heap.
+   * Also updates the inverted index to track element → position mapping.
+   * This is critical for efficient element updates and lookups.
    *
-   * @param position Position in the heap
-   * @param element Element to place
+   * @param position 1-based position in heap array
+   * @param element The element to place
    */
   private placeElement(position: number, element: number): void {
     this.heap.set(position, element);
-    this.mapIndexTo.set(Number(element), BigInt(position));
+    this.mapIndexTo.set(element, position);
   }
 
   /**
-   * Adds an element associated with a cost to the queue in log(size) time.
+   * Adds an element with associated cost to the queue in O(log n) time.
+   * The element will be inserted at the correct position to maintain heap property.
    *
-   * @param element Element to add
-   * @param cost Cost of the element
+   * @param element The element to add (must be < capacity)
+   * @param cost The priority/cost associated with this element
    */
-  public add(element: number, cost: number): void {
-    console.assert(Number(element) < this.capacity, "Element must be less than capacity");
+  add(element: number, cost: number): void {
+    console.assert(
+      element < this.capacity,
+      `Element ${element} exceeds capacity ${this.capacity}`
+    );
+    console.assert(
+      this._size < this.capacity,
+      `Queue is full (capacity: ${this.capacity})`
+    );
+
+    // Store the cost and mark as new element
     this.addCost(element, cost);
-    this.size++;
-    this.placeElement(this.size, element);
-    this.upHeap(this.size);
+
+    // Add to end of heap
+    this._size++;
+    this.placeElement(this._size, element);
+
+    // Restore heap property by bubbling up
+    this.upHeap(this._size);
   }
 
   /**
-   * Adds an element associated with a cost to the queue in log(size) time.
-   * If the element was already in the queue, its cost is updated and the
-   * heap is reordered in log(size) time.
+   * Sets an element's cost, adding it if new or updating if it exists.
+   * If the element already exists, the heap is reordered in O(log n) time.
+   * If it's new, it's added in O(log n) time.
    *
-   * @param element Element to set
-   * @param cost Cost of the element
+   * This is perfect for algorithms like Dijkstra where you discover better paths.
+   *
+   * @param element The element to set
+   * @param cost The new priority/cost for this element
    */
-  public set(element: number, cost: number): void {
-    console.assert(Number(element) < this.capacity, "Element must be less than capacity");
-    if (this.addCost(element, cost)) {
+  set(element: number, cost: number): void {
+    console.assert(
+      element < this.capacity,
+      `Element ${element} exceeds capacity ${this.capacity}`
+    );
+
+    const elementExisted = this.addCost(element, cost);
+
+    if (elementExisted) {
+      // Element was already in queue - update its position
       this.update(element);
     } else {
-      this.size++;
-      this.placeElement(this.size, element);
-      this.upHeap(this.size);
+      // New element - add to end and bubble up
+      this._size++;
+      this.placeElement(this._size, element);
+      this.upHeap(this._size);
     }
   }
 
   /**
-   * Returns the cost associated with the given element.
-   * If the element has been popped from the queue, its
-   * latest cost value is being returned.
+   * Returns the cost/priority associated with the given element.
+   * Even if the element has been popped from the queue, its last cost is returned.
    *
-   * @param element Element to get cost for
-   * @returns The cost value for the element, 0.0 if element is not found
+   * @param element The element to query
+   * @returns The cost value, or 0.0 if element not found
    */
-  public cost(element: number): number {
-    return this.costValues.get(Number(element));
+  cost(element: number): number {
+    return this.costValues.get(element);
   }
 
   /**
-   * Returns true if the element is contained in the queue.
+   * Checks if an element is currently in the queue.
+   * Uses the inverted index for O(1) lookup.
    *
-   * @param element Element to check
-   * @returns true if element exists in queue
+   * @param element The element to check
+   * @returns true if element is in queue, false otherwise
    */
-  public containsElement(element: number): boolean {
-    return this.mapIndexTo.get(Number(element)) > 0n;
+  containsElement(element: number): boolean {
+    return this.mapIndexTo.get(element) > 0;
   }
 
   /**
-   * Returns the element with the minimum cost from the queue in constant time.
+   * Returns the top element (min or max depending on implementation) in O(1) time.
+   * Does NOT remove the element - use pop() for that.
    *
-   * @returns Element with minimum cost
+   * @returns The top element
    * @throws Error if queue is empty
    */
-  public top(): number {
+  top(): number {
     if (this.isEmpty()) {
       throw new Error("Priority Queue is empty");
     }
-    return this.heap.get(1);
+    return this.heap.get(1); // Root is always at position 1
   }
 
   /**
-   * Removes and returns the element with the minimum cost from the queue in log(size) time.
+   * Removes and returns the top element in O(log n) time.
+   * The heap property is maintained by moving the last element to the root
+   * and then bubbling it down to its correct position.
    *
-   * @returns Element with minimum cost, or -1n if queue is empty
+   * @returns The top element, or -1 if queue is empty
    */
-  public pop(): number {
-    if (this.size > 0) {
-      const result = this.heap.get(1);    // save first value
-      this.placeElement(1, this.heap.get(this.size));    // move last to first
-      this.size--;
-      this.downHeap(1);           // adjust heap
+  pop(): number {
+    if (this._size > 0) {
+      const result = this.heap.get(1); // Save the root
+
+      // Move last element to root position
+      this.placeElement(1, this.heap.get(this._size));
+      this._size--;
+
+      // Restore heap property by bubbling down
+      this.downHeap(1);
+
+      // Remove from cost tracking
       this.removeCost(result);
+
       return result;
     } else {
-      return -1n;
+      return -1;
     }
   }
 
   /**
-   * Returns the number of elements currently stored in the queue.
-   *
-   * @returns Number of elements in queue
+   * Returns the current number of elements in the queue.
    */
-  public size(): number {
-    return this.size;
+  size(): number {
+    return this._size;
   }
 
   /**
-   * Removes all entries from the queue, releases all buffers.
-   * The queue can no longer be used afterwards.
+   * Checks if the queue is currently empty.
    */
-  public release(): void {
-    this.size = 0;
-    this.heap = null!;
-    this.mapIndexTo = null!;
-    this.costValues.release();
-  }
-
-  /**
-   * Defines the ordering of the queue.
-   * Returns true iff {@code a} is strictly less than {@code b}.
-   *
-   * The default behavior assumes a min queue, where the value with smallest cost is on top.
-   * To implement a max queue, return {@code b < a}.
-   * The resulting order is not stable.
-   *
-   * @param a First element
-   * @param b Second element
-   * @returns true if a is less than b
-   */
-  protected abstract lessThan(a: number, b: number): boolean;
-
-  /**
-   * Adds the given element to the queue.
-   * If the element already exists, its cost is overridden.
-   *
-   * @param element Element to add
-   * @param cost Cost of the element
-   * @returns true if element already existed, false otherwise
-   */
-  private addCost(element: number, cost: number): boolean {
-    const elementExists = this.mapIndexTo.get(Number(element)) > 0n;
-    this.costValues.set(Number(element), cost);
-    return elementExists;
-  }
-
-  /**
-   * Checks if the queue is empty.
-   *
-   * @returns true if queue is empty
-   */
-  public isEmpty(): boolean {
-    return this.size === 0;
+  isEmpty(): boolean {
+    return this._size === 0;
   }
 
   /**
    * Removes all entries from the queue.
+   * The queue can be reused after clearing.
    */
-  public clear(): void {
-    this.size = 0;
-    this.mapIndexTo.fill(0n);
+  clear(): void {
+    this._size = 0;
+    this.mapIndexTo.fill(0);
   }
 
   /**
-   * Finds the position of an element in the heap.
-   *
-   * @param element Element to find
-   * @returns Position in heap
+   * Releases all memory used by the queue.
+   * The queue cannot be used after calling this method.
    */
-  findElementPosition(element: number): number {
-    return Number(this.mapIndexTo.get(Number(element)));
+  release(): void {
+    this._size = 0;
+    this.heap = undefined as any;
+    this.mapIndexTo = undefined as any;
+    this.costValues.release();
   }
 
   /**
-   * Move an element up the heap until it's in the correct position.
+   * Returns the element at the i-th position in the heap (0-based external indexing).
+   * Useful for debugging or specialized heap operations.
    *
-   * @param origPos Original position
-   * @returns true if element moved
+   * @param i 0-based index
+   * @returns Element at position i+1 in the 1-based heap
+   */
+  getIth(i: number): number {
+    return this.heap.get(i + 1);
+  }
+
+  /**
+   * Abstract method that defines the ordering of the queue.
+   * Subclasses implement this to create min or max queues.
+   *
+   * @param a First element to compare
+   * @param b Second element to compare
+   * @returns true if a should come before b in the heap
+   */
+  protected abstract lessThan(a: number, b: number): boolean;
+
+  /**
+   * Adds or updates the cost for an element.
+   *
+   * @param element The element to update
+   * @param cost The new cost value
+   * @returns true if element already existed, false if it's new
+   */
+  private addCost(element: number, cost: number): boolean {
+    const elementExists = this.mapIndexTo.get(element) > 0;
+    this.costValues.set(element, cost);
+    return elementExists;
+  }
+
+  /**
+   * Finds the current position of an element in the heap.
+   *
+   * @param element The element to find
+   * @returns 1-based position in heap, or 0 if not found
+   */
+  private findElementPosition(element: number): number {
+    return this.mapIndexTo.get(element);
+  }
+
+  /**
+   * Bubbles an element UP the heap until heap property is restored.
+   * Used when inserting new elements or when an element's priority improves.
+   *
+   * Classic heap algorithm:
+   * 1. Compare with parent
+   * 2. If better than parent, swap
+   * 3. Repeat until at root or heap property satisfied
+   *
+   * @param origPos Starting position (1-based)
+   * @returns true if any swaps occurred
    */
   private upHeap(origPos: number): boolean {
     let i = origPos;
-    // save bottom node
-    const node = this.heap.get(i);
-    // find parent of current node
-    let j = i >>> 1;
+    const node = this.heap.get(i); // Save the node we're bubbling up
+
+    // Find parent: parent of position i is at position i/2 (integer division)
+    let j = Math.floor(i / 2);
+
+    // Bubble up while we have a parent and our node is "better"
     while (j > 0 && this.lessThan(node, this.heap.get(j))) {
-      // shift parents down
+      // Move parent down
       this.placeElement(i, this.heap.get(j));
       i = j;
-      // find new parent of swapped node
-      j = j >>> 1;
+      j = Math.floor(j / 2); // Move to next parent
     }
-    // install saved node
+
+    // Install our node at final position
     this.placeElement(i, node);
-    return i !== origPos;
+
+    return i !== origPos; // Return true if we moved
   }
 
   /**
-   * Move an element down the heap until it's in the correct position.
+   * Bubbles an element DOWN the heap until heap property is restored.
+   * Used when removing the root or when an element's priority gets worse.
    *
-   * @param i Position to start from
+   * Classic heap algorithm:
+   * 1. Find the "better" child (left vs right)
+   * 2. If child is better than current, swap
+   * 3. Repeat until no children or heap property satisfied
+   *
+   * @param i Starting position (1-based)
    */
   private downHeap(i: number): void {
-    // save top node
-    const node = this.heap.get(i);
-    // find smallest child of top node
-    let j = i << 1;
-    let k = j + 1;
-    if (k <= this.size && this.lessThan(this.heap.get(k), this.heap.get(j))) {
-      j = k;
+    const node = this.heap.get(i); // Save the node we're bubbling down
+
+    // Find left child: left child of position i is at position 2*i
+    let j = i * 2;
+    let k = j + 1; // Right child is at position 2*i + 1
+
+    // Choose the "better" child (according to lessThan)
+    if (k <= this._size && this.lessThan(this.heap.get(k), this.heap.get(j))) {
+      j = k; // Right child is better
     }
-    while (j <= this.size && this.lessThan(this.heap.get(j), node)) {
-      // shift up child
+
+    // Bubble down while we have children and they're "better"
+    while (j <= this._size && this.lessThan(this.heap.get(j), node)) {
+      // Move better child up
       this.placeElement(i, this.heap.get(j));
       i = j;
-      // find smallest child of swapped node
-      j = i << 1;
+
+      // Find children of new position
+      j = i * 2;
       k = j + 1;
-      if (k <= this.size && this.lessThan(this.heap.get(k), this.heap.get(j))) {
+
+      // Choose better child again
+      if (
+        k <= this._size &&
+        this.lessThan(this.heap.get(k), this.heap.get(j))
+      ) {
         j = k;
       }
     }
-    // install saved node
+
+    // Install our node at final position
     this.placeElement(i, node);
   }
 
   /**
-   * Update the position of an element in the heap.
+   * Updates the position of an element after its cost has changed.
+   * Tries bubbling up first, then bubbling down if that didn't work.
+   * This covers all cases where an element's priority changes.
    *
-   * @param element Element to update
+   * @param element The element whose position needs updating
    */
   private update(element: number): void {
     const pos = this.findElementPosition(element);
     if (pos !== 0) {
-      if (!this.upHeap(pos) && pos < this.size) {
+      // Try bubbling up first
+      if (!this.upHeap(pos) && pos < this._size) {
+        // If up-heap didn't move anything, try down-heap
         this.downHeap(pos);
       }
     }
   }
 
   /**
-   * Removes cost tracking for an element.
+   * Removes cost tracking for an element (marks it as not in queue).
    *
-   * @param element Element to remove
+   * @param element The element to remove from tracking
    */
   private removeCost(element: number): void {
-    this.mapIndexTo.set(Number(element), 0n);
+    this.mapIndexTo.set(element, 0);
   }
 
   /**
-   * Iterator implementation.
-   *
-   * @returns Iterator of elements in heap order
+   * Iterator for traversing all elements in the queue.
+   * NOTE: Iteration order is NOT specified - don't rely on any particular order.
+   * Use pop() repeatedly if you need elements in priority order.
    */
-  public [Symbol.iterator](): Iterator<number> {
-    let i = 1;
-    const size = this.size;
+  [Symbol.iterator](): Iterator<number> {
+    let i = 1; // Start at position 1 (skip unused position 0)
+    const size = this._size;
     const heap = this.heap;
 
     return {
       next(): IteratorResult<number> {
         if (i <= size) {
-          return {
-            done: false,
-            value: heap.get(i++)
-          };
+          return { done: false, value: heap.get(i++) };
+        } else {
+          return { done: true, value: undefined };
         }
-        return { done: true, value: undefined };
-      }
+      },
     };
   }
 
   /**
-   * Returns the element in the i-th position of the heap.
+   * Creates a MIN priority queue where smaller costs have higher priority.
+   * Perfect for Dijkstra's algorithm, shortest path finding, etc.
    *
-   * @param i Position in the heap (0-based for external API)
-   * @returns Element at that position
+   * @param capacity Maximum number of elements
+   * @returns A min-heap priority queue
    */
-  public getIth(i: number): number {
-    return this.heap.get(i + 1);
+  static min(capacity: number): HugeLongPriorityQueue {
+    return new (class extends HugeLongPriorityQueue {
+      protected lessThan(a: number, b: number): boolean {
+        // Element 'a' comes before 'b' if its cost is smaller
+        return this.costValues.get(a) < this.costValues.get(b);
+      }
+    })(capacity);
   }
 
   /**
-   * Returns a non-growing min priority queue,
-   * i.e., the element with the lowest priority is always on top.
+   * Creates a MAX priority queue where larger costs have higher priority.
+   * Perfect for finding highest-scored items, best matches, etc.
    *
-   * @param capacity Maximum capacity of the queue
-   * @returns A min priority queue
+   * @param capacity Maximum number of elements
+   * @returns A max-heap priority queue
    */
-  public static min(capacity: number): HugeLongPriorityQueue {
-    return new class extends HugeLongPriorityQueue {
-      constructor(capacity: number) {
-        super(capacity);
-      }
-
+  static max(capacity: number): HugeLongPriorityQueue {
+    return new (class extends HugeLongPriorityQueue {
       protected lessThan(a: number, b: number): boolean {
-        return this.costValues.get(Number(a)) < this.costValues.get(Number(b));
+        // Element 'a' comes before 'b' if its cost is larger (inverted for max-heap)
+        return this.costValues.get(a) > this.costValues.get(b);
       }
-    }(capacity);
-  }
-
-  /**
-   * Returns a non-growing max priority queue,
-   * i.e., the element with the highest priority is always on top.
-   *
-   * @param capacity Maximum capacity of the queue
-   * @returns A max priority queue
-   */
-  public static max(capacity: number): HugeLongPriorityQueue {
-    return new class extends HugeLongPriorityQueue {
-      constructor(capacity: number) {
-        super(capacity);
-      }
-
-      protected lessThan(a: number, b: number): boolean {
-        return this.costValues.get(Number(a)) > this.costValues.get(Number(b));
-      }
-    }(capacity);
+    })(capacity);
   }
 }

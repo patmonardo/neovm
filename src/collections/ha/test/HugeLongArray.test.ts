@@ -1,4 +1,3 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { HugeArrays } from '@/mem';
 import { HugeLongArray } from '../HugeLongArray';
 
@@ -352,7 +351,7 @@ describe('HugeLongArray', () => {
   describe('Large Array Scenarios', () => {
     it('should handle page boundaries correctly', () => {
       const size = HugeArrays.PAGE_SIZE + 100; // Cross page boundary
-      array = HugeLongArray.newPagedArray(size);
+      array = HugeLongArray.newArray(size);
 
       // Set values around page boundary
       const boundaryIndex = HugeArrays.PAGE_SIZE - 1;
@@ -365,7 +364,7 @@ describe('HugeLongArray', () => {
 
     it('should perform operations across pages', () => {
       const size = HugeArrays.PAGE_SIZE * 2 + 100;
-      array = HugeLongArray.newPagedArray(size);
+      array = HugeLongArray.newArray(size);
 
       // Fill array with index values
       array.setAll(index => index);

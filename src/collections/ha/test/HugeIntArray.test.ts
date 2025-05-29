@@ -1,4 +1,3 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { HugeArrays } from '@/mem';
 import { HugeIntArray } from '../HugeIntArray';
 
@@ -15,15 +14,15 @@ describe('HugeIntArray', () => {
   describe('Factory Methods', () => {
     it('should create small arrays as SingleHugeIntArray', () => {
       const size = 1000;
-      array = HugeIntArray.newArray(size);
+      array = HugeIntArray.newSingleArray(size);
 
       expect(array.size()).toBe(size);
       expect(array.constructor.name).toBe('SingleHugeIntArray');
     });
 
     it('should create large arrays as PagedHugeIntArray', () => {
-      const size = HugeArrays.MAX_ARRAY_LENGTH + 1000;
-      array = HugeIntArray.newArray(size);
+      const size = HugeArrays.PAGE_SIZE + 1000;
+      array = HugeIntArray.newPagedArray(size);
 
       expect(array.size()).toBe(size);
       expect(array.constructor.name).toBe('PagedHugeIntArray');
@@ -339,7 +338,7 @@ describe('HugeIntArray', () => {
     });
 
     it('should copy between single and paged arrays', () => {
-      const largeDest = HugeIntArray.newPagedArray(HugeArrays.PAGE_SIZE + 100);
+      const largeDest = HugeIntArray.newArray(HugeArrays.PAGE_SIZE + 100);
 
       source.copyTo(largeDest, 5);
 
@@ -459,7 +458,7 @@ describe('HugeIntArray', () => {
   describe('Large Array Scenarios', () => {
     it('should handle page boundaries correctly', () => {
       const size = HugeArrays.PAGE_SIZE + 100; // Cross page boundary
-      array = HugeIntArray.newPagedArray(size);
+      array = HugeIntArray.newArray(size);
 
       // Set values around page boundary
       const boundaryIndex = HugeArrays.PAGE_SIZE - 1;
@@ -472,7 +471,7 @@ describe('HugeIntArray', () => {
 
     it('should perform operations across pages', () => {
       const size = HugeArrays.PAGE_SIZE * 2 + 100;
-      array = HugeIntArray.newPagedArray(size);
+      array = HugeIntArray.newArray(size);
 
       // Fill array with index values
       array.setAll(index => index);
@@ -485,7 +484,7 @@ describe('HugeIntArray', () => {
 
     it('should handle bitwise operations across pages', () => {
       const size = HugeArrays.PAGE_SIZE + 100;
-      array = HugeIntArray.newPagedArray(size);
+      array = HugeIntArray.newArray(size);
 
       // Set flags across page boundary
       const boundaryIndex = HugeArrays.PAGE_SIZE - 1;

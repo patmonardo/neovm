@@ -1,128 +1,259 @@
-import { HugeCursor } from '../../../collections/cursor/HugeCursor';
-import { HugeLongArray } from '../../../collections/ha/HugeLongArray';
-import { MemoryEstimation, MemoryEstimations } from '../../mem/MemoryEstimation';
-import { BitUtil } from '../../mem/BitUtil';
+/**
+ * High-performance hash map: long keys → long values
+ *
+ * Essential for core graph algorithm mappings:
+ * - Node ID → Community ID (community detection)
+ * - Node ID → Parent node (Union-Find, spanning trees)
+ * - Node ID → Distance/rank (shortest paths, PageRank quantized)
+ * - Edge ID → Weight ID (edge weight lookups)
+ * - Original ID → Internal ID (ID mapping/compression)
+ *
+ * Performance characteristics:
+ * - Open addressing with linear probing (cache-friendly)
+ * - Backed by HugeLongArray for billion-element capacity
+ * - Load factor: 0.75 (optimal space/time trade-off)
+ * - BitMixer hash function for excellent distribution
+ * - Automatic resizing with power-of-2 growth
+ *
+ * Data Science Applications:
+ * - Community detection: node → community assignments
+ * - Graph compression: original node ID → compressed ID
+ * - Union-Find: node → parent/root mappings
+ * - Ranking algorithms: node → rank position
+ * - Graph partitioning: node → partition ID
+ *
+ * Memory efficiency:
+ * - Two primitive arrays (no object overhead per entry)
+ * - Predictable memory usage with huge array backing
+ * - Suitable for memory-mapped storage and persistence
+ *
+ * @module HugeLongLongMap
+ */
+
+import { HugeLongArray } from "@/collections";
+import { BitUtil } from "@/mem";
 
 /**
- * Map with long=>long mapping and huge underlying storage, so it can
- * store more than 2B values.
+ * Cursor for iteration over map entries.
+ * Reuses the same object to avoid allocations during iteration.
  */
+export interface LongLongCursor {
+  /** Current entry index in the hash table */
+  index: number;
+  /** The key (original value, not the +1 internal representation) */
+  key: number;
+  /** The value associated with the key */
+  value: number;
+}
 export class HugeLongLongMap implements Iterable<LongLongCursor> {
-  /**
-   * Memory estimation for this data structure.
-   */
-  private static readonly MEMORY_REQUIREMENTS: MemoryEstimation = MemoryEstimations
-    .builder(HugeLongLongMap)
-    .field("keysCursor", HugeCursor.PagedCursor)
-    .field("entries", EntryIterator)
-    .perNode("keys", HugeLongArray.memoryEstimation)
-    .perNode("values", HugeLongArray.memoryEstimation)
-    .build();
+  private keys!: HugeLongArray;
+  private values!: HugeLongArray;
+  private keysCursor: any; // HugeCursor type when available
+  private entries!: EntryIterator;
 
-  private keys: HugeLongArray;
-  private values: HugeLongArray;
-  private keysCursor: HugeCursor.PagedCursor<BigInt64Array>;
-  private entries: EntryIterator;
-
-  private assigned: number = 0;
-  private mask: number = 0;
-  private resizeAt: number = 0;
+  private assigned: number = 0; // Number of entries in map
+  private mask: number = 0; // Bit mask for hash table (size - 1)
+  private resizeAt: number = 0; // Threshold for resizing
 
   private static readonly DEFAULT_EXPECTED_ELEMENTS = 4;
   private static readonly LOAD_FACTOR = 0.75;
+  private static readonly MIN_HASH_ARRAY_LENGTH = 4;
 
   /**
-   * Returns a memory estimation for this data structure.
-   *
-   * @returns Memory estimation
-   */
-  public static memoryEstimation(): MemoryEstimation {
-    return this.MEMORY_REQUIREMENTS;
-  }
-
-  /**
-   * Creates a new map with default capacity.
+   * Creates a new map with default initial capacity.
    */
   constructor();
 
   /**
-   * Creates a new map with the specified expected capacity.
+   * Creates a new map with specified expected number of elements.
+   * Pre-allocates appropriate capacity to avoid resizing.
    *
-   * @param expectedElements Expected number of elements
+   * @param expectedElements Expected number of unique keys
    */
-  constructor(expectedElements?: number) {
-    this.initialBuffers(expectedElements ?? HugeLongLongMap.DEFAULT_EXPECTED_ELEMENTS);
+  constructor(expectedElements: number);
+
+  constructor(
+    expectedElements: number = HugeLongLongMap.DEFAULT_EXPECTED_ELEMENTS
+  ) {
+    this.initialBuffers(expectedElements);
   }
 
   /**
-   * Calculates the memory size of this map.
-   *
-   * @returns Size in bytes
+   * Factory method to create an empty map with default capacity.
+   */
+  public static of(): HugeLongLongMap {
+    return new HugeLongLongMap();
+  }
+
+  /**
+   * Factory method to create a map with specified capacity.
+   */
+  public static withExpectedSize(expectedElements: number): HugeLongLongMap {
+    return new HugeLongLongMap(expectedElements);
+  }
+
+  /**
+   * Memory estimation for capacity planning.
+   */
+  public static memoryEstimation(): number {
+    return HugeLongLongMap.memoryEstimationForSize(
+      HugeLongLongMap.DEFAULT_EXPECTED_ELEMENTS
+    );
+  }
+
+  /**
+   * Memory estimation for specific expected elements.
+   */
+  public static memoryEstimationForSize(expectedElements: number): number {
+    const arraySize = HugeLongLongMap.minBufferSize(expectedElements);
+    const keysMemory = HugeLongArray.memoryEstimation(arraySize);
+    const valuesMemory = HugeLongArray.memoryEstimation(arraySize);
+    return keysMemory + valuesMemory + 128; // ~128 bytes for map overhead
+  }
+
+  /**
+   * Initial buffer allocation based on expected elements.
+   */
+  private initialBuffers(expectedElements: number): void {
+    this.allocateBuffers(HugeLongLongMap.minBufferSize(expectedElements));
+  }
+
+  /**
+   * Allocates new internal buffers atomically.
+   * Either succeeds completely or leaves map unchanged.
+   */
+  private allocateBuffers(arraySize: number): void {
+    console.assert(
+      BitUtil.isPowerOfTwo(arraySize),
+      "Array size must be power of 2"
+    );
+
+    // Store previous buffers for rollback on OOM
+    const prevKeys = this.keys;
+    const prevValues = this.values;
+
+    try {
+      this.keys = HugeLongArray.newArray(arraySize);
+      this.values = HugeLongArray.newArray(arraySize);
+      this.keysCursor = this.keys.newCursor();
+      this.entries = new EntryIterator(this.keys, this.values);
+    } catch (error) {
+      // Rollback on allocation failure
+      this.keys = prevKeys;
+      this.values = prevValues;
+      throw error;
+    }
+
+    this.resizeAt = HugeLongLongMap.expandAtCount(arraySize);
+    this.mask = arraySize - 1;
+  }
+
+  /**
+   * Returns current memory usage in bytes.
    */
   public sizeOf(): number {
     return this.keys.sizeOf() + this.values.sizeOf();
   }
 
   /**
-   * Stores a key/value pair in the map.
+   * Sets a value for the given key.
+   * Overwrites existing value if key already exists.
    *
-   * @param key The key
-   * @param value The value to store
+   * @param key The key (node ID, edge ID, etc.)
+   * @param value The value to store (community ID, parent node, etc.)
+   *
+   * Data Science Use Cases:
+   * - Set community assignments: node → community
+   * - Set parent pointers: node → parent (Union-Find)
+   * - Set ID mappings: original ID → compressed ID
+   * - Set rankings: node → rank position
    */
   public put(key: number, value: number): void {
-    this.put0(1n + key, value);
+    this.put0(key + 1, value); // +1 to avoid 0 (empty marker)
   }
 
   /**
-   * Adds a value to the current value associated with the given key.
-   * If the key doesn't exist, it's added with the given value.
+   * Adds a value to the existing value for the given key.
+   * If key doesn't exist, sets the value.
+   *
+   * Perfect for accumulation patterns in graph algorithms!
    *
    * @param key The key
    * @param value The value to add
+   *
+   * Data Science Use Cases:
+   * - Accumulate node degrees
+   * - Sum edge weights by source
+   * - Count community memberships
+   * - Aggregate temporal events by node
+   *
+   * @example
+   * ```typescript
+   * // Count node degrees
+   * graph.edges().forEach(edge => {
+   *   degrees.addTo(edge.source, 1);
+   *   degrees.addTo(edge.target, 1);
+   * });
+   * ```
    */
   public addTo(key: number, value: number): void {
-    this.addTo0(1n + key, value);
+    this.addTo0(key + 1, value);
   }
 
   /**
-   * Gets the value associated with the key, or returns the default value
-   * if the key doesn't exist in the map.
+   * Gets the value for a key, or returns default if not found.
    *
-   * @param key The key
-   * @param defaultValue Value to return if key doesn't exist
-   * @returns The associated value or defaultValue
+   * @param key The key to look up
+   * @param defaultValue Value to return if key not found
+   * @returns The stored value or default
+   *
+   * Performance: O(1) average, O(n) worst case (rare with good hash)
    */
   public getOrDefault(key: number, defaultValue: number): number {
-    return this.getOrDefault0(1n + key, defaultValue);
+    return this.getOrDefault0(key + 1, defaultValue);
   }
 
   /**
    * Checks if the map contains the given key.
    *
    * @param key The key to check
-   * @returns true if the key exists in the map
+   * @returns true if key exists, false otherwise
    */
   public containsKey(key: number): boolean {
-    return this.containsKey0(1n + key);
+    return this.containsKey0(key + 1);
   }
 
+  /**
+   * Internal containsKey implementation using shifted keys.
+   */
   private containsKey0(key: number): boolean {
-    const hash = this.mixPhi(key);
-    return this.findSlot(key, hash & BigInt(this.mask)) >= 0;
+    const hash = this.mixHash(key);
+    return this.findSlot(key, hash & this.mask) >= 0;
   }
 
+  /**
+   * Internal put implementation using shifted keys.
+   * Uses +1 shift to distinguish empty slots (0) from actual key 0.
+   */
   private put0(key: number, value: number): void {
-    console.assert(this.assigned < this.mask + 1);
-    const hash = this.mixPhi(key);
-    let slot = this.findSlot(key, hash & BigInt(this.mask));
+    console.assert(
+      this.assigned < this.mask + 1,
+      "Hash table invariant violated"
+    );
 
-    console.assert(slot !== -1);
+    const hash = this.mixHash(key);
+    let slot = this.findSlot(key, hash & this.mask);
+    console.assert(slot !== -1, "Should always find a slot");
+
     if (slot >= 0) {
+      // Key exists - overwrite value
       this.values.set(slot, value);
       return;
     }
 
-    slot = ~(1 + slot);
+    // Key doesn't exist - insert new entry
+    slot = ~(1 + slot); // Decode negative slot indicator
+
     if (this.assigned === this.resizeAt) {
       this.allocateThenInsertThenRehash(slot, key, value);
     } else {
@@ -133,18 +264,28 @@ export class HugeLongLongMap implements Iterable<LongLongCursor> {
     this.assigned++;
   }
 
+  /**
+   * Internal addTo implementation using shifted keys.
+   */
   private addTo0(key: number, value: number): void {
-    console.assert(this.assigned < this.mask + 1);
-    const hash = this.mixPhi(key);
-    let slot = this.findSlot(key, hash & BigInt(this.mask));
+    console.assert(
+      this.assigned < this.mask + 1,
+      "Hash table invariant violated"
+    );
 
-    console.assert(slot !== -1);
+    const hash = this.mixHash(key);
+    let slot = this.findSlot(key, hash & this.mask);
+    console.assert(slot !== -1, "Should always find a slot");
+
     if (slot >= 0) {
+      // Key exists - add to existing value
       this.values.addTo(slot, value);
       return;
     }
 
-    slot = ~(1 + slot);
+    // Key doesn't exist - insert new entry
+    slot = ~(1 + slot); // Decode negative slot indicator
+
     if (this.assigned === this.resizeAt) {
       this.allocateThenInsertThenRehash(slot, key, value);
     } else {
@@ -155,9 +296,12 @@ export class HugeLongLongMap implements Iterable<LongLongCursor> {
     this.assigned++;
   }
 
+  /**
+   * Internal getOrDefault implementation using shifted keys.
+   */
   private getOrDefault0(key: number, defaultValue: number): number {
-    const hash = this.mixPhi(key);
-    const slot = this.findSlot(key, hash & BigInt(this.mask));
+    const hash = this.mixHash(key);
+    const slot = this.findSlot(key, hash & this.mask);
 
     if (slot >= 0) {
       return this.values.get(slot);
@@ -166,29 +310,51 @@ export class HugeLongLongMap implements Iterable<LongLongCursor> {
     return defaultValue;
   }
 
+  /**
+   * Hash mixing function for excellent distribution.
+   * Uses BitMixer.mixPhi equivalent for uniform hash distribution.
+   */
+  private mixHash(key: number): number {
+    // Equivalent to BitMixer.mixPhi - multiplies by golden ratio and mixes bits
+    let h = key;
+    h ^= h >>> 16;
+    h *= 0x85ebca6b;
+    h ^= h >>> 13;
+    h *= 0xc2b2ae35;
+    h ^= h >>> 16;
+    return h;
+  }
+
+  /**
+   * Finds slot for given key using linear probing.
+   * Returns positive slot if key exists, negative encoded slot if empty.
+   */
   private findSlot(key: number, start: number): number {
     const keys = this.keys;
     const cursor = this.keysCursor;
 
-    let slot = this.findSlotInRange(key, Number(start), keys.size(), keys, cursor);
+    let slot = this.findSlotInRange(key, start, keys.size(), keys, cursor);
     if (slot === -1) {
-      slot = this.findSlotInRange(key, 0, Number(start), keys, cursor);
+      // Wrap around: search from 0 to start
+      slot = this.findSlotInRange(key, 0, start, keys, cursor);
     }
-
     return slot;
   }
 
+  /**
+   * Finds slot within a specific range using cursor-based iteration.
+   * Optimized for huge arrays with paged access.
+   */
   private findSlotInRange(
     key: number,
     start: number,
     end: number,
     keys: HugeLongArray,
-    cursor: HugeCursor.PagedCursor<BigInt64Array>
+    cursor: any
   ): number {
     let slot = start;
-    let blockPos: number;
-    let blockEnd: number;
-    let keysBlock: BigInt64Array;
+    let blockPos: number, blockEnd: number;
+    let keysBlock: number[];
     let existing: number;
 
     keys.initCursor(cursor, start, end);
@@ -200,182 +366,162 @@ export class HugeLongLongMap implements Iterable<LongLongCursor> {
       while (blockPos < blockEnd) {
         existing = keysBlock[blockPos];
         if (existing === key) {
-          return slot;
+          return slot; // Found existing key
         }
-        if (existing === 0n) {
-          return ~slot - 1;
+        if (existing === 0) {
+          return ~slot - 1; // Found empty slot (encoded as negative)
         }
-        ++blockPos;
-        ++slot;
+        blockPos++;
+        slot++;
       }
     }
-
-    return -1;
+    return -1; // No slot found in range
   }
 
   /**
-   * Returns the number of entries in the map.
-   *
-   * @returns Entry count
+   * Returns the number of key-value pairs in the map.
    */
   public size(): number {
     return this.assigned;
   }
 
   /**
-   * Returns whether the map is empty.
-   *
-   * @returns true if the map is empty
+   * Checks if the map is empty.
    */
   public isEmpty(): boolean {
     return this.size() === 0;
   }
 
   /**
-   * Removes all entries from the map.
+   * Clears all entries from the map.
+   * Fast O(n) operation - fills arrays with zeros.
+   * Reuses existing capacity.
    */
   public clear(): void {
     this.assigned = 0;
-    this.keys.fill(0n);
-    this.values.fill(0n);
+    this.keys.fill(0);
+    this.values.fill(0);
   }
 
   /**
-   * Releases memory held by this map.
+   * Releases all resources and invalidates the map.
+   * Call this when completely done with the map.
    */
   public release(): void {
     this.keys.release();
     this.values.release();
 
-    this.keys = null!;
-    this.values = null!;
-    this.keysCursor = null!;
-    this.entries = null!;
+    this.keys = null as any;
+    this.values = null as any;
     this.assigned = 0;
     this.mask = 0;
   }
 
-  private initialBuffers(expectedElements: number): void {
-    this.allocateBuffers(this.minBufferSize(expectedElements));
-  }
-
   /**
-   * Returns an iterator over the entries in the map.
+   * Returns an iterator over all key-value pairs.
+   * Iterator reuses cursor object for memory efficiency.
    */
-  public [Symbol.iterator](): Iterator<LongLongCursor> {
-    return this.entries.reset();
+  [Symbol.iterator](): Iterator<LongLongCursor> {
+    // Reset the iterator to start from beginning
+    this.entries.reset(this.keys, this.values);
+    return this.entries;
   }
 
   /**
-   * Convert the contents of this map to a human-friendly string.
+   * Returns a human-readable string representation.
+   * Useful for debugging small maps.
    */
   public toString(): string {
-    const buffer: string[] = [];
-    buffer.push('[');
+    const parts: string[] = [];
 
     for (const cursor of this) {
-      buffer.push(`${cursor.key}=>${cursor.value}, `);
+      parts.push(`${cursor.key}=>${cursor.value}`);
     }
 
-    if (buffer.length > 1) {
-      buffer[buffer.length - 1] = buffer[buffer.length - 1].slice(0, -2);
-      buffer.push(']');
-    } else {
-      buffer.push(']');
-    }
-
-    return buffer.join('');
+    return `[${parts.join(", ")}]`;
   }
 
   /**
-   * Allocate new internal buffers.
-   */
-  private allocateBuffers(arraySize: number): void {
-    console.assert(BitUtil.isPowerOfTwo(arraySize));
-
-    // Ensure no change is done if we hit an OOM.
-    const prevKeys = this.keys;
-    const prevValues = this.values;
-
-    try {
-      this.keys = HugeLongArray.newArray(arraySize);
-      this.values = HugeLongArray.newArray(arraySize);
-      this.keysCursor = this.keys.newCursor();
-      this.entries = new EntryIterator(this.keys, this.values);
-    } catch (e) {
-      this.keys = prevKeys;
-      this.values = prevValues;
-      throw e;
-    }
-
-    this.resizeAt = this.expandAtCount(arraySize);
-    this.mask = arraySize - 1;
-  }
-
-  /**
-   * Rehash from old buffers to new buffers.
+   * Rehashes all entries from old buffers to new buffers.
+   * Called during map growth.
    */
   private rehash(fromKeys: HugeLongArray, fromValues: HugeLongArray): void {
     console.assert(
       fromKeys.size() === fromValues.size() &&
-      BitUtil.isPowerOfTwo(fromValues.size())
+        BitUtil.isPowerOfTwo(fromValues.size()),
+      "Buffer sizes must match and be power of 2"
     );
 
-    // Rehash all stored key/value pairs into the new buffers.
     const newKeys = this.keys;
     const newValues = this.values;
     const mask = this.mask;
 
-    const fromEntries = new EntryIterator(fromKeys, fromValues);
+    // Iterate through all entries in old buffers
+    const iterator = new EntryIterator(fromKeys, fromValues);
     try {
-      for (const cursor of fromEntries) {
-        const key = cursor.key + 1n;
-        let slot = Number(this.mixPhi(key) & BigInt(mask));
-        slot = this.findSlot(key, BigInt(slot));
-        slot = ~(1 + slot);
+      for (const cursor of iterator) {
+        const key = cursor.key + 1; // Restore internal +1 shift
+        let slot = this.mixHash(key) & mask;
+        slot = this.findSlot(key, slot);
+        slot = ~(1 + slot); // Decode empty slot
+
         newKeys.set(slot, key);
         newValues.set(slot, cursor.value);
       }
     } finally {
-      fromEntries.close();
+      iterator.close();
     }
   }
 
   /**
-   * This method is invoked when there is a new key/value pair to be inserted into
-   * the buffers but there is not enough empty slots to do so.
+   * Handles capacity growth when load factor exceeded.
+   * Allocates new buffers, inserts pending entry, then rehashes.
    */
-  private allocateThenInsertThenRehash(slot: number, pendingKey: number, pendingValue: number): void {
-    console.assert(this.assigned === this.resizeAt);
+  private allocateThenInsertThenRehash(
+    slot: number,
+    pendingKey: number,
+    pendingValue: number
+  ): void {
+    console.assert(
+      this.assigned === this.resizeAt,
+      "Should only resize at threshold"
+    );
 
-    // Try to allocate new buffers first. If we OOM, we leave in a consistent state.
+    // Store old buffers for rehashing
     const prevKeys = this.keys;
     const prevValues = this.values;
-    this.allocateBuffers(this.nextBufferSize(this.mask + 1));
-    console.assert(this.keys.size() > prevKeys.size());
 
-    // We have succeeded at allocating new data so insert the pending key/value at
-    // the free slot in the old arrays before rehashing.
+    // Allocate new, larger buffers
+    this.allocateBuffers(HugeLongLongMap.nextBufferSize(this.mask + 1));
+    console.assert(
+      this.keys.size() > prevKeys.size(),
+      "New buffers should be larger"
+    );
+
+    // Insert pending entry into old buffers before rehashing
     prevKeys.set(slot, pendingKey);
     prevValues.set(slot, pendingValue);
 
-    // Rehash old keys, including the pending key.
+    // Rehash all entries from old to new buffers
     this.rehash(prevKeys, prevValues);
 
+    // Release old buffers
     prevKeys.release();
     prevValues.release();
   }
 
-  private static readonly MIN_HASH_ARRAY_LENGTH = 4;
-
-  private minBufferSize(elements: number): number {
+  /**
+   * Calculates minimum buffer size for expected elements.
+   * Accounts for load factor and ensures power-of-2 sizing.
+   */
+  private static minBufferSize(elements: number): number {
     if (elements < 0) {
       throw new Error(`Number of elements must be >= 0: ${elements}`);
     }
 
     let length = Math.ceil(elements / HugeLongLongMap.LOAD_FACTOR);
     if (length === elements) {
-      length++;
+      length++; // Ensure we have some free space
     }
 
     length = Math.max(
@@ -386,193 +532,207 @@ export class HugeLongLongMap implements Iterable<LongLongCursor> {
     return length;
   }
 
-  private nextBufferSize(arraySize: number): number {
-    console.assert(BitUtil.isPowerOfTwo(arraySize));
-    return arraySize << 1;
-  }
-
-  private expandAtCount(arraySize: number): number {
-    console.assert(BitUtil.isPowerOfTwo(arraySize));
-    return Math.min(arraySize, Math.ceil(arraySize * HugeLongLongMap.LOAD_FACTOR));
+  /**
+   * Returns next buffer size (doubles current size).
+   */
+  private static nextBufferSize(arraySize: number): number {
+    console.assert(
+      BitUtil.isPowerOfTwo(arraySize),
+      "Current size must be power of 2"
+    );
+    return arraySize << 1; // Double the size
   }
 
   /**
-   * BitMixer.mixPhi implementation from HPPC
-   * A method to mix bits for a 64-bit hash code.
+   * Calculates when to resize based on load factor.
    */
-  private mixPhi(key: number): number {
-    const h = key * 0x9E3779B97F4A7C15n;
-    return h ^ (h >> 32n);
+  private static expandAtCount(arraySize: number): number {
+    console.assert(
+      BitUtil.isPowerOfTwo(arraySize),
+      "Array size must be power of 2"
+    );
+    return Math.min(
+      arraySize,
+      Math.ceil(arraySize * HugeLongLongMap.LOAD_FACTOR)
+    );
   }
 }
 
 /**
- * Cursor for iterating over long-long entries.
+ * Memory-efficient iterator for map entries.
+ * Reuses cursor object to avoid allocations during iteration.
  */
-export class LongLongCursor {
-  /**
-   * Current index in the backing arrays.
-   */
-  index: number = 0;
-
-  /**
-   * Current key.
-   */
-  key: number = 0n;
-
-  /**
-   * Current value.
-   */
-  value: number = 0n;
-}
-
-/**
- * Iterator over the map entries.
- */
-class EntryIterator implements AutoCloseable, Iterable<LongLongCursor>, Iterator<LongLongCursor> {
-  private keyCursor: HugeCursor.PagedCursor<BigInt64Array>;
-  private valueCursor: HugeCursor.PagedCursor<BigInt64Array>;
-  private nextFetched = false;
-  private hasNext = false;
+class EntryIterator
+  implements Iterator<LongLongCursor>, Iterable<LongLongCursor>
+{
+  private keyCursor: any; // HugeCursor<number[]> when available
+  private valueCursor: any; // HugeCursor<number[]> when available
+  private nextFetched: boolean = false;
+  private hasNextValue: boolean = false;
   private cursor: LongLongCursor;
-  private pos = 0;
-  private end = 0;
-  private ks: BigInt64Array = new BigInt64Array(0);
-  private vs: BigInt64Array = new Float64Array(0);
+  private pos: number = 0;
+  private end: number = 0;
+  private ks: number[] | null = null;
+  private vs: number[] | null = null;
+  private globalIndex: number = 0; // Track absolute position in arrays
 
-  /**
-   * Creates a new iterator over the map entries.
-   */
-  constructor();
-
-  /**
-   * Creates a new iterator over the specified arrays.
-   *
-   * @param keys The keys array
-   * @param values The values array
-   */
-  constructor(keys?: HugeLongArray, values?: HugeLongArray) {
-    this.keyCursor = (keys ?? HugeLongArray.newArray(0)).newCursor();
-    this.valueCursor = (values ?? HugeLongArray.newArray(0)).newCursor();
-    this.cursor = new LongLongCursor();
+  constructor(
+    private keysArray: HugeLongArray,
+    private valuesArray: HugeLongArray
+  ) {
+    this.cursor = { index: 0, key: 0, value: 0 };
+    this.init(keysArray, valuesArray);
   }
 
   /**
-   * Resets the iterator to the beginning of the map.
-   *
-   * @returns This iterator
+   * Initialize/reinitialize the iterator with arrays
    */
-  reset(): EntryIterator;
+  public init(keys: HugeLongArray, values: HugeLongArray): void {
+    this.keysArray = keys;
+    this.valuesArray = values;
+    this.keyCursor = keys.newCursor();
+    this.valueCursor = values.newCursor();
+    this.reset();
+  }
 
   /**
-   * Resets the iterator to the beginning of the specified arrays.
-   *
-   * @param keys The keys array
-   * @param values The values array
-   * @returns This iterator
+   * Reset iterator to beginning
    */
-  reset(keys?: HugeLongArray, values?: HugeLongArray): EntryIterator {
+  public reset(): EntryIterator;
+  public reset(keys: HugeLongArray, values: HugeLongArray): EntryIterator;
+  public reset(keys?: HugeLongArray, values?: HugeLongArray): EntryIterator {
     if (keys && values) {
-      keys.initCursor(this.keyCursor);
-      values.initCursor(this.valueCursor);
-    } else {
-      this.keyCursor.setRange(0, this.keyCursor.capacity);
-      this.valueCursor.setRange(0, this.valueCursor.capacity);
+      this.init(keys, values);
+      return this;
     }
 
+    // Reset to beginning of arrays
+    this.keysArray.initCursor(this.keyCursor);
+    this.valuesArray.initCursor(this.valueCursor);
     this.pos = 0;
     this.end = 0;
-    this.hasNext = false;
+    this.globalIndex = 0;
+    this.hasNextValue = false;
     this.nextFetched = false;
+    this.ks = null;
+    this.vs = null;
+
     return this;
   }
 
   /**
-   * Checks if there are more entries.
+   * Check if there are more entries (JavaScript Iterator interface)
    */
-  public hasNext(): boolean {
-    if (!this.nextFetched) {
-      this.nextFetched = true;
-      return this.hasNext = this.fetchNext();
+  // public hasNext(): boolean {
+  //   // Simple peek-ahead without caching
+  //   return this.pos < this.end || this.canAdvanceToNextPage();
+  // }
+  /**
+   * Get next entry (JavaScript Iterator interface)
+   */
+  public next(): IteratorResult<LongLongCursor> {
+    if (this.fetchNext()) {
+      return { done: false, value: this.cursor };
+    } else {
+      return { done: true, value: undefined };
     }
-    return this.hasNext;
   }
 
   /**
-   * Returns the next entry.
+   * Fetches the next non-empty entry.
+   * Skips empty slots (key === 0).
    */
-  public next(): IteratorResult<LongLongCursor> {
-    if (!this.hasNext()) {
-      return { done: true, value: undefined };
-    }
-    this.nextFetched = false;
-    return { done: false, value: this.cursor };
-  }
-
   private fetchNext(): boolean {
     let key: number;
+
+    // Continue searching through current page and subsequent pages
     do {
+      // Search within current page
       while (this.pos < this.end) {
-        if ((key = this.ks[this.pos]) !== 0n) {
-          this.cursor.index = this.pos;
-          this.cursor.key = key - 1n;
-          this.cursor.value = this.vs[this.pos];
-          ++this.pos;
+        key = this.ks![this.pos];
+        if (key !== 0) {
+          // Found non-empty slot
+          // ✅ CREATE NEW CURSOR OBJECT instead of reusing this.cursor
+          const newCursor: LongLongCursor = {
+            index: this.globalIndex,
+            key: key - 1, // Remove internal +1 shift
+            value: this.vs![this.pos],
+          };
+
+          this.cursor = newCursor; // Update for next() return
+          this.pos++;
+          this.globalIndex++;
           return true;
         }
-        ++this.pos;
+        this.pos++;
+        this.globalIndex++;
       }
     } while (this.nextPage());
-    return false;
+
+    return false; // No more entries
   }
 
+  /**
+   * Advances to the next page of data.
+   * Uses cursors for efficient chunk-based iteration.
+   */
   private nextPage(): boolean {
-    return this.nextPage(this.keyCursor, this.valueCursor);
-  }
+    const keysHasNext = this.keyCursor.next();
+    const valuesHasNext = this.valueCursor.next();
 
-  private nextPage(
-    keys: HugeCursor.PagedCursor<BigInt64Array>,
-    values: HugeCursor.PagedCursor<BigInt64Array>
-  ): boolean {
-    const valuesHasNext = values.next();
-    if (!keys.next()) {
-      console.assert(!valuesHasNext);
+    // Both cursors should advance together
+    if (!keysHasNext) {
+      console.assert(
+        !valuesHasNext,
+        "Key and value cursors should advance together"
+      );
       return false;
     }
-    console.assert(valuesHasNext);
+    console.assert(
+      valuesHasNext,
+      "Key and value cursors should advance together"
+    );
 
-    this.ks = keys.array;
-    this.pos = keys.offset;
-    this.end = keys.limit;
-    this.vs = values.array;
-    console.assert(this.pos === values.offset);
-    console.assert(this.end === values.limit);
+    // Get the new page data
+    this.ks = this.keyCursor.array;
+    this.pos = this.keyCursor.offset;
+    this.end = this.keyCursor.limit;
+    this.vs = this.valueCursor.array;
+
+    // Verify cursors are synchronized
+    console.assert(
+      this.pos === this.valueCursor.offset,
+      "Cursor offsets should match"
+    );
+    console.assert(
+      this.end === this.valueCursor.limit,
+      "Cursor limits should match"
+    );
 
     return true;
   }
 
   /**
-   * Returns an iterator over the entries.
+   * Make this object iterable (for...of support)
    */
   public [Symbol.iterator](): Iterator<LongLongCursor> {
     return this.reset();
   }
 
   /**
-   * Closes the iterator and releases resources.
+   * Close and cleanup resources
    */
   public close(): void {
-    this.keyCursor.close();
-    this.keyCursor = null!;
-    this.valueCursor.close();
-    this.valueCursor = null!;
-    this.cursor = null!;
+    if (this.keyCursor) {
+      this.keyCursor.close();
+      this.keyCursor = null;
+    }
+    if (this.valueCursor) {
+      this.valueCursor.close();
+      this.valueCursor = null;
+    }
+    this.ks = null;
+    this.vs = null;
+    this.cursor = null as any;
   }
-}
-
-/**
- * Interface for objects that can be automatically closed.
- */
-interface AutoCloseable {
-  close(): void;
 }

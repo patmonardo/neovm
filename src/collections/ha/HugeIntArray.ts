@@ -1,8 +1,4 @@
-import {
-  HugeCursor,
-  SinglePageCursor,
-  PagedCursor,
-} from "@/collections";
+import { HugeCursor, SinglePageCursor, PagedCursor } from "@/collections";
 import { HugeArrays } from "@/mem";
 import { Estimate } from "@/mem";
 import { HugeArray } from "./HugeArray";
@@ -214,6 +210,72 @@ export abstract class HugeIntArray extends HugeArray<
   number,
   HugeIntArray
 > {
+  /**
+   * Creates a new array of the given size.
+   *
+   * This is the **primary factory method** for creating HugeLongArray instances.
+   * It automatically chooses the optimal implementation based on the requested size:
+   * - Small arrays use `SingleHugeLongArray` for maximum performance
+   * - Large arrays use `PagedHugeLongArray` for memory efficiency
+   *
+   * @param size The desired array size in elements
+   * @returns A new HugeLongArray instance optimized for the given size
+   */
+  public static newArray(size: number): HugeIntArray {
+    if (size <= HugeArrays.MAX_ARRAY_LENGTH) {
+      return SingleHugeIntArray.singleOf(size);
+    }
+    return PagedHugeIntArray.pagedOf(size);
+  }
+
+  // Test-only factory methods
+  /** @internal */
+  public static newPagedArray(size: number): HugeIntArray {
+    return PagedHugeIntArray.pagedOf(size);
+  }
+
+  /** @internal */
+  public static newSingleArray(size: number): HugeIntArray {
+    return SingleHugeIntArray.singleOf(size);
+  }
+  /**
+   * Creates a new array initialized with the provided values.
+   *
+   * @param values Initial values for the array
+   * @returns A new HugeLongArray containing the provided values
+   */
+
+  // In abstract parent HugeLongArray:
+  public static of(values: number[]): HugeIntArray; // Array form
+  public static of(...values: number[]): HugeIntArray; // Varargs form
+  public static of(pages: number[][], size: number): HugeIntArray; // Pages form
+
+  public static of(
+    arg: number[] | number[][] | number,
+    ...moreArgs: any[]
+  ): HugeIntArray {
+    // Varargs case: of(1, 2, 3, 4, 5)
+    if (typeof arg === "number") {
+      const values = [arg, ...(moreArgs as number[])];
+      return new SingleHugeIntArray(values.length, values);
+    }
+
+    // Array case: of([1, 2, 3, 4, 5])
+    if (
+      Array.isArray(arg) &&
+      (arg.length === 0 || typeof arg[0] === "number")
+    ) {
+      const values = arg as number[];
+      return new SingleHugeIntArray(values.length, values);
+    }
+
+    // Pages case: of([[1,2], [3,4]], 4)
+    const pages = arg as number[][];
+    const size = moreArgs[0] as number;
+    const memoryUsed = PagedHugeIntArray.memoryUsed(pages, size);
+    return new PagedHugeIntArray(size, pages, memoryUsed);
+  }
+
   /**
    * Estimates the memory required for a HugeIntArray of the specified size.
    *
@@ -488,43 +550,6 @@ export abstract class HugeIntArray extends HugeArray<
     return this.dumpToArray(Array) as number[];
   }
 
-  /**
-   * Creates a new array of the given size.
-   *
-   * This is the **primary factory method** for creating HugeIntArray instances.
-   * Automatically chooses the optimal implementation based on size.
-   *
-   * @param size The desired array size in elements
-   * @returns A new HugeIntArray instance optimized for the given size
-   */
-  public static newArray(size: number): HugeIntArray {
-    if (size <= HugeArrays.MAX_ARRAY_LENGTH) {
-      return SingleHugeIntArray.of(size);
-    }
-    return PagedHugeIntArray.of(size);
-  }
-
-  /**
-   * Creates a new array initialized with the provided values.
-   *
-   * @param values Initial integer values for the array
-   * @returns A new HugeIntArray containing the provided values
-   */
-  public static of(...values: number[]): HugeIntArray {
-    return new SingleHugeIntArray(values.length, values);
-  }
-
-  // Test-only factory methods
-  /** @internal */
-  public static newPagedArray(size: number): HugeIntArray {
-    return PagedHugeIntArray.of(size);
-  }
-
-  /** @internal */
-  public static newSingleArray(size: number): HugeIntArray {
-    return SingleHugeIntArray.of(size);
-  }
-
   // Helper methods for array operations
   protected getArrayLength(array: number[]): number {
     return array.length;
@@ -558,12 +583,13 @@ class SingleHugeIntArray extends HugeIntArray {
   public _page: number[] | null;
 
   /**
-   * Factory method for creating single-page integer arrays.
+   * Creates a new array initialized with the provided values.
    *
-   * @param size The desired array size
-   * @returns A new SingleHugeIntArray instance
+   * @param values Initial values for the array
+   * @returns A new HugeLongArray containing the provided values
    */
-  public static of(size: number): HugeIntArray {
+
+  public static singleOf(size: number): HugeIntArray {
     console.assert(
       size <= HugeArrays.MAX_ARRAY_LENGTH,
       `Size ${size} exceeds maximum array length`
@@ -707,7 +733,7 @@ class PagedHugeIntArray extends HugeIntArray {
    * @param size The desired array size
    * @returns A new PagedHugeIntArray instance
    */
-  public static of(size: number): HugeIntArray {
+  public static pagedOf(size: number): HugeIntArray {
     const numPages = HugeArrays.numberOfPages(size);
     const pages: number[][] = new Array(numPages);
 
@@ -726,6 +752,26 @@ class PagedHugeIntArray extends HugeIntArray {
     memoryUsed += Estimate.sizeOfLongArray(lastPageSize);
 
     return new PagedHugeIntArray(size, pages, memoryUsed);
+  }
+
+  /**
+   * Calculates memory usage for a given page array configuration.
+   *
+   * @param pages Array of pages
+   * @param size Logical array size
+   * @returns Memory usage in bytes
+   */
+  public static memoryUsed(pages: number[][], size: number): number {
+    const numPages = pages.length;
+    let memoryUsed = Estimate.sizeOfObjectArray(numPages);
+
+    const pageBytes = Estimate.sizeOfLongArray(HugeArrays.PAGE_SIZE);
+    memoryUsed += pageBytes * (numPages - 1);
+
+    const lastPageSize = HugeArrays.exclusiveIndexOfPage(size);
+    memoryUsed += Estimate.sizeOfLongArray(lastPageSize);
+
+    return memoryUsed;
   }
 
   constructor(size: number, pages: number[][], memoryUsed: number) {

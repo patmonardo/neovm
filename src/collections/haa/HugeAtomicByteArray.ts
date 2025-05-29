@@ -1,7 +1,7 @@
-import { HugeCursor, HugeCursorSupport } from '@/collections';
-import { SinglePageCursor, PagedCursor } from '@/collections';
 import { HugeArrays } from '@/mem';
 import { Estimate } from '@/mem';
+import { HugeCursor, HugeCursorSupport } from '@/collections';
+import { SinglePageCursor, PagedCursor } from '@/collections';
 import { ByteToByteFunction } from './ValueTransformers';
 import { BytePageCreator } from './PageCreator';
 
@@ -832,7 +832,7 @@ export abstract class HugeAtomicByteArray<TStorage = any>
    *
    * @param cursor The cursor to initialize
    */
-  public abstract initCursor(cursor: HugeCursor<number[]>): void;
+  public abstract initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]>;
 }
 
 /**
@@ -1013,11 +1013,12 @@ class SingleHugeAtomicByteArray extends HugeAtomicByteArray<Int8Array> {
     return new SinglePageCursor<number[]>(numberArray);
   }
 
-  public initCursor(cursor: HugeCursor<number[]>): void {
+  public initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]> {
     if (cursor instanceof SinglePageCursor) {
       const numberArray = Array.from(this._storage);
       cursor.setArray(numberArray);
     }
+    return cursor;
   }
 }
 
@@ -1208,10 +1209,11 @@ class PagedHugeAtomicByteArray extends HugeAtomicByteArray<Int8Array> {
     return cursor;
   }
 
-  public initCursor(cursor: HugeCursor<number[]>): void {
+  public initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]> {
     if (cursor instanceof PagedCursor) {
       const numberPages = this._pages.map(page => Array.from(page));
       cursor.setPages(numberPages, this._size);
     }
+    return cursor;
   }
 }

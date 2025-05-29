@@ -1,6 +1,6 @@
-import { HugeCursor, SinglePageCursor, PagedCursor } from '@/collections/cursor/HugeCursor';
 import { HugeArrays } from '@/mem/HugeArrays';
 import { Estimate } from '@/mem/Estimate';
+import { HugeCursor, SinglePageCursor, PagedCursor } from '@/collections';
 import { HugeArray } from './HugeArray';
 
 /**

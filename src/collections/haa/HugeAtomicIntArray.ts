@@ -1,9 +1,9 @@
+import { HugeArrays } from "@/mem";
+import { Estimate } from "@/mem";
 import { HugeCursor, HugeCursorSupport } from "@/collections";
 import { SinglePageCursor, PagedCursor } from "@/collections";
 import { IntToIntFunction } from "./ValueTransformers";
 import { IntPageCreator } from "./PageCreator";
-import { HugeArrays } from "@/mem/HugeArrays";
-import { Estimate } from "@/mem/Estimate";
 
 /**
  * A huge array of 32-bit integers supporting atomic operations for thread-safe concurrent access.
@@ -739,7 +739,7 @@ export abstract class HugeAtomicIntArray<TStorage = any>
    *
    * @param cursor The cursor to initialize
    */
-  public abstract initCursor(cursor: HugeCursor<number[]>): void;
+  public abstract initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]>;
 }
 
 /**
@@ -926,11 +926,12 @@ class SingleHugeAtomicIntArray extends HugeAtomicIntArray<Int32Array> {
     return new SinglePageCursor<number[]>(numberArray);
   }
 
-  public initCursor(cursor: HugeCursor<number[]>): void {
+  public initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]> {
     if (cursor instanceof SinglePageCursor) {
       const numberArray = Array.from(this._storage);
       cursor.setArray(numberArray);
     }
+    return cursor;
   }
 }
 
@@ -1121,10 +1122,11 @@ class PagedHugeAtomicIntArray extends HugeAtomicIntArray<Int32Array> {
     return cursor;
   }
 
-  public initCursor(cursor: HugeCursor<number[]>): void {
+  public initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]> {
     if (cursor instanceof PagedCursor) {
       const numberPages = this._pages!.map(page => Array.from(page));
       cursor.setPages(numberPages, this._size);
     }
+    return cursor;
   }
 }

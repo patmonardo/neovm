@@ -1,66 +1,93 @@
-import { HugeAtomicLongArray } from "../../../collections/haa/HugeAtomicLongArray";
-import { Concurrency } from "../../../concurrency/Concurrency";
-import { BitUtil } from "../../../mem/BitUtil";
-import { Estimate } from "../../../mem/Estimate";
-import { ParallelLongPageCreator } from "./ParallelLongPageCreator";
-
 /**
- * A thread-safe bit set that can handle huge numbers of bits efficiently.
- * Uses atomic operations to ensure thread safety.
+ * Thread-safe atomic bitset for billion-scale concurrent graph processing.
+ *
+ * Essential for parallel graph algorithms requiring shared state:
+ * - Concurrent visited node tracking in parallel BFS/DFS
+ * - Thread-safe membership testing in distributed algorithms
+ * - Atomic flag setting in parallel graph construction
+ * - Lock-free synchronization in multi-threaded processing
+ * - Parallel community detection with shared membership
+ * - Concurrent duplicate detection in graph streaming
+ *
+ * Performance characteristics:
+ * - Atomic operations using compare-and-swap (CAS)
+ * - Lock-free bit manipulation for high concurrency
+ * - Word-level operations for bulk bit setting
+ * - Cache-friendly long word alignment
+ * - Billion-bit capacity with paged backing storage
+ *
+ * Concurrency features:
+ * - Thread-safe set/get/flip operations
+ * - Atomic getAndSet for synchronization primitives
+ * - Range setting with consistent intermediate states
+ * - Safe iteration while other threads modify
+ * - Compare-and-exchange for conflict resolution
+ *
+ * Memory efficiency:
+ * - Packed bit storage (64 bits per long word)
+ * - Paged memory layout for huge capacity
+ * - Efficient word-level bulk operations
+ * - Minimal atomic operation overhead
+ *
+ * @module HugeAtomicBitSet
  */
+
+import { BitUtil } from '@/mem';
+import { Estimate } from '@/mem';
+import { HugeAtomicLongArray } from '@/collections';
+
 export class HugeAtomicBitSet {
-  /**
-   * Number of bits in a long (64)
-   */
-  private static readonly NUM_BITS = 64;
+  private static readonly NUM_BITS = 64; // 64 bits per Long/BigInt
 
-  /**
-   * The underlying storage for the bit values.
-   */
   private readonly bits: HugeAtomicLongArray;
-
-  /**
-   * Total number of bits in the set.
-   */
-  private readonly numBits: number;
-
-  /**
-   * Number of bits used in the last word (remainder of numBits / NUM_BITS).
-   */
+  private readonly numBits: bigint;
   private readonly remainder: number;
 
   /**
-   * Calculates the memory used by a bit set of the given size.
+   * Memory estimation for capacity planning.
+   * Essential for resource allocation in large-scale processing.
    *
-   * @param size Number of bits to store
-   * @returns Memory estimation in bytes
+   * @param size Number of bits in the bitset
+   * @returns Estimated memory usage in bytes
    */
-  public static memoryEstimation(size: number): number {
-    const wordsSize = BitUtil.ceilDiv(size, this.NUM_BITS);
-    return HugeAtomicLongArray.memoryEstimation(wordsSize) + Estimate.sizeOfInstance(HugeAtomicBitSet);
+  public static memoryEstimation(size: bigint): number {
+    const wordsSize = BitUtil.ceilDiv(size, BigInt(HugeAtomicBitSet.NUM_BITS));
+    return HugeAtomicLongArray.memoryEstimation(wordsSize) +
+           Estimate.sizeOfInstance('HugeAtomicBitSet');
   }
 
   /**
-   * Creates a new bit set with the given size.
+   * Creates a new atomic bitset with specified size.
    *
-   * @param size Number of bits to store
-   * @returns A new HugeAtomicBitSet
+   * @param size Number of bits in the bitset
+   * @returns New atomic bitset instance
+   *
+   * @example
+   * ```typescript
+   * // Bitset for tracking visited nodes in parallel BFS
+   * const nodeCount = 1000000000n;
+   * const visited = HugeAtomicBitSet.create(nodeCount);
+   *
+   * // Thread-safe concurrent access
+   * await Promise.all(workers.map(async worker => {
+   *   worker.nodes.forEach(nodeId => {
+   *     if (!visited.getAndSet(BigInt(nodeId))) {
+   *       // First thread to visit this node
+   *       processNode(nodeId, worker);
+   *     }
+   *   });
+   * }));
+   * ```
    */
-  public static create(size: number): HugeAtomicBitSet {
-    const wordsSize = BitUtil.ceilDiv(size, this.NUM_BITS);
-    const remainder = size % this.NUM_BITS;
-    const creator = ParallelLongPageCreator.passThrough(new Concurrency(1));
-    return new HugeAtomicBitSet(HugeAtomicLongArray.of(wordsSize, creator), size, remainder);
+  public static create(size: bigint): HugeAtomicBitSet {
+    const wordsSize = BitUtil.ceilDiv(size, BigInt(HugeAtomicBitSet.NUM_BITS));
+    const remainder = Number(size % BigInt(HugeAtomicBitSet.NUM_BITS));
+    const bits = HugeAtomicLongArray.of(wordsSize);
+
+    return new HugeAtomicBitSet(bits, size, remainder);
   }
 
-  /**
-   * Creates a new bit set with the given underlying array.
-   *
-   * @param bits The underlying storage array
-   * @param numBits Total number of bits
-   * @param remainder Bits used in the last word
-   */
-  private constructor(bits: HugeAtomicLongArray, numBits: number, remainder: number) {
+  private constructor(bits: HugeAtomicLongArray, numBits: bigint, remainder: number) {
     this.bits = bits;
     this.numBits = numBits;
     this.remainder = remainder;
@@ -68,174 +95,221 @@ export class HugeAtomicBitSet {
 
   /**
    * Returns the state of the bit at the given index.
+   * Thread-safe read operation.
    *
-   * @param index Bit index
-   * @returns True if the bit is set, false otherwise
+   * @param index Bit index (0-based)
+   * @returns true if bit is set, false otherwise
+   *
+   * Performance: O(1) atomic read
+   *
+   * Concurrency: Safe to call while other threads modify the bitset
    */
-  public get(index: number): boolean {
-    console.assert(index < this.numBits, 'Index out of bounds');
+  public get(index: bigint): boolean {
+    console.assert(index < this.numBits, `Index ${index} out of bounds (size: ${this.numBits})`);
 
-    const wordIndex = Math.floor(index / HugeAtomicBitSet.NUM_BITS);
-    const bitIndex = index % HugeAtomicBitSet.NUM_BITS;
+    const wordIndex = index / BigInt(HugeAtomicBitSet.NUM_BITS);
+    const bitIndex = Number(index % BigInt(HugeAtomicBitSet.NUM_BITS));
     const bitmask = 1n << BigInt(bitIndex);
-    return (BigInt(this.bits.get(wordIndex)) & bitmask) !== 0n;
+
+    return (this.bits.get(wordIndex) & bitmask) !== 0n;
   }
 
   /**
    * Sets the bit at the given index to true.
+   * Thread-safe atomic operation using compare-and-swap.
    *
-   * @param index Bit index
+   * @param index Bit index to set
+   *
+   * Performance: O(1) with possible CAS retry loops
+   *
+   * Concurrency: Multiple threads can safely set different or same bits
+   *
+   * Graph Algorithm Use Cases:
+   * - Mark node as visited in concurrent traversal
+   * - Set membership flags in parallel clustering
+   * - Atomic state updates in distributed algorithms
    */
-  public set(index: number): void;
+  public set(index: bigint): void {
+    console.assert(index < this.numBits, `Index ${index} out of bounds (size: ${this.numBits})`);
+
+    const wordIndex = index / BigInt(HugeAtomicBitSet.NUM_BITS);
+    const bitIndex = Number(index % BigInt(HugeAtomicBitSet.NUM_BITS));
+    const bitmask = 1n << BigInt(bitIndex);
+
+    let oldWord = this.bits.get(wordIndex);
+    while (true) {
+      const newWord = oldWord | bitmask;
+      if (newWord === oldWord) {
+        // Bit already set - nothing to do
+        return;
+      }
+
+      const currentWord = this.bits.compareAndExchange(wordIndex, oldWord, newWord);
+      if (currentWord === oldWord) {
+        // CAS successful - bit set atomically
+        return;
+      }
+
+      // CAS failed - retry with current value
+      oldWord = currentWord;
+    }
+  }
 
   /**
-   * Sets all bits from startIndex (inclusive) to endIndex (exclusive).
+   * Sets the bits from startIndex (inclusive) to endIndex (exclusive).
+   * Efficient bulk operation for range setting.
    *
-   * @param startIndex Start bit index (inclusive)
-   * @param endIndex End bit index (exclusive)
+   * @param startIndex First bit index to set (inclusive)
+   * @param endIndex Last bit index to set (exclusive)
+   *
+   * Optimizations:
+   * - Word-aligned operations for interior words
+   * - Bit masking for partial words at boundaries
+   * - Atomic operations maintain consistency
    */
-  public set(startIndex: number, endIndex?: number): void {
-    // Single bit set
-    if (endIndex === undefined) {
-      console.assert(startIndex < this.numBits, 'Index out of bounds');
+  public setRange(startIndex: bigint, endIndex: bigint): void {
+    console.assert(startIndex <= endIndex, `Invalid range: [${startIndex}, ${endIndex})`);
+    console.assert(endIndex <= this.numBits, `End index ${endIndex} out of bounds (size: ${this.numBits})`);
 
-      const wordIndex = Math.floor(startIndex / HugeAtomicBitSet.NUM_BITS);
-      const bitIndex = startIndex % HugeAtomicBitSet.NUM_BITS;
-      const bitmask = 1n << BigInt(bitIndex);
+    const startWordIndex = startIndex / BigInt(HugeAtomicBitSet.NUM_BITS);
+    // Since endIndex is exclusive, we need the word before that index
+    const endWordIndex = (endIndex - 1n) / BigInt(HugeAtomicBitSet.NUM_BITS);
 
-      let oldWord = BigInt(this.bits.get(wordIndex));
-      while (true) {
-        const newWord = oldWord | bitmask;
-        if (newWord === oldWord) {
-          // Nothing to set
-          return;
-        }
-        const currentWord = BigInt(this.bits.compareAndExchange(wordIndex, Number(oldWord), Number(newWord)));
-        if (currentWord === oldWord) {
-          // CAS successful
-          return;
-        }
-        // CAS unsuccessful, try again
-        oldWord = currentWord;
-      }
+    const startBitMask = (-1n) << startIndex;
+    const endBitMask = (-1n) >> (-endIndex);
+
+    if (startWordIndex === endWordIndex) {
+      // Set within single word
+      this.setWord(startWordIndex, startBitMask & endBitMask);
     } else {
-      // Range set
-      console.assert(startIndex <= endIndex!, 'Start index must be <= end index');
-      console.assert(endIndex! <= this.numBits, 'End index out of bounds');
+      // Set within range - start word, full interior words, end word
+      this.setWord(startWordIndex, startBitMask);
 
-      const startWordIndex = Math.floor(startIndex / HugeAtomicBitSet.NUM_BITS);
-      // since endIndex is exclusive, we need the word before that index
-      const endWordIndex = Math.floor((endIndex! - 1) / HugeAtomicBitSet.NUM_BITS);
-
-      const startBitMask = -1n << BigInt(startIndex % HugeAtomicBitSet.NUM_BITS);
-      const endBitMask = -1n >>> BigInt(-endIndex! % HugeAtomicBitSet.NUM_BITS);
-
-      if (startWordIndex === endWordIndex) {
-        // set within single word
-        this.setWord(this.bits, startWordIndex, Number(startBitMask & endBitMask));
-      } else {
-        // set within range
-        this.setWord(this.bits, startWordIndex, Number(startBitMask));
-        for (let wordIndex = startWordIndex + 1; wordIndex < endWordIndex; wordIndex++) {
-          this.bits.set(wordIndex, Number(-1n));  // All bits set
-        }
-        this.setWord(this.bits, endWordIndex, Number(endBitMask));
+      // Set all bits in interior words
+      for (let wordIndex = startWordIndex + 1n; wordIndex < endWordIndex; wordIndex++) {
+        this.bits.set(wordIndex, -1n); // All bits set
       }
+
+      this.setWord(endWordIndex, endBitMask);
     }
   }
 
   /**
    * Sets a bit and returns the previous value.
+   * Atomic test-and-set operation essential for synchronization.
    *
-   * @param index Bit index
-   * @returns True if the bit was already set
+   * @param index Bit index to set
+   * @returns Previous value of the bit
+   *
+   * Synchronization Use Cases:
+   * - Claim exclusive access to graph nodes
+   * - Implement atomic locks on graph regions
+   * - Coordinate parallel algorithm phases
+   * - Detect first-time visitation in concurrent traversal
+   *
+   * @example
+   * ```typescript
+   * // Claim exclusive processing rights to a node
+   * const wasAlreadyClaimed = bitset.getAndSet(BigInt(nodeId));
+   * if (!wasAlreadyClaimed) {
+   *   // First thread to claim this node - process it
+   *   processNodeExclusively(nodeId);
+   * }
+   * ```
    */
-  public getAndSet(index: number): boolean {
-    console.assert(index < this.numBits, 'Index out of bounds');
+  public getAndSet(index: bigint): boolean {
+    console.assert(index < this.numBits, `Index ${index} out of bounds (size: ${this.numBits})`);
 
-    const wordIndex = Math.floor(index / HugeAtomicBitSet.NUM_BITS);
-    const bitIndex = index % HugeAtomicBitSet.NUM_BITS;
+    const wordIndex = index / BigInt(HugeAtomicBitSet.NUM_BITS);
+    const bitIndex = Number(index % BigInt(HugeAtomicBitSet.NUM_BITS));
     const bitmask = 1n << BigInt(bitIndex);
 
-    let oldWord = BigInt(this.bits.get(wordIndex));
+    let oldWord = this.bits.get(wordIndex);
     while (true) {
       const newWord = oldWord | bitmask;
       if (newWord === oldWord) {
-        // already set
+        // Bit was already set
         return true;
       }
-      const currentWord = BigInt(this.bits.compareAndExchange(wordIndex, Number(oldWord), Number(newWord)));
+
+      const currentWord = this.bits.compareAndExchange(wordIndex, oldWord, newWord);
       if (currentWord === oldWord) {
-        // CAS successful
+        // CAS successful - we set the bit
         return false;
       }
-      // CAS unsuccessful, try again
+
+      // CAS failed - retry
       oldWord = currentWord;
     }
   }
 
   /**
    * Toggles the bit at the given index.
+   * Atomic flip operation using XOR.
    *
-   * @param index Bit index
+   * @param index Bit index to flip
    */
-  public flip(index: number): void {
-    console.assert(index < this.numBits, 'Index out of bounds');
+  public flip(index: bigint): void {
+    console.assert(index < this.numBits, `Index ${index} out of bounds (size: ${this.numBits})`);
 
-    const wordIndex = Math.floor(index / HugeAtomicBitSet.NUM_BITS);
-    const bitIndex = index % HugeAtomicBitSet.NUM_BITS;
+    const wordIndex = index / BigInt(HugeAtomicBitSet.NUM_BITS);
+    const bitIndex = Number(index % BigInt(HugeAtomicBitSet.NUM_BITS));
     const bitmask = 1n << BigInt(bitIndex);
 
-    let oldWord = BigInt(this.bits.get(wordIndex));
+    let oldWord = this.bits.get(wordIndex);
     while (true) {
       const newWord = oldWord ^ bitmask;
-      const currentWord = BigInt(this.bits.compareAndExchange(wordIndex, Number(oldWord), Number(newWord)));
+      const currentWord = this.bits.compareAndExchange(wordIndex, oldWord, newWord);
       if (currentWord === oldWord) {
         // CAS successful
         return;
       }
-      // CAS unsuccessful, try again
+
+      // CAS failed - retry
       oldWord = currentWord;
     }
   }
 
   /**
-   * Iterates the bit set in increasing order and calls the given consumer for each set bit.
-   * This method is not thread-safe.
+   * Iterates the bitset in increasing order and calls the consumer for each set bit.
    *
-   * @param consumer Function called for each set bit index
+   * WARNING: This method is not thread-safe. Use only when no concurrent modifications occur.
+   *
+   * @param consumer Function to call for each set bit index
    */
-  public forEachSetBit(consumer: (index: number) => void): void {
-    const cursor = this.bits.initCursor(this.bits.newCursor());
+  public forEachSetBit(consumer: (index: bigint) => void): void {
+    const cursor = this.bits.initCursor();
 
     while (cursor.next()) {
-      const block = cursor.array || [];
+      const block = cursor.array;
       const offset = cursor.offset;
       const limit = cursor.limit;
       const base = cursor.base;
 
       for (let i = offset; i < limit; i++) {
-        let word = BigInt(block[i]);
+        let word = block[i];
         while (word !== 0n) {
           const next = this.numberOfTrailingZeros(word);
-          consumer(HugeAtomicBitSet.NUM_BITS * (base + i) + next);
-          word = word ^ (1n << BigInt(next));
+          const bitIndex = BigInt(HugeAtomicBitSet.NUM_BITS) * (base + BigInt(i)) + BigInt(next);
+          consumer(bitIndex);
+          word = word ^ this.lowestOneBit(word);
         }
       }
     }
   }
 
   /**
-   * Returns the number of set bits in the bit set.
-   * Note: this method is not thread-safe.
+   * Returns the number of set bits in the bitset.
    *
-   * @returns Number of bits set to true
+   * WARNING: This method is not thread-safe.
+   *
+   * @returns Count of set bits
    */
-  public cardinality(): number {
-    let setBitCount = 0;
+  public cardinality(): bigint {
+    let setBitCount = 0n;
 
-    for (let wordIndex = 0; wordIndex < this.bits.size(); wordIndex++) {
-      setBitCount += this.popCount(BigInt(this.bits.get(wordIndex)));
+    for (let wordIndex = 0n; wordIndex < this.bits.size(); wordIndex++) {
+      setBitCount += BigInt(this.bitCount(this.bits.get(wordIndex)));
     }
 
     return setBitCount;
@@ -243,13 +317,12 @@ export class HugeAtomicBitSet {
 
   /**
    * Returns true if no bit is set.
-   * Note: this method is not thread-safe.
    *
-   * @returns True if all bits are false
+   * WARNING: This method is not thread-safe.
    */
   public isEmpty(): boolean {
-    for (let wordIndex = 0; wordIndex < this.bits.size(); wordIndex++) {
-      if (this.popCount(BigInt(this.bits.get(wordIndex))) > 0) {
+    for (let wordIndex = 0n; wordIndex < this.bits.size(); wordIndex++) {
+      if (this.bitCount(this.bits.get(wordIndex)) > 0) {
         return false;
       }
     }
@@ -258,120 +331,126 @@ export class HugeAtomicBitSet {
 
   /**
    * Returns true if all bits are set.
-   * Note: this method is not thread-safe.
    *
-   * @returns True if all bits are true
+   * WARNING: This method is not thread-safe.
    */
   public allSet(): boolean {
-    for (let wordIndex = 0; wordIndex < this.bits.size() - 1; wordIndex++) {
-      if (this.popCount(BigInt(this.bits.get(wordIndex))) < HugeAtomicBitSet.NUM_BITS) {
+    const size = this.bits.size();
+
+    // Check all complete words
+    for (let wordIndex = 0n; wordIndex < size - 1n; wordIndex++) {
+      if (this.bitCount(this.bits.get(wordIndex)) < HugeAtomicBitSet.NUM_BITS) {
         return false;
       }
     }
-    return this.popCount(BigInt(this.bits.get(this.bits.size() - 1))) >= this.remainder;
+
+    // Check last (potentially partial) word
+    const lastWordBitCount = this.bitCount(this.bits.get(size - 1n));
+    return lastWordBitCount >= this.remainder;
   }
 
   /**
-   * Returns the number of bits in the bit set.
-   *
-   * @returns Total size of the bit set
+   * Returns the number of bits in the bitset.
    */
-  public size(): number {
+  public size(): bigint {
     return this.numBits;
   }
 
   /**
-   * Resets all bits in the bit set.
-   * Note: this method is not thread-safe.
+   * Resets all bits in the bitset.
+   *
+   * WARNING: This method is not thread-safe.
    */
   public clear(): void {
-    this.bits.setAll(0);
+    this.bits.setAll(0n);
   }
 
   /**
    * Resets the bit at the given index.
+   * Thread-safe atomic operation.
    *
-   * @param index Bit index
+   * @param index Bit index to clear
    */
-  public clear(index: number): void {
-    console.assert(index < this.numBits, 'Index out of bounds');
+  public clearBit(index: bigint): void {
+    console.assert(index < this.numBits, `Index ${index} out of bounds (size: ${this.numBits})`);
 
-    const wordIndex = Math.floor(index / HugeAtomicBitSet.NUM_BITS);
-    const bitIndex = index % HugeAtomicBitSet.NUM_BITS;
+    const wordIndex = index / BigInt(HugeAtomicBitSet.NUM_BITS);
+    const bitIndex = Number(index % BigInt(HugeAtomicBitSet.NUM_BITS));
     const bitmask = ~(1n << BigInt(bitIndex));
 
-    let oldWord = BigInt(this.bits.get(wordIndex));
+    let oldWord = this.bits.get(wordIndex);
     while (true) {
       const newWord = oldWord & bitmask;
       if (newWord === oldWord) {
-        // already cleared
+        // Bit already cleared
         return;
       }
-      const currentWord = BigInt(this.bits.compareAndExchange(wordIndex, Number(oldWord), Number(newWord)));
+
+      const currentWord = this.bits.compareAndExchange(wordIndex, oldWord, newWord);
       if (currentWord === oldWord) {
         // CAS successful
         return;
       }
-      // CAS unsuccessful, try again
+
+      // CAS failed - retry
       oldWord = currentWord;
     }
   }
 
   /**
-   * Helper method to set bits in a word.
-   *
-   * @param bits The array to modify
-   * @param wordIndex Index of the word to modify
-   * @param bitMask Mask of bits to set
+   * Atomic word-level bit setting with OR operation.
    */
-  private setWord(bits: HugeAtomicLongArray, wordIndex: number, bitMask: number): void {
-    let oldWord = BigInt(bits.get(wordIndex));
+  private setWord(wordIndex: bigint, bitMask: bigint): void {
+    let oldWord = this.bits.get(wordIndex);
     while (true) {
-      const newWord = oldWord | BigInt(bitMask);
+      const newWord = oldWord | bitMask;
       if (newWord === oldWord) {
-        // already set
+        // Already set
         return;
       }
-      const currentWord = BigInt(bits.compareAndExchange(wordIndex, Number(oldWord), Number(newWord)));
+
+      const currentWord = this.bits.compareAndExchange(wordIndex, oldWord, newWord);
       if (currentWord === oldWord) {
         // CAS successful
         return;
       }
+
       oldWord = currentWord;
     }
   }
 
   /**
-   * Returns the number of trailing zeros in the binary representation of the specified value.
-   *
-   * @param value The value to examine
-   * @returns The number of trailing zeros
+   * Counts the number of set bits in a BigInt.
    */
-  private numberOfTrailingZeros(value: number): number {
-    // Implementation of trailing zeros for BigInt
+  private bitCount(value: bigint): number {
+    let count = 0;
+    let n = value;
+    while (n !== 0n) {
+      count++;
+      n = n & (n - 1n); // Clear lowest set bit
+    }
+    return count;
+  }
+
+  /**
+   * Returns the number of trailing zero bits.
+   */
+  private numberOfTrailingZeros(value: bigint): number {
     if (value === 0n) return 64;
 
     let count = 0;
-    while ((value & 1n) === 0n) {
-      value = value >> 1n;
+    let n = value;
+    while ((n & 1n) === 0n) {
       count++;
+      n = n >> 1n;
     }
     return count;
   }
 
   /**
-   * Returns the population count (number of set bits) in the binary representation of the specified value.
-   *
-   * @param value The value to examine
-   * @returns The number of set bits
+   * Returns the lowest set bit.
    */
-  private popCount(value: number): number {
-    // Implementation of population count for BigInt
-    let count = 0;
-    while (value !== 0n) {
-      if ((value & 1n) === 1n) count++;
-      value = value >> 1n;
-    }
-    return count;
+  private lowestOneBit(value: bigint): bigint {
+    return value & (-value);
   }
 }

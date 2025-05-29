@@ -1,180 +1,177 @@
-import { MemoryEstimation, MemoryEstimations } from '../../mem/MemoryEstimations';
+/**
+ * Memory estimation utilities for priority queue
+ */
+export class MemoryEstimations {
+  static builder(clazz: any) {
+    return {
+      fixed: (name: string, size: number) => ({ build: () => size }),
+    };
+  }
+}
+
+export class Estimate {
+  static sizeOfLongArray(capacity: number): number {
+    return capacity * 8; // 8 bytes per long
+  }
+
+  static sizeOfDoubleArray(capacity: number): number {
+    return capacity * 8; // 8 bytes per double
+  }
+}
 
 /**
- * A bounded priority queue that stores elements with priorities.
- * Maintains only the top N elements based on priority.
+ * Consumer interface for iterating over queue elements
+ */
+interface Consumer {
+  accept(element: number, priority: number): void;
+}
+
+/**
+ * A bounded priority queue that maintains only the top K elements.
+ * Efficiently handles large datasets by keeping memory usage constant.
+ *
+ * Perfect for:
+ * - Top-K algorithms (nearest neighbors, shortest paths)
+ * - Beam search in graph algorithms
+ * - Memory-constrained ranking operations
  */
 export abstract class BoundedLongPriorityQueue {
   /**
-   * Consumer for queue elements.
+   * Estimates memory usage for a priority queue of given capacity
    */
-  export interface Consumer {
-    accept(element: number, priority: number): void;
-  }
-
-  /**
-   * Estimates memory usage for a queue of given capacity.
-   *
-   * @param capacity The maximum number of elements
-   * @returns Memory estimation
-   */
-  public static memoryEstimation(capacity: number): MemoryEstimation {
-    return MemoryEstimations.builder(BoundedLongPriorityQueue.name)
-      .fixed("elements", capacity * 8)    // 8 bytes per number
-      .fixed("priorities", capacity * 8)  // 8 bytes per double
-      .build();
+  static memoryEstimation(capacity: number): number {
+    return (
+      Estimate.sizeOfLongArray(capacity) + Estimate.sizeOfDoubleArray(capacity)
+    );
   }
 
   private readonly bound: number;
-  private minValue: number = Number.NaN;
+  private minValue: number = NaN;
 
-  protected readonly elements: number[];
-  protected readonly priorities: number[];
-  protected elementCount = 0;
+  protected readonly _elements: number[];
+  protected readonly _priorities: number[];
+  protected elementCount: number = 0;
 
-  /**
-   * Creates a bounded priority queue with specified capacity.
-   *
-   * @param bound Maximum number of elements
-   */
   protected constructor(bound: number) {
     this.bound = bound;
-    this.elements = new Array<number>(bound);
-    this.priorities = new Array<number>(bound);
+    this._elements = new Array(bound);
+    this._priorities = new Array(bound);
   }
 
   /**
-   * Offers a new element to the queue.
-   *
-   * @param element Element value
-   * @param priority Priority value
-   * @returns true if the element was added
+   * Attempts to add an element with given priority.
+   * Returns true if element was added, false if rejected.
    */
-  public abstract offer(element: number, priority: number): boolean;
+  abstract offer(element: number, priority: number): boolean;
 
   /**
-   * Iterates through all elements in the queue.
-   *
-   * @param consumer Function to process each element
+   * Iterates over all elements in priority order
    */
-  public abstract forEach(consumer: BoundedLongPriorityQueue.Consumer): void;
+  abstract forEach(consumer: (element: number, priority: number) => void): void;
 
   /**
-   * Returns an iterable of the elements.
-   *
-   * @returns Element iterable
+   * Returns all elements as an array
    */
-  public *elements(): IterableIterator<number> {
-    if (this.elementCount > 0) {
-      for (let i = 0; i < this.elementCount; i++) {
-        yield this.elements[i];
-      }
-    }
+  elements(): number[] {
+    return this.elementCount === 0
+      ? []
+      : this._elements.slice(0, this.elementCount);
   }
 
   /**
-   * Returns an iterable of the priorities.
-   *
-   * @returns Priority iterable
+   * Returns all priorities as an array
    */
-  public *priorities(): IterableIterator<number> {
-    if (!isNaN(this.minValue)) {
-      for (let i = 0; i < this.elementCount; i++) {
-        yield this.priorities[i];
-      }
-    }
+  priorities(): number[] {
+    return Number.isNaN(this.minValue)
+      ? []
+      : this._priorities.slice(0, this.elementCount);
   }
 
   /**
-   * Returns the number of elements in the queue.
-   *
-   * @returns Element count
+   * Returns the current number of elements in the queue
    */
-  public size(): number {
+  size(): number {
     return this.elementCount;
   }
 
   /**
-   * Checks if the queue contains the specified element.
-   *
-   * @param element Element to check
-   * @returns true if the element is present
+   * Checks if the queue contains a specific element
    */
-  public contains(element: number): boolean {
-    for (let i = 0; i < this.elementCount; i++) {
-      if (this.elements[i] === element) {
-        return true;
-      }
-    }
-    return false;
+  contains(element: number): boolean {
+    return this.elements().some((el) => el === element);
   }
 
   /**
-   * Returns the element at the specified index.
-   *
-   * @param index Index to get
-   * @returns Element at that index
+   * Gets element at specific index
    */
-  public elementAt(index: number): number {
-    return this.elements[index];
+  elementAt(index: number): number {
+    return this._elements[index];
   }
 
   /**
-   * Updates the element at the specified index.
-   *
-   * @param index Index to update
-   * @param newElement New element value
+   * Updates element at specific index
    */
-  public updateElementAt(index: number, newElement: number): void {
-    this.elements[index] = newElement;
+  updateElementAt(index: number, newElement: number): void {
+    this._elements[index] = newElement;
   }
 
   /**
-   * Adds an element to the queue in sorted order.
-   *
-   * @param element Element value
-   * @param priority Priority value
-   * @returns true if the element was added
+   * Core insertion logic - maintains sorted order by priority
    */
   protected add(element: number, priority: number): boolean {
-    if (this.elementCount < this.bound || isNaN(this.minValue) || priority < this.minValue) {
-      let idx = this.binarySearch(this.priorities, 0, this.elementCount, priority);
-      idx = (idx < 0) ? -idx : idx + 1;
-      const length = this.bound - idx;
+    // Add if: queue not full, OR priority is better than worst element
+    if (
+      this.elementCount < this.bound ||
+      Number.isNaN(this.minValue) ||
+      priority < this.minValue
+    ) {
+      // Find insertion point using binary search
+      let idx = this.binarySearch(
+        this._priorities,
+        0,
+        this.elementCount,
+        priority
+      );
+      idx = idx < 0 ? -idx : idx + 1;
 
+      // Shift elements to make room (if needed)
+      const length = this.bound - idx;
       if (length > 0 && idx < this.bound) {
-        // Shift elements to make space
-        for (let i = Math.min(this.bound - 1, this.elementCount); i >= idx; i--) {
-          if (i > 0) {
-            this.priorities[i] = this.priorities[i - 1];
-            this.elements[i] = this.elements[i - 1];
-          }
+        // Shift priorities
+        for (
+          let i = Math.min(this.elementCount, this.bound - 1);
+          i >= idx;
+          i--
+        ) {
+          this._priorities[i] = this._priorities[i - 1];
+          this._elements[i] = this._elements[i - 1];
         }
       }
 
-      this.priorities[idx - 1] = priority;
-      this.elements[idx - 1] = element;
+      // Insert new element
+      this._priorities[idx - 1] = priority;
+      this._elements[idx - 1] = element;
 
+      // Update count and min value
       if (this.elementCount < this.bound) {
         this.elementCount++;
       }
+      this.minValue = this._priorities[this.elementCount - 1];
 
-      this.minValue = this.priorities[this.elementCount - 1];
       return true;
     }
     return false;
   }
 
   /**
-   * Binary search implementation similar to Java's Arrays.binarySearch.
-   *
-   * @param array Array to search
-   * @param fromIndex Start index
-   * @param toIndex End index (exclusive)
-   * @param key Value to find
-   * @returns Index where the key was found, or -(insertion point) - 1 if not found
+   * Binary search implementation for finding insertion point
    */
-  private binarySearch(array: number[], fromIndex: number, toIndex: number, key: number): number {
+  private binarySearch(
+    array: number[],
+    fromIndex: number,
+    toIndex: number,
+    key: number
+  ): number {
     let low = fromIndex;
     let high = toIndex - 1;
 
@@ -190,67 +187,53 @@ export abstract class BoundedLongPriorityQueue {
         return mid; // key found
       }
     }
-    return -(low + 1);  // key not found
+    return -(low + 1); // key not found
   }
 
   /**
-   * Creates a max priority queue.
-   *
-   * @param bound Maximum capacity
-   * @returns A new max priority queue
+   * Creates a MAX priority queue (highest priority elements kept)
+   * Uses negated priorities internally for efficient implementation
    */
-  public static max(bound: number): BoundedLongPriorityQueue {
-    return new class extends BoundedLongPriorityQueue {
-      constructor(bound: number) {
+  static max(bound: number): BoundedLongPriorityQueue {
+    return new (class extends BoundedLongPriorityQueue {
+      constructor() {
         super(bound);
       }
 
-      public offer(element: number, priority: number): boolean {
-        return this.add(element, -priority);
+      offer(element: number, priority: number): boolean {
+        return this.add(element, -priority); // Negate for max behavior
       }
 
-      public forEach(consumer: BoundedLongPriorityQueue.Consumer): void {
+      forEach(consumer: (element: number, priority: number) => void): void {
         for (let i = 0; i < this.elementCount; i++) {
-          consumer.accept(this.elements[i], -this.priorities[i]);
+          consumer(this._elements[i], -this._priorities[i]); // Un-negate priorities
         }
       }
 
-      public *priorities(): IterableIterator<number> {
-        for (const priority of super.priorities()) {
-          yield -priority;
-        }
+      priorities(): number[] {
+        return super.priorities().map((d) => -d); // Un-negate priorities
       }
-    }(bound);
+    })();
   }
 
   /**
-   * Creates a min priority queue.
-   *
-   * @param bound Maximum capacity
-   * @returns A new min priority queue
+   * Creates a MIN priority queue (lowest priority elements kept)
    */
-  public static min(bound: number): BoundedLongPriorityQueue {
-    return new class extends BoundedLongPriorityQueue {
-      constructor(bound: number) {
+  static min(bound: number): BoundedLongPriorityQueue {
+    return new (class extends BoundedLongPriorityQueue {
+      constructor() {
         super(bound);
       }
 
-      public offer(element: number, priority: number): boolean {
+      offer(element: number, priority: number): boolean {
         return this.add(element, priority);
       }
 
-      public forEach(consumer: BoundedLongPriorityQueue.Consumer): void {
+      forEach(consumer: (element: number, priority: number) => void): void {
         for (let i = 0; i < this.elementCount; i++) {
-          consumer.accept(this.elements[i], this.priorities[i]);
+          consumer(this._elements[i], this._priorities[i]);
         }
       }
-    }(bound);
-  }
-}
-
-// Define the Consumer interface as a namespace extension
-export namespace BoundedLongPriorityQueue {
-  export interface Consumer {
-    accept(element: number, priority: number): void;
+    })();
   }
 }

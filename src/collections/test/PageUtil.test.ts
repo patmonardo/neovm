@@ -1,6 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { PageUtil } from "../PageUtil";
 import { BitUtil } from "@/mem";
+import { PageUtil } from "../PageUtil";
 
 describe("PageUtil", () => {
   describe("Constants", () => {

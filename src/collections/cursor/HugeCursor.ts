@@ -1,5 +1,5 @@
-import { PageUtil } from '@/collections/PageUtil';
-import { HugeArrays } from '@/mem/HugeArrays';
+import { PageUtil } from "@/collections/PageUtil";
+import { HugeArrays } from "@/mem/HugeArrays";
 
 /**
  * View of data underlying a Huge array, accessible as slices of one or more primitive arrays.
@@ -346,7 +346,10 @@ export class PagedCursor<Array> extends HugeCursor<Array> {
       this.pages = pages;
     } else {
       // Calculate capacity automatically
-      const calculatedCapacity = PageUtil.capacityFor(pages.length, HugeArrays.PAGE_SHIFT);
+      const calculatedCapacity = PageUtil.capacityFor(
+        pages.length,
+        HugeArrays.PAGE_SHIFT
+      );
       this.capacity = calculatedCapacity;
       this.pages = pages;
     }
@@ -368,9 +371,10 @@ export class PagedCursor<Array> extends HugeCursor<Array> {
     this.end = actualEnd;
     this.base = this.fromPage * HugeArrays.PAGE_SIZE;
     this.offset = HugeArrays.indexInPage(actualStart);
-    this.limit = this.fromPage === this.maxPage
-      ? HugeArrays.exclusiveIndexOfPage(actualEnd)
-      : HugeArrays.PAGE_SIZE;
+    this.limit =
+      this.fromPage === this.maxPage
+        ? HugeArrays.exclusiveIndexOfPage(actualEnd)
+        : HugeArrays.PAGE_SIZE;
   }
 
   /**
@@ -404,7 +408,7 @@ export class PagedCursor<Array> extends HugeCursor<Array> {
     }
 
     // Subsequent pages
-    this.base += HugeArrays.PAGE_SIZE;
+    this.base = current * HugeArrays.PAGE_SIZE;
     this.offset = 0;
 
     if (current === this.maxPage) {
@@ -435,31 +439,4 @@ export class PagedCursor<Array> extends HugeCursor<Array> {
     this.fromPage = -1;
     this.pageIndex = -1;
   }
-}
-
-/**
- * Interface for types that support huge cursor creation.
- *
- * This interface defines the contract for collections that can provide
- * efficient cursor-based iteration over their elements.
- *
- * @template Array The type of array being accessed
- */
-export interface HugeCursorSupport<Array> {
-  /**
-   * Creates a new cursor for iterating over this collection.
-   *
-   * @returns A new cursor instance
-   */
-  newCursor(): HugeCursor<Array>;
-
-  /**
-   * Initializes the provided cursor for iterating over this collection.
-   *
-   * This method allows for cursor reuse, which can be more efficient than
-   * creating new cursors for repeated operations.
-   *
-   * @param cursor The cursor to initialize
-   */
-  initCursor(cursor: HugeCursor<Array>): void;
 }

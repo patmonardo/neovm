@@ -1,213 +1,269 @@
-import { PagedDataStructure } from './PagedDataStructure';
-import { PageAllocator } from './PageAllocator';
-import { Estimate } from '../../../mem/Estimate';
-
 /**
- * Stack data structure for storing large numbers of number values.
- * Uses a paged approach to overcome JavaScript array size limitations.
+ * High-performance paged stack for billion-scale graph algorithms.
+ *
+ * Essential for algorithms requiring massive stack capacity:
+ * - Depth-First Search (DFS) on huge graphs
+ * - Backtracking algorithms (pathfinding, constraint solving)
+ * - Recursive traversals with billion-node graphs
+ * - Undo/redo operations in graph editing
+ * - Call stack simulation for iterative implementations
+ * - Expression evaluation with deep nesting
+ *
+ * Performance characteristics:
+ * - O(1) push/pop operations (amortized)
+ * - Paged memory layout prevents stack overflow
+ * - Minimal page switching overhead
+ * - Cache-friendly sequential access within pages
+ * - Thread-safe growth through PagedDataStructure base
+ *
+ * Memory efficiency:
+ * - Only allocates pages as needed (lazy allocation)
+ * - Efficient page reuse during pop operations
+ * - Predictable memory usage patterns
+ * - Supports billion-element capacity
+ *
+ * Graph Algorithm Applications:
+ * - DFS traversal state management
+ * - Backtracking in pathfinding algorithms
+ * - Recursive algorithm iterativization
+ * - Expression tree evaluation
+ * - Undo stacks for graph modifications
+ * - Call frame simulation in interpreters
+ *
+ * @module PagedLongStack
  */
-export class PagedLongStack extends PagedDataStructure<BigInt64Array> {
-  /**
-   * Factory for creating page allocators for BigInt64Array.
-   */
-  private static readonly ALLOCATOR_FACTORY =
-    PageAllocator.ofArray<BigInt64Array>({
-      BYTES_PER_ELEMENT: 8,
-      constructor: BigInt64Array
-    });
 
-  /**
-   * Current number of elements in the stack.
-   */
-  private size: number = 0;
+import { Estimate } from '@/mem';
+import { PageAllocator } from './PageAllocator';
+import { PagedDataStructure } from './PagedDataStructure';
 
-  /**
-   * Index of the current page.
-   */
-  private pageIndex: number = 0;
+export class PagedLongStack extends PagedDataStructure<number[]> {
+  private static readonly ALLOCATOR_FACTORY = PageAllocator.ofNumberArray();
 
-  /**
-   * Index of the top element in the current page.
-   */
+  private stackSize: number = 0;
+  private _pageIndex: number = 0;
   private pageTop: number = -1;
-
-  /**
-   * Size limit of the current page.
-   */
   private pageLimit: number = 0;
+  private currentPage: number[] | null = null;
 
   /**
-   * Reference to the current page for faster access.
-   */
-  private currentPage: BigInt64Array;
-
-  /**
-   * Creates a new stack with the specified initial capacity.
+   * Creates a new paged stack with specified initial capacity.
    *
-   * @param initialSize Initial capacity
+   * @param initialSize Initial capacity (minimum 1)
+   *
+   * @example
+   * ```typescript
+   * // Stack for DFS on massive graph
+   * const dfsStack = new PagedLongStack(1000000000);
+   *
+   * // Push nodes to visit
+   * dfsStack.push(startNodeId);
+   *
+   * // DFS traversal loop
+   * while (!dfsStack.isEmpty()) {
+   *   const currentNode = dfsStack.pop();
+   *
+   *   graph.getNeighbors(currentNode).forEach(neighbor => {
+   *     if (!visited.has(neighbor)) {
+   *       dfsStack.push(neighbor);
+   *       visited.add(neighbor);
+   *     }
+   *   });
+   * }
+   * ```
    */
   constructor(initialSize: number) {
-    super(
-      Math.max(1, initialSize),
-      PagedLongStack.ALLOCATOR_FACTORY.newAllocator()
-    );
+    const allocator = PagedLongStack.ALLOCATOR_FACTORY.newAllocator();
+    super(Math.max(1, initialSize), allocator);
     this.clear();
-    this.currentPage = this.pages[0];
   }
 
   /**
-   * Estimates the memory usage for a stack of the given size.
+   * Memory estimation for capacity planning.
+   * Essential for resource allocation in large-scale processing.
    *
-   * @param size Number of elements
-   * @returns Estimated bytes
+   * @param size Expected maximum stack size
+   * @returns Estimated memory usage in bytes
    */
   public static memoryEstimation(size: number): number {
-    console.assert(size >= 0, "Size must be non-negative");
+    console.assert(size >= 0, 'Size must be non-negative');
 
-    const pageSize = 4096; // Elements per page
+    const pageSize = 4096; // Default page size for number arrays
     const numberOfPages = Math.ceil(size / pageSize);
-
-    // Calculate size for pages (each BigInt64Array page)
-    const totalSizeForPages = numberOfPages * (
-      8 * pageSize +  // 8 bytes per number
-      40              // Array overhead
+    const totalSizeForPages = Estimate.sizeOfArray(
+      numberOfPages,
+      Estimate.sizeOfLongArray(pageSize)
     );
 
-    // Add overhead for class fields
-    return totalSizeForPages +
-           3 * 4 +    // 3 int fields (4 bytes each)
-           8 +        // 1 long field (8 bytes)
-           8;         // Reference to currentPage
+    // Add overhead for instance variables
+    const instanceOverhead = 3 * Estimate.sizeOfInstance('number') +
+                             Estimate.sizeOfInstance('number');
+
+    return totalSizeForPages + instanceOverhead;
   }
 
   /**
-   * Clears all elements from the stack.
+   * Clears the stack, resetting to empty state.
+   * Reuses existing pages for efficiency.
+   * Fast O(1) operation - doesn't deallocate pages.
    */
   public clear(): void {
-    this.size = 0;
+    this.stackSize = 0;
     this.pageTop = -1;
-    this.pageIndex = 0;
+    this._pageIndex = 0;
     this.currentPage = this.pages[0];
-    this.pageLimit = this.currentPage.length;
+    this.pageLimit = this.currentPage ? this.currentPage.length : 0;
   }
 
   /**
    * Pushes a value onto the stack.
+   * Automatically grows to accommodate new elements.
    *
-   * @param value Value to push
+   * @param value Value to push onto stack
+   *
+   * Performance: O(1) amortized (occasional page allocation)
+   *
+   * Graph Algorithm Use Cases:
+   * - Push nodes to visit in DFS
+   * - Push backtrack points in pathfinding
+   * - Push function call frames in recursion simulation
+   * - Push undo operations in graph editing
    */
-  public push(value: number): void {
+  public async push(value: number): Promise<void> {
     let pageTop = ++this.pageTop;
+
     if (pageTop >= this.pageLimit) {
-      pageTop = this.nextPage();
+      pageTop = await this.nextPage();
     }
-    ++this.size;
-    this.currentPage[pageTop] = value;
+
+    this.stackSize++;
+    this.currentPage![pageTop] = value;
   }
 
   /**
    * Pops a value from the stack.
+   * Returns to previous page when current page is exhausted.
    *
-   * @returns The value at the top of the stack
-   * @throws Error if the stack is empty
+   * @returns The top value from the stack
+   * @throws Error if stack is empty
+   *
+   * Performance: O(1) with occasional page switching
+   *
+   * Graph Algorithm Use Cases:
+   * - Get next node to visit in DFS
+   * - Retrieve backtrack point in pathfinding
+   * - Pop function call frame in recursion simulation
+   * - Execute undo operation in graph editing
    */
   public pop(): number {
     if (this.isEmpty()) {
-      throw new Error("Cannot pop from an empty stack");
+      throw new Error('Cannot pop from empty stack');
     }
 
     let pageTop = this.pageTop;
+
     if (pageTop < 0) {
       pageTop = this.previousPage();
     }
-    --this.pageTop;
-    --this.size;
-    return this.currentPage[pageTop];
+
+    this.pageTop = pageTop - 1;
+    this.stackSize--;
+
+    return this.currentPage![pageTop];
   }
 
   /**
-   * Returns the value at the top of the stack without removing it.
+   * Peeks at the top value without removing it.
+   * Useful for inspecting next operation without commitment.
    *
-   * @returns The value at the top of the stack
-   * @throws Error if the stack is empty
+   * @returns The top value from the stack
+   * @throws Error if stack is empty
+   *
+   * Performance: O(1)
    */
   public peek(): number {
     if (this.isEmpty()) {
-      throw new Error("Cannot peek at an empty stack");
+      throw new Error('Cannot peek at empty stack');
     }
 
-    const pageTop = this.pageTop;
+    let pageTop = this.pageTop;
+
     if (pageTop < 0) {
-      const pageIndex = this.pageIndex - 1;
-      const page = this.pages[pageIndex];
-      return page[page.length - 1];
+      // Look at the last element of the previous page
+      const prevPageIndex = this._pageIndex - 1;
+      const prevPage = this.pages[prevPageIndex];
+      return prevPage[prevPage.length - 1];
     }
-    return this.currentPage[pageTop];
+
+    return this.currentPage![pageTop];
   }
 
   /**
    * Checks if the stack is empty.
    *
-   * @returns true if the stack is empty
+   * @returns true if stack contains no elements
    */
   public isEmpty(): boolean {
-    return this.size === 0;
+    return this.stackSize === 0;
   }
 
   /**
    * Returns the number of elements in the stack.
    *
-   * @returns The size
+   * @returns Current stack size
    */
-  public override size(): number {
-    return this.size;
+  public size(): number {
+    return this.stackSize;
   }
 
   /**
-   * Releases memory held by this stack.
+   * Releases all resources and invalidates the stack.
    *
-   * @returns Estimated number of bytes freed
+   * @returns Estimated bytes freed
    */
-  public override release(): number {
+  public release(): number {
     const released = super.release();
-    this.size = 0;
+    this.stackSize = 0;
     this.pageTop = 0;
-    this.pageIndex = 0;
+    this._pageIndex = 0;
     this.pageLimit = 0;
-    this.currentPage = null!;
+    this.currentPage = null;
     return released;
   }
 
   /**
-   * Moves to the next page when the current one is full.
+   * Advances to the next page, allocating if necessary.
+   * Thread-safe growth through PagedDataStructure base.
    *
-   * @returns New pageTop index
+   * @returns New page top index (always 0)
    */
-  private nextPage(): number {
-    const pageIndex = ++this.pageIndex;
-    if (pageIndex >= this.pages.length) {
-      this.grow(this.capacityFor(pageIndex + 1));
+  private async nextPage(): Promise<number> {
+    const newPageIndex = ++this._pageIndex;
+
+    if (newPageIndex >= this.pages.length) {
+      await this.grow(this.capacityFor(newPageIndex + 1));
     }
-    this.currentPage = this.pages[pageIndex];
+
+    this.currentPage = this.pages[newPageIndex];
     this.pageLimit = this.currentPage.length;
     return this.pageTop = 0;
   }
 
   /**
-   * Moves to the previous page when the current one is empty.
+   * Returns to the previous page.
+   * Used when popping from an empty current page.
    *
-   * @returns New pageTop index
-   * @throws Error if at the first page
+   * @returns New page top index (last element of previous page)
    */
   private previousPage(): number {
-    const pageIndex = this.pageIndex - 1;
-    if (pageIndex < 0) {
-      throw new Error("Stack underflow");
+    const prevPageIndex = --this._pageIndex;
+
+    if (prevPageIndex < 0) {
+      throw new Error('Stack underflow - no previous page');
     }
 
-    this.currentPage = this.pages[pageIndex];
+    this.currentPage = this.pages[prevPageIndex];
     this.pageLimit = this.currentPage.length;
-    this.pageIndex = pageIndex;
     return this.pageTop = this.pageLimit - 1;
   }
 }

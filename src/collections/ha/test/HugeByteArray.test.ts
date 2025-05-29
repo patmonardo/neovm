@@ -1,4 +1,3 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { HugeByteArray } from '../HugeByteArray';
 import { HugeArrays } from '@/mem/HugeArrays';
 
@@ -46,11 +45,11 @@ describe('HugeByteArray', () => {
     });
 
     it('should use test factory methods', () => {
-      const singleArray = HugeByteArray.newSingleArray(100);
+      const singleArray = HugeByteArray.newArray(100);
       expect(singleArray.constructor.name).toBe('SingleHugeByteArray');
       singleArray.release();
 
-      const pagedArray = HugeByteArray.newPagedArray(HugeArrays.PAGE_SIZE + 100);
+      const pagedArray = HugeByteArray.newArray(HugeArrays.PAGE_SIZE + 100);
       expect(pagedArray.constructor.name).toBe('PagedHugeByteArray');
       pagedArray.release();
     });
@@ -360,7 +359,7 @@ describe('HugeByteArray', () => {
     });
 
     it('should copy between single and paged arrays', () => {
-      const largeDest = HugeByteArray.newPagedArray(HugeArrays.PAGE_SIZE + 100);
+      const largeDest = HugeByteArray.newArray(HugeArrays.PAGE_SIZE + 100);
 
       source.copyTo(largeDest, 5);
 
@@ -425,7 +424,7 @@ describe('HugeByteArray', () => {
     });
 
     it('should process large arrays efficiently with cursor', () => {
-      const largeArray = HugeByteArray.newPagedArray(HugeArrays.PAGE_SIZE + 1000);
+      const largeArray = HugeByteArray.newArray(HugeArrays.PAGE_SIZE + 1000);
       largeArray.setAll(index => index % 256); // Byte-safe pattern
 
       const cursor = largeArray.newCursor();
@@ -485,7 +484,7 @@ describe('HugeByteArray', () => {
   describe('Large Array Scenarios', () => {
     it('should handle page boundaries correctly', () => {
       const size = HugeArrays.PAGE_SIZE + 100; // Cross page boundary
-      array = HugeByteArray.newPagedArray(size);
+      array = HugeByteArray.newArray(size);
 
       // Set values around page boundary
       const boundaryIndex = HugeArrays.PAGE_SIZE - 1;
@@ -498,7 +497,7 @@ describe('HugeByteArray', () => {
 
     it('should perform operations across pages', () => {
       const size = HugeArrays.PAGE_SIZE * 2 + 100;
-      array = HugeByteArray.newPagedArray(size);
+      array = HugeByteArray.newArray(size);
 
       // Fill array with byte-safe index values
       array.setAll(index => index % 256);
@@ -512,7 +511,7 @@ describe('HugeByteArray', () => {
 
     it('should handle bitwise operations across pages', () => {
       const size = HugeArrays.PAGE_SIZE + 100;
-      array = HugeByteArray.newPagedArray(size);
+      array = HugeByteArray.newArray(size);
 
       // Set flags across page boundary
       const boundaryIndex = HugeArrays.PAGE_SIZE - 1;
@@ -707,7 +706,7 @@ describe('HugeByteArray', () => {
     });
 
     it('should handle toString for single element', () => {
-      array = HugeByteArray.of(200);
+      array = HugeByteArray.of(1, 2, 200);
       const str = array.toString();
 
       expect(str).toContain('200');

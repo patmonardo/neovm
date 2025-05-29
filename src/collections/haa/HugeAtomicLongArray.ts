@@ -1,9 +1,9 @@
-import { HugeCursor, HugeCursorSupport } from '@/collections/cursor/HugeCursor';
-import { SinglePageCursor, PagedCursor } from '@/collections/cursor/HugeCursor';
+import { HugeArrays } from '@/mem';
+import { Estimate } from '@/mem';
+import { HugeCursor, HugeCursorSupport } from '@/collections';
+import { SinglePageCursor, PagedCursor } from '@/collections';
 import { LongToLongFunction } from './ValueTransformers';
 import { LongPageCreator } from './PageCreator';
-import { HugeArrays } from '@/mem/HugeArrays';
-import { Estimate } from '@/mem/Estimate';
 
 /**
  * A huge array of long integers supporting atomic operations for thread-safe concurrent access.
@@ -627,7 +627,7 @@ export abstract class HugeAtomicLongArray implements HugeCursorSupport<number[]>
    *
    * @param cursor The cursor to initialize
    */
-  public abstract initCursor(cursor: HugeCursor<number[]>): void;
+  public abstract initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]>;
 }
 
 /**
@@ -803,10 +803,11 @@ class SingleHugeAtomicLongArray extends HugeAtomicLongArray {
     return new SinglePageCursor<number[]>(this._page!);
   }
 
-  public initCursor(cursor: HugeCursor<number[]>): void {
+  public initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]>  {
     if (cursor instanceof SinglePageCursor) {
       cursor.setArray(this._page!);
     }
+    return cursor;
   }
 }
 
@@ -993,9 +994,10 @@ class PagedHugeAtomicLongArray extends HugeAtomicLongArray {
     return cursor;
   }
 
-  public initCursor(cursor: HugeCursor<number[]>): void {
+  public initCursor(cursor: HugeCursor<number[]>): HugeCursor<number[]> {
     if (cursor instanceof PagedCursor) {
       cursor.setPages(this._pages!, this._size);
     }
+    return cursor;
   }
 }

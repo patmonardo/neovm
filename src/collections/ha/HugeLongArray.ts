@@ -1,8 +1,6 @@
+import { HugeArrays, Estimate } from "@/mem";
 import { ArrayUtil } from "@/collections";
-import { PageUtil } from "@/collections";
 import { HugeCursor, SinglePageCursor, PagedCursor } from "@/collections";
-import { HugeArrays } from "@/mem";
-import { Estimate } from "@/mem";
 import { HugeArray } from "./HugeArray";
 
 /**
@@ -591,51 +589,59 @@ export abstract class HugeLongArray extends HugeArray<
    */
   public static newArray(size: number): HugeLongArray {
     if (size <= HugeArrays.MAX_ARRAY_LENGTH) {
-      return SingleHugeLongArray.of(size);
+      return SingleHugeLongArray.singleOf(size);
     }
-    return PagedHugeLongArray.of(size);
+    return PagedHugeLongArray.pagedOf(size);
   }
 
+  // Internal factory methods for testing
+
+  public static newSingleArray(size: number): HugeLongArray {
+    // Creates a new SingleHugeLongArray with the specified size
+    return SingleHugeLongArray.singleOf(size);
+  }
+
+  public static newPagedArray(size: number): HugeLongArray {
+    // Creates a new PagedHugeLongArray with the specified size
+    return PagedHugeLongArray.pagedOf(size);
+  }
+
+  // Purpose: Test paging logic with 1KB arrays instead of 1GB arrays!
   /**
    * Creates a new array initialized with the provided values.
    *
    * @param values Initial values for the array
    * @returns A new HugeLongArray containing the provided values
    */
-  public static of(...values: number[]): HugeLongArray {
-    return new SingleHugeLongArray(values.length, values);
-  }
+  // In abstract parent HugeLongArray:
+  public static of(values: number[]): HugeLongArray; // Array form
+  public static of(...values: number[]): HugeLongArray; // Varargs form
+  public static of(pages: number[][], size: number): HugeLongArray; // Pages form
 
-  /**
-   * Creates a new array from pre-allocated page arrays.
-   *
-   * @param pages Pre-allocated page arrays
-   * @param size Logical size of the array
-   * @returns A new HugeLongArray using the provided pages
-   */
-  public static ofPages(pages: number[][], size: number): HugeLongArray {
-    const capacity = PageUtil.capacityFor(pages.length, HugeArrays.PAGE_SHIFT);
-    if (size > capacity) {
-      throw new Error(
-        `Size should be smaller than or equal to capacity ${capacity}, but got size ${size}`
-      );
+  public static of(
+    arg: number[] | number[][] | number,
+    ...moreArgs: any[]
+  ): HugeLongArray {
+    // Varargs case: of(1, 2, 3, 4, 5)
+    if (typeof arg === "number") {
+      const values = [arg, ...(moreArgs as number[])];
+      return new SingleHugeLongArray(values.length, values);
     }
-    return new PagedHugeLongArray(
-      size,
-      pages,
-      PagedHugeLongArray.memoryUsed(pages, capacity)
-    );
-  }
 
-  // Test-only factory methods
-  /** @internal */
-  public static newPagedArray(size: number): HugeLongArray {
-    return PagedHugeLongArray.of(size);
-  }
+    // Array case: of([1, 2, 3, 4, 5])
+    if (
+      Array.isArray(arg) &&
+      (arg.length === 0 || typeof arg[0] === "number")
+    ) {
+      const values = arg as number[];
+      return new SingleHugeLongArray(values.length, values);
+    }
 
-  /** @internal */
-  public static newSingleArray(size: number): HugeLongArray {
-    return SingleHugeLongArray.of(size);
+    // Pages case: of([[1,2], [3,4]], 4)
+    const pages = arg as number[][];
+    const size = moreArgs[0] as number;
+    const memoryUsed = PagedHugeLongArray.memoryUsed(pages, size);
+    return new PagedHugeLongArray(size, pages, memoryUsed);
   }
 
   // Helper methods for array operations
@@ -670,13 +676,7 @@ class SingleHugeLongArray extends HugeLongArray {
   public _size: number;
   public _page: number[] | null;
 
-  /**
-   * Factory method for creating single-page arrays.
-   *
-   * @param size The desired array size
-   * @returns A new SingleHugeLongArray instance
-   */
-  public static of(size: number): HugeLongArray {
+  public static singleOf(size: number): HugeLongArray {
     console.assert(
       size <= HugeArrays.MAX_ARRAY_LENGTH,
       `Size ${size} exceeds maximum array length`
@@ -817,7 +817,9 @@ class PagedHugeLongArray extends HugeLongArray {
    * @param size The desired array size
    * @returns A new PagedHugeLongArray instance
    */
-  public static of(size: number): HugeLongArray {
+
+  // In PagedHugeLongArray class:
+  public static pagedOf(size: number): HugeLongArray {
     const numPages = HugeArrays.numberOfPages(size);
     const pages: number[][] = new Array(numPages);
 

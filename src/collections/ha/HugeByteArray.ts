@@ -126,6 +126,66 @@ export abstract class HugeByteArray extends HugeArray<
   public _pages?: number[][] | null;
 
   /**
+   * Creates a new array of the given size.
+   *
+   * @param size The desired array size in elements
+   * @returns A new HugeByteArray instance optimized for the given size
+   */
+  public static newArray(size: number): HugeByteArray {
+    if (size <= HugeArrays.PAGE_SIZE) {
+      return SingleHugeByteArray.singleOf(size);
+    }
+    return PagedHugeByteArray.pagedOf(size);
+  }
+
+  // Test-only factory methods
+  /** @internal */
+  public static newPagedArray(size: number): HugeByteArray {
+    return PagedHugeByteArray.of(size);
+  }
+
+  /** @internal */
+  public static newSingleArray(size: number): HugeByteArray {
+    return SingleHugeByteArray.of(size);
+  }
+  /**
+   * Creates a new array initialized with the provided values.
+   *
+   * @param values Initial byte values for the array
+   * @returns A new HugeByteArray containing the provided values
+   */
+  // In abstract parent HugeLongArray:
+  public static of(values: number[]): HugeByteArray; // Array form
+  public static of(...values: number[]): HugeByteArray; // Varargs form
+  public static of(pages: number[][], size: number): HugeByteArray; // Pages form
+
+  public static of(
+    arg: number[] | number[][] | number,
+    ...moreArgs: any[]
+  ): HugeByteArray {
+    // Varargs: of(1, 2, 3, 4, 5)
+    if (typeof arg === "number") {
+      const values = [arg, ...(moreArgs as number[])];
+      return new SingleHugeByteArray(values.length, values);
+    }
+
+    // Array: of([1, 2, 3, 4, 5])
+    if (
+      Array.isArray(arg) &&
+      (arg.length === 0 || typeof arg[0] === "number")
+    ) {
+      const values = arg as number[];
+      return new SingleHugeByteArray(values.length, values);
+    }
+
+    // Pages: of([[1,2], [3,4]], 4)
+    const pages = arg as number[][];
+    const size = moreArgs[0] as number;
+    const memoryUsed = PagedHugeByteArray.memoryUsed(pages, size);
+    return new PagedHugeByteArray(size, pages, memoryUsed);
+  }
+
+  /**
    * Estimates the memory required for a HugeByteArray of the specified size.
    *
    * @param size The desired array size in elements
@@ -296,40 +356,6 @@ export abstract class HugeByteArray extends HugeArray<
     return this.dumpToArray(Array) as number[];
   }
 
-  /**
-   * Creates a new array of the given size.
-   *
-   * @param size The desired array size in elements
-   * @returns A new HugeByteArray instance optimized for the given size
-   */
-  public static newArray(size: number): HugeByteArray {
-    if (size <= HugeArrays.MAX_ARRAY_LENGTH) {
-      return SingleHugeByteArray.of(size);
-    }
-    return PagedHugeByteArray.of(size);
-  }
-
-  /**
-   * Creates a new array initialized with the provided values.
-   *
-   * @param values Initial byte values for the array
-   * @returns A new HugeByteArray containing the provided values
-   */
-  public static of(...values: number[]): HugeByteArray {
-    return new SingleHugeByteArray(values.length, values);
-  }
-
-  // Test-only factory methods
-  /** @internal */
-  public static newPagedArray(size: number): HugeByteArray {
-    return PagedHugeByteArray.of(size);
-  }
-
-  /** @internal */
-  public static newSingleArray(size: number): HugeByteArray {
-    return SingleHugeByteArray.of(size);
-  }
-
   // Helper methods for array operations
   protected getArrayLength(array: number[]): number {
     return array.length;
@@ -359,7 +385,7 @@ class SingleHugeByteArray extends HugeByteArray {
   public _size: number;
   public _page: number[] | null;
 
-  public static of(size: number): HugeByteArray {
+  public static singleOf(size: number): HugeByteArray {
     console.assert(
       size <= HugeArrays.MAX_ARRAY_LENGTH,
       `Size ${size} exceeds maximum array length`
@@ -496,23 +522,41 @@ class PagedHugeByteArray extends HugeByteArray {
   public _pages: number[][] | null;
   private _memoryUsed: number;
 
-  public static of(size: number): HugeByteArray {
+  public static pagedOf(size: number): HugeByteArray {
     const numPages = HugeArrays.numberOfPages(size);
     const pages: number[][] = new Array(numPages);
 
-    let memoryUsed = Estimate.sizeOfObjectArray(numPages);
-    const pageBytes = Estimate.sizeOfByteArray(HugeArrays.PAGE_SIZE);
-
+    // Create full pages
     for (let i = 0; i < numPages - 1; i++) {
-      memoryUsed += pageBytes;
       pages[i] = new Array<number>(HugeArrays.PAGE_SIZE).fill(0);
     }
 
+    // Create last (potentially partial) page
     const lastPageSize = HugeArrays.exclusiveIndexOfPage(size);
     pages[numPages - 1] = new Array<number>(lastPageSize).fill(0);
+
+    const memoryUsed = this.memoryUsed(pages, size);
+    return new PagedHugeByteArray(size, pages, memoryUsed);
+  }
+
+  /**
+   * Calculates memory usage for a given page array configuration.
+   *
+   * @param pages Array of pages
+   * @param size Logical array size
+   * @returns Memory usage in bytes
+   */
+  public static memoryUsed(pages: number[][], size: number): number {
+    const numPages = pages.length;
+    let memoryUsed = Estimate.sizeOfObjectArray(numPages);
+
+    const pageBytes = Estimate.sizeOfByteArray(HugeArrays.PAGE_SIZE);
+    memoryUsed += pageBytes * (numPages - 1);
+
+    const lastPageSize = HugeArrays.exclusiveIndexOfPage(size);
     memoryUsed += Estimate.sizeOfByteArray(lastPageSize);
 
-    return new PagedHugeByteArray(size, pages, memoryUsed);
+    return memoryUsed;
   }
 
   constructor(size: number, pages: number[][], memoryUsed: number) {
