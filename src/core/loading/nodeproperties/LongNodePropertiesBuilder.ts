@@ -1,13 +1,16 @@
-import { DefaultValue } from '@/api/DefaultValue';
-import { IdMap, PartialIdMap } from '@/api/IdMap';
-import { LongNodePropertyValues, NodePropertyValues } from '@/api/properties/nodes/NodePropertyValues';
-import { HugeSparseLongArray } from '@/collections/hsa/HugeSparseLongArray';
-import { Concurrency } from '@/core/concurrency/Concurrency';
-import { DefaultPool } from '@/core/concurrency/DefaultPool';
-import { ParallelUtil } from '@/core/concurrency/ParallelUtil';
-import { GdsNeo4jValueConversion } from '@/utils/GdsNeo4jValueConversion';
-import { GdsValue } from '@/values/GdsValue';
-import { InnerNodePropertiesBuilder } from './InnerNodePropertiesBuilder';
+import { GdsValue } from "@/values";
+import { DefaultValue } from "@/api";
+import { IdMap, PartialIdMap } from "@/api";
+import {
+  NodePropertyValues,
+  LongNodePropertyValues,
+} from "@/api/properties/nodes";
+import { HugeSparseLongArray } from "@/collections";
+import { Concurrency } from "@/concurrency";
+import { DefaultPool } from "@/concurrency";
+import { ParallelUtil } from "@/concurrency";
+import { GdsNeo4jValueConversion } from "@/core";
+import { InnerNodePropertiesBuilder } from "./InnerNodePropertiesBuilder";
 
 /**
  * Builder for long-typed node properties.
@@ -34,7 +37,11 @@ export class LongNodePropertiesBuilder implements InnerNodePropertiesBuilder {
   ): LongNodePropertiesBuilder {
     const defaultLongValue = defaultValue.longValue();
     const builder = HugeSparseLongArray.builder(defaultLongValue);
-    return new LongNodePropertiesBuilder(builder, defaultLongValue, concurrency);
+    return new LongNodePropertiesBuilder(
+      builder,
+      defaultLongValue,
+      concurrency
+    );
   }
 
   private constructor(
@@ -66,7 +73,11 @@ export class LongNodePropertiesBuilder implements InnerNodePropertiesBuilder {
   /**
    * Builds the final node property values using the provided IdMap
    */
-  public build(size: number, idMap: PartialIdMap, highestOriginalId: number): NodePropertyValues {
+  public build(
+    size: number,
+    idMap: PartialIdMap,
+    highestOriginalId: number
+  ): NodePropertyValues {
     const propertiesByNeoIds = this.builder.build();
     const propertiesByMappedIdsBuilder = HugeSparseLongArray.builder(
       this.defaultValue
@@ -74,38 +85,43 @@ export class LongNodePropertiesBuilder implements InnerNodePropertiesBuilder {
 
     const drainingIterator = propertiesByNeoIds.drainingIterator();
 
-    const tasks = Array.from({ length: this.concurrency.value() }, (_, threadId) => () => {
-      const batch = drainingIterator.drainingBatch();
+    const tasks = Array.from(
+      { length: this.concurrency.value() },
+      (_, threadId) => () => {
+        const batch = drainingIterator.drainingBatch();
 
-      while (drainingIterator.next(batch)) {
-        const page = batch.page;
-        const offset = batch.offset;
-        const end = Math.min(offset + page.length, highestOriginalId + 1) - offset;
+        while (drainingIterator.next(batch)) {
+          const page = batch.page;
+          const offset = batch.offset;
+          const end =
+            Math.min(offset + page.length, highestOriginalId + 1) - offset;
 
-        for (let pageIndex = 0; pageIndex < end; pageIndex++) {
-          const neoId = offset + pageIndex;
-          const mappedId = idMap.toMappedNodeId(neoId);
+          for (let pageIndex = 0; pageIndex < end; pageIndex++) {
+            const neoId = offset + pageIndex;
+            const mappedId = idMap.toMappedNodeId(neoId);
 
-          if (mappedId === IdMap.NOT_FOUND) {
-            continue;
+            if (mappedId === IdMap.NOT_FOUND) {
+              continue;
+            }
+
+            const value = page[pageIndex];
+            if (value === this.defaultValue) {
+              continue;
+            }
+
+            propertiesByMappedIdsBuilder.set(mappedId, value);
           }
-
-          const value = page[pageIndex];
-          if (value === this.defaultValue) {
-            continue;
-          }
-
-          propertiesByMappedIdsBuilder.set(mappedId, value);
         }
       }
-    });
+    );
 
     ParallelUtil.run(tasks, DefaultPool.INSTANCE);
 
     const propertyValues = propertiesByMappedIdsBuilder.build();
-    const maybeMaxValue = propertyValues.capacity() > 0
-      ? { isPresent: true, value: this.maxValue } // OptionalLong equivalent
-      : { isPresent: false, value: 0 };
+    const maybeMaxValue =
+      propertyValues.capacity() > 0
+        ? { isPresent: true, value: this.maxValue } // OptionalLong equivalent
+        : { isPresent: false, value: 0 };
 
     return new LongStoreNodePropertyValues(propertyValues, size, maybeMaxValue);
   }
@@ -141,12 +157,12 @@ export class LongNodePropertiesBuilder implements InnerNodePropertiesBuilder {
 class LongStoreNodePropertyValues implements LongNodePropertyValues {
   private readonly propertyValues: HugeSparseLongArray;
   private readonly size: number;
-  private readonly maxValue: { isPresent: boolean, value: number }; // OptionalLong equivalent
+  private readonly maxValue: { isPresent: boolean; value: number }; // OptionalLong equivalent
 
   constructor(
     propertyValues: HugeSparseLongArray,
     size: number,
-    maxValue: { isPresent: boolean, value: number }
+    maxValue: { isPresent: boolean; value: number }
   ) {
     this.propertyValues = propertyValues;
     this.size = size;
@@ -157,7 +173,7 @@ class LongStoreNodePropertyValues implements LongNodePropertyValues {
     return this.propertyValues.get(nodeId);
   }
 
-  getMaxLongPropertyValue(): { isPresent: boolean, value: number } {
+  getMaxLongPropertyValue(): { isPresent: boolean; value: number } {
     return this.maxValue;
   }
 

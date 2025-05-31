@@ -11,15 +11,12 @@ export class LongArrayBuffer {
   /**
    * A shared, empty BigInt64Array instance.
    */
-  private static readonly EMPTY_BUFFER: BigInt64Array = new BigInt64Array(0);
+  private static readonly EMPTY_BUFFER: number[] = [];
 
   /**
    * The underlying long array.
-   * In TypeScript, `BigInt64Array` is the standard typed array for 64-bit signed integers (longs).
-   * Alternatively, `number[]` could be used if typed arrays are not strictly necessary,
-   * but `BigInt64Array` is closer to Java's `long[]`.
    */
-  public buffer: BigInt64Array;
+  public buffer: number[];
 
   /**
    * The current "logical" length of the data stored in the buffer,
@@ -44,7 +41,7 @@ export class LongArrayBuffer {
    * @param length The initial logical length.
    * @remarks This constructor is marked as `@TestOnly`.
    */
-  public static createForTest(buffer: BigInt64Array, length: number): LongArrayBuffer {
+  public static createForTest(buffer: number[], length: number): LongArrayBuffer {
     const instance = new LongArrayBuffer();
     instance.buffer = buffer;
     instance.length = length;
@@ -65,13 +62,12 @@ export class LongArrayBuffer {
     const nonNegativeLength = Math.max(0, requiredLength);
     // BitUtil.align might return a number if its Java counterpart returns long.
     // TypedArray constructors take a number for length.
-    const alignedLengthValue = BitUtil.align(BigInt(nonNegativeLength), BigInt(AdjacencyPacking.BLOCK_SIZE));
+    const alignedLengthValue = BitUtil.align(nonNegativeLength, AdjacencyPacking.BLOCK_SIZE);
     const alignedLength = Number(alignedLengthValue); // Convert number to number for array length
 
     if (this.buffer.length < alignedLength) {
-      this.buffer = new BigInt64Array(alignedLength);
+      this.buffer = new Array<number>(alignedLength);
     }
-    // Note: The 'this.length' field is not updated by this method in the original Java code.
   }
 
   /**

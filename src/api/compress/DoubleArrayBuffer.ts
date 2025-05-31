@@ -1,5 +1,5 @@
-import { AdjacencyPacking } from "../../core/compression/packed/AdjacencyPacking"; // Adjust path as needed
-import { BitUtil } from "../../mem/BitUtil"; // Adjust path as needed
+import { BitUtil } from "@/mem";
+import { AdjacencyPacking } from "@/core/compression";
 
 /**
  * A buffer class that wraps a double array (Float64Array or number[] in TypeScript).
@@ -47,13 +47,15 @@ export class DoubleArrayBuffer {
    * @param length The initial logical length.
    * @remarks This constructor is marked as `@TestOnly`.
    */
-  public static createForTest(buffer: Float64Array, length: number): DoubleArrayBuffer {
+  public static createForTest(
+    buffer: Float64Array,
+    length: number
+  ): DoubleArrayBuffer {
     const instance = new DoubleArrayBuffer();
     instance.buffer = buffer;
     instance.length = length;
     return instance;
   }
-
 
   /**
    * Ensures that the buffer can hold at least `requiredLength` elements.
@@ -67,7 +69,10 @@ export class DoubleArrayBuffer {
   public ensureCapacity(requiredLength: number): void {
     // Ensure requiredLength is not negative
     const nonNegativeLength = Math.max(0, requiredLength);
-    const alignedLength = BitUtil.align(nonNegativeLength, AdjacencyPacking.BLOCK_SIZE);
+    const alignedLength = BitUtil.align(
+      nonNegativeLength,
+      AdjacencyPacking.BLOCK_SIZE
+    );
 
     if (this.buffer.length < alignedLength) {
       this.buffer = new Float64Array(alignedLength);

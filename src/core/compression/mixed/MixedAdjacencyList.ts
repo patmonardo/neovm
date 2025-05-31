@@ -20,8 +20,8 @@
  * in subtle ways that only surface during complex operations.
  */
 
-import { AdjacencyList } from '../../api/AdjacencyList';
-import { AdjacencyCursor } from '../../api/AdjacencyCursor';
+import { AdjacencyList } from '@/api';
+import { AdjacencyCursor } from '@/api';
 import { MemoryInfo } from '../MemoryInfo';
 import { MixedCompressor } from './MixedCompressor';
 

@@ -1,4 +1,4 @@
-import { MemoryInfo } from '@/core/compression/MemoryInfo';
+import { EMPTY_MEMORY_INFO, MemoryInfo } from '@/core/compression/MemoryInfo';
 import { AdjacencyCursor } from './AdjacencyCursor';
 
 /**
@@ -101,7 +101,7 @@ export namespace AdjacencyList {
     },
 
     memoryInfo(): MemoryInfo {
-      return MemoryInfo.EMPTY;
+      return EMPTY_MEMORY_INFO;
     },
   };
 }

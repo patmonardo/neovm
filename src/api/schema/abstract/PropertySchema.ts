@@ -1,12 +1,10 @@
 import { ValueType } from "../../ValueType";
 import { DefaultValue } from "../../DefaultValue";
 import { PropertyState } from "../../PropertyState";
-import { ValueClass } from "@/annotations/ValueClass";
 
 /**
  * Defines the schema for a property in a graph element.
  */
-@ValueClass()
 export abstract class PropertySchema {
   /**
    * Returns the property key (name).

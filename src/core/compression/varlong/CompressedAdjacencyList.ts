@@ -12,22 +12,20 @@
  * **Best For**: Large graphs, storage-constrained environments
  */
 
-import { AdjacencyList } from '../../api/AdjacencyList';
-import { AdjacencyCursor } from '../../api/AdjacencyCursor';
-import { RelationshipType } from '../../api/RelationshipType';
-import { MemoryInfo } from '../MemoryInfo';
-import { HugeIntArray } from '../../collections/ha/HugeIntArray';
-import { HugeLongArray } from '../../collections/ha/HugeLongArray';
-import { PageUtil } from '../../collections/PageUtil';
-import { BumpAllocatorConstants } from '../common/BumpAllocator';
-import { VarLongEncoding } from '../common/VarLongEncoding';
-import { MutableIntValue } from '../../loading/MutableIntValue';
-import { MemoryEstimation, MemoryEstimations, MemoryRange } from '../../mem/MemoryEstimation';
-import { Estimate } from '../../mem/Estimate';
-import { BitUtil } from '../../mem/BitUtil';
-
-// Forward declaration for decompression reader
-import { AdjacencyDecompressingReader } from './AdjacencyDecompressingReader';
+import { BitUtil } from "@/mem";
+import { Estimate } from "@/mem";
+import { MemoryEstimation, MemoryEstimations, MemoryRange } from "@/mem";
+import { AdjacencyList } from "@/api";
+import { AdjacencyCursor } from "@/api";
+import { RelationshipType } from "@/projection";
+import { HugeIntArray } from "@/collections";
+import { HugeLongArray } from "@/collections";
+import { PageUtil } from "@/collections";
+import { BumpAllocatorConstants } from "@/core/compression";
+import { VarLongEncoding } from "@/core/compression";
+import { MutableIntValue } from "@/core";
+import { MemoryInfo } from "../MemoryInfo";
+import { AdjacencyDecompressingReader } from "./AdjacencyDecompressingReader";
 
 export class CompressedAdjacencyList implements AdjacencyList {
 

@@ -13,11 +13,11 @@
  * **Performance**: Achieves 80-90% compression ratios on real graph data!
  */
 
+import { LongArrayBuffer } from '@/api/compress';
+import { Aggregation } from '@/core';
 import { VarLongEncoding } from './VarLongEncoding';
-import { VarLongDecoding, MutableLong } from './VarLongDecoding';
-import { ZigZagLongDecoding, ValueMapper, Identity } from './ZigZagLongDecoding';
-import { LongArrayBuffer } from '../../api/compress/LongArrayBuffer';
-import { Aggregation } from '../../core/Aggregation';
+import { VarLongDecoding } from './VarLongDecoding';
+import { ZigZagLongDecoding, ValueMapper } from './ZigZagLongDecoding';
 
 /**
  * Indirect sorting utilities (simplified for TypeScript)

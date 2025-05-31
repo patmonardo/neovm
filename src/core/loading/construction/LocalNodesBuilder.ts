@@ -1,14 +1,14 @@
-import { ParallelUtil } from '@/core/concurrency';
-import { RawValues } from '@/core/utils';
+import { ParallelUtil } from "@/core/concurrency";
+import { RawValues } from "@/core/utils";
 import {
   NodeImporter,
   NodeLabelTokenSet,
   NodesBatchBuffer,
-  NodesBatchBufferBuilder
-} from '@/core/loading';
-import { NodeLabelToken } from './NodeLabelToken';
-import { PropertyValues } from './PropertyValues';
-import { ThreadLocalContext } from './NodesBuilderContext';
+  NodesBatchBufferBuilder,
+} from "@/core/loading";
+import { NodeLabelToken } from "./NodeLabelToken";
+import { PropertyValues } from "./PropertyValues";
+import { ThreadLocalContext } from "./NodesBuilderContext";
 
 /**
  * Thread-local worker for processing and importing nodes.
@@ -52,9 +52,14 @@ export class LocalNodesBuilder implements AutoCloseable {
    */
   addNode(originalId: number, nodeLabelToken: NodeLabelToken): void {
     if (!this.seenNodeIdPredicate(originalId)) {
-      const threadLocalTokens = this.threadLocalContext.addNodeLabelToken(nodeLabelToken);
+      const threadLocalTokens =
+        this.threadLocalContext.addNodeLabelToken(nodeLabelToken);
 
-      this.buffer.add(originalId, LocalNodesBuilder.NO_PROPERTY, threadLocalTokens);
+      this.buffer.add(
+        originalId,
+        LocalNodesBuilder.NO_PROPERTY,
+        threadLocalTokens
+      );
       if (this.buffer.isFull()) {
         this.flushBuffer();
         this.reset();
@@ -65,12 +70,17 @@ export class LocalNodesBuilder implements AutoCloseable {
   /**
    * Add a node with properties.
    */
-  addNodeWithProperties(originalId: number, nodeLabelToken: NodeLabelToken, properties: PropertyValues): void {
+  addNodeWithProperties(
+    originalId: number,
+    nodeLabelToken: NodeLabelToken,
+    properties: PropertyValues
+  ): void {
     if (!this.seenNodeIdPredicate(originalId)) {
-      const threadLocalTokens = this.threadLocalContext.addNodeLabelTokenAndPropertyKeys(
-        nodeLabelToken,
-        properties.propertyKeys()
-      );
+      const threadLocalTokens =
+        this.threadLocalContext.addNodeLabelTokenAndPropertyKeys(
+          nodeLabelToken,
+          properties.propertyKeys()
+        );
 
       const propertyReference = this.batchNodeProperties.length;
       this.batchNodeProperties.push(properties);
@@ -98,8 +108,11 @@ export class LocalNodesBuilder implements AutoCloseable {
     const importedNodesAndProperties = this.nodeImporter.importNodes(
       this.buffer,
       this.threadLocalContext.threadLocalTokenToNodeLabels(),
-      (nodeReference: number, labelTokens: NodeLabelTokenSet, propertyValueIndex: number) =>
-        this.importProperties(nodeReference, labelTokens, propertyValueIndex)
+      (
+        nodeReference: number,
+        labelTokens: NodeLabelTokenSet,
+        propertyValueIndex: number
+      ) => this.importProperties(nodeReference, labelTokens, propertyValueIndex)
     );
 
     const importedNodeCount = RawValues.getHead(importedNodesAndProperties);
@@ -109,14 +122,21 @@ export class LocalNodesBuilder implements AutoCloseable {
   /**
    * Import properties for a specific node.
    */
-  private importProperties(nodeReference: number, labelTokens: NodeLabelTokenSet, propertyValueIndex: number): number {
+  private importProperties(
+    nodeReference: number,
+    labelTokens: NodeLabelTokenSet,
+    propertyValueIndex: number
+  ): number {
     if (propertyValueIndex !== LocalNodesBuilder.NO_PROPERTY) {
       const properties = this.batchNodeProperties[propertyValueIndex];
 
       properties.forEach((propertyKey, propertyValue) => {
-        const nodePropertyBuilder = this.threadLocalContext.nodePropertyBuilder(propertyKey);
+        const nodePropertyBuilder =
+          this.threadLocalContext.nodePropertyBuilder(propertyKey);
         if (!nodePropertyBuilder) {
-          throw new Error(`Observed property key '${propertyKey}' that is not present in schema`);
+          throw new Error(
+            `Observed property key '${propertyKey}' that is not present in schema`
+          );
         }
         nodePropertyBuilder.set(nodeReference, propertyValue);
       });
@@ -173,7 +193,7 @@ export class LocalNodesBuilder implements AutoCloseable {
       currentBatchSize: this.currentBatchSize(),
       currentPropertyCount: this.currentPropertyCount(),
       capacity: this.capacity(),
-      bufferUtilization: this.currentBatchSize() / this.capacity()
+      bufferUtilization: this.currentBatchSize() / this.capacity(),
     };
   }
 
@@ -246,7 +266,7 @@ export class LocalNodesBuilderFactory {
       importedNodes = new LongAdder(),
       seenNodeIdPredicate = () => false, // Default: no nodes have been seen
       hasLabelInformation = true,
-      hasProperties = true
+      hasProperties = true,
     } = options;
 
     return new LocalNodesBuilder(
@@ -269,7 +289,7 @@ export class LocalNodesBuilderFactory {
   ): LocalNodesBuilder {
     return this.create(nodeImporter, threadLocalContext, {
       ...options,
-      hasProperties: false
+      hasProperties: false,
     });
   }
 
@@ -283,7 +303,7 @@ export class LocalNodesBuilderFactory {
   ): LocalNodesBuilder {
     return this.create(nodeImporter, threadLocalContext, {
       ...options,
-      hasLabelInformation: false
+      hasLabelInformation: false,
     });
   }
 
@@ -298,7 +318,7 @@ export class LocalNodesBuilderFactory {
   ): LocalNodesBuilder {
     return this.create(nodeImporter, threadLocalContext, {
       ...options,
-      seenNodeIdPredicate: (id) => seenNodes.has(id)
+      seenNodeIdPredicate: (id) => seenNodes.has(id),
     });
   }
 }

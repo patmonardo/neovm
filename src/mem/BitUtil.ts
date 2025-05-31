@@ -134,6 +134,50 @@ export class BitUtil {
   }
 
   /**
+   * Returns the number of leading zero bits in the binary representation of the number.
+   *
+   * This is equivalent to finding the position of the highest set bit from the left.
+   * Essential for determining the minimum number of bits needed to represent a value.
+   *
+   * @param value The number to analyze
+   * @returns Number of leading zeros (0-32 for 32-bit integers)
+   */
+  public static numberOfLeadingZeros32(value: number): number {
+    if (value === 0) return 32;
+
+    let count = 0;
+    let n = value >>> 0; // Convert to unsigned 32-bit integer
+
+    // Binary search approach for efficiency
+    if (n <= 0x0000ffff) {
+      count += 16;
+      n <<= 16;
+    }
+    if (n <= 0x00ffffff) {
+      count += 8;
+      n <<= 8;
+    }
+    if (n <= 0x0fffffff) {
+      count += 4;
+      n <<= 4;
+    }
+    if (n <= 0x3fffffff) {
+      count += 2;
+      n <<= 2;
+    }
+    if (n <= 0x7fffffff) {
+      count += 1;
+    }
+
+    return count;
+  }
+
+  public static numberOfLeadingZeros(value: number): number {
+    const binary = value.toString(2);
+    return 64 - binary.length;
+  }
+
+  /**
    * Returns the number of trailing zero bits in the binary representation of the number.
    *
    * This is equivalent to finding the position of the lowest set bit.

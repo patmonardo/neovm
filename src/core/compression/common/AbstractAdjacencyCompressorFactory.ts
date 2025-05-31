@@ -12,34 +12,18 @@
  * - Relationship counting for statistics
  */
 
-import { AdjacencyList } from '../../api/AdjacencyList';
-import { AdjacencyProperties } from '../../api/AdjacencyProperties';
-import { AdjacencyCompressor } from '../../api/compress/AdjacencyCompressor';
-import { AdjacencyCompressorFactory } from '../../api/compress/AdjacencyCompressorFactory';
-import { AdjacencyListBuilder } from '../../api/compress/AdjacencyListBuilder';
-import { AdjacencyListsWithProperties } from '../../api/compress/AdjacencyListsWithProperties';
-import { Aggregation } from '../../core/Aggregation';
-import { HugeIntArray } from '../../collections/ha/HugeIntArray';
-import { HugeLongArray } from '../../collections/ha/HugeLongArray';
+import { AdjacencyList } from "@/api";
+import { AdjacencyProperties } from "@/api";
+import { AdjacencyCompressor } from "@/api/compress";
+import { AdjacencyCompressorFactory } from "@/api/compress";
+import { AdjacencyListBuilder } from "@/api/compress";
+import { AdjacencyListsWithProperties } from "@/api/compress";
+import { LongAdder } from "@/api/compress";
+import { HugeIntArray } from "@/collections";
+import { HugeLongArray } from "@/collections";
+import { Aggregation } from "@/core";
 
-/**
- * Thread-safe relationship counter (JavaScript doesn't have LongAdder, so we simulate)
- */
-class LongAdder {
-  private value = 0;
 
-  add(delta: number): void {
-    this.value += delta;
-  }
-
-  longValue(): number {
-    return this.value;
-  }
-
-  increment(): void {
-    this.value++;
-  }
-}
 
 export abstract class AbstractAdjacencyCompressorFactory<TARGET_PAGE, PROPERTY_PAGE>
   implements AdjacencyCompressorFactory {
@@ -53,7 +37,7 @@ export abstract class AbstractAdjacencyCompressorFactory<TARGET_PAGE, PROPERTY_P
   private readonly propertyBuilders: AdjacencyListBuilder<PROPERTY_PAGE, AdjacencyProperties>[];
   private readonly noAggregation: boolean;
   private readonly aggregations: Aggregation[];
-  private readonly relationshipCounter: LongAdder;
+  private readonly _relationshipCounter: LongAdder;
 
   // ============================================================================
   // COMPRESSION STATE TRACKING
@@ -89,7 +73,7 @@ export abstract class AbstractAdjacencyCompressorFactory<TARGET_PAGE, PROPERTY_P
     this.propertyBuilders = propertyBuilders;
     this.noAggregation = noAggregation;
     this.aggregations = aggregations;
-    this.relationshipCounter = new LongAdder();
+    this._relationshipCounter = new LongAdder();
   }
 
   // ============================================================================
@@ -135,7 +119,7 @@ export abstract class AbstractAdjacencyCompressorFactory<TARGET_PAGE, PROPERTY_P
    * the same counter to track total relationships processed.
    */
   relationshipCounter(): LongAdder {
-    return this.relationshipCounter;
+    return this._relationshipCounter;
   }
 
   // ============================================================================
@@ -178,7 +162,7 @@ export abstract class AbstractAdjacencyCompressorFactory<TARGET_PAGE, PROPERTY_P
     return {
       adjacency: adjacencyList,
       properties: properties,
-      relationshipCount: this.relationshipCounter.longValue()
+      relationshipCount: this._relationshipCounter.longValue()
     } as AdjacencyListsWithProperties;
   }
 

@@ -1,40 +1,7 @@
 import { MemoryInfo } from './MemoryInfo';
 import { ImmutableHistogram } from './common/ImmutableHistogram';
-
-/**
- * Memory tracker interface - collects statistics during compression operations.
- *
- * **Role**: The "data collector" that feeds the MemoryInfo "analyzer".
- * This is what's actively recording statistics during graph compression.
- */
-export interface MemoryTracker {
-  heapAllocations(): ImmutableHistogram;
-  nativeAllocations(): ImmutableHistogram;
-  pageSizes(): ImmutableHistogram;
-  headerBits(): ImmutableHistogram;
-  headerAllocations(): ImmutableHistogram;
-}
-
-/**
- * Block-level compression statistics.
- *
- * **Granular Analysis**: While MemoryTracker tracks allocations,
- * BlockStatistics tracks compression algorithm performance within blocks.
- */
-export interface BlockStatistics {
-  blockCount(): number;
-  blockLengths(): ImmutableHistogram;
-  stdDevBits(): ImmutableHistogram;
-  meanBits(): ImmutableHistogram;
-  medianBits(): ImmutableHistogram;
-  maxBits(): ImmutableHistogram;
-  minBits(): ImmutableHistogram;
-  indexOfMinValue(): ImmutableHistogram;
-  indexOfMaxValue(): ImmutableHistogram;
-  headTailDiffBits(): ImmutableHistogram;
-  bestMaxDiffBits(): ImmutableHistogram;
-  exceptions(): ImmutableHistogram; // PFOR exceptions
-}
+import { MemoryTracker } from './common/MemoryTracker';
+import { BlockStatistics } from './common/BlockStatistics';
 
 /**
  * Builder for MemoryInfo objects.

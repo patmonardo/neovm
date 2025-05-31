@@ -1,248 +1,280 @@
 /**
- * Packed Tail Packer - Bit-Packing Compression Engine
+ * Packed Tail Unpacker - Delta Decompression Engine
  *
- * **The Compression Powerhouse**: Transforms raw adjacency lists into
- * ultra-compressed bit-packed blocks. This is where 80-90% compression
- * ratios are achieved through sophisticated bit manipulation.
+ * **The Decompression Process**:
+ * 1. Read compressed header (bit widths for each block)
+ * 2. Decompress blocks on-demand using AdjacencyUnpacking
+ * 3. Apply delta decoding to reconstruct original values
+ * 4. Provide streaming access to decompressed data
  *
- * **Strategy**:
- * 1. Sort and delta-encode values (reduce magnitude)
- * 2. Analyze bit requirements per block (adaptive packing)
- * 3. Pack values into minimal bit widths (ultimate compression)
- * 4. Store in off-heap memory (avoid GC pressure)
- *
- * **Block-Based Approach**: Process BLOCK_SIZE values at a time for
- * optimal CPU cache usage and vectorization opportunities.
+ * **Performance Strategy**:
+ * - Block-by-block decompression (memory efficient)
+ * - Delta decoding maintains sorted order
+ * - Peek/advance operations for flexible access
+ * - Copy semantics for cursor management
  */
 
-import { AdjacencyListBuilder } from '../../api/compress/AdjacencyListBuilder';
-import { ModifiableSlice } from '../../api/compress/ModifiableSlice';
-import { Aggregation } from '../../core/Aggregation';
+import { BitUtil } from '@/mem';
+import { ByteArrayBuffer } from '@/api/compression';
 import { AdjacencyCompression } from '../common/AdjacencyCompression';
-import { MemoryTracker } from '../common/MemoryTracker';
-import { BitUtil } from '../../mem/BitUtil';
-import { UnsafeUtil } from '../../internal/unsafe/UnsafeUtil';
-import { Address } from './Address';
 import { AdjacencyPacking } from './AdjacencyPacking';
+import { AdjacencyUnpacking } from './AdjacencyUnpacking';
 import { AdjacencyPackerUtil } from './AdjacencyPackerUtil';
 
-/**
- * Mutable integer wrapper for degree tracking
- */
-class MutableInt {
-  constructor(public value: number = 0) {}
+import { UnsafeUtil } from '../../../internal/unsafe/UnsafeUtil';
 
-  setValue(value: number): void {
-    this.value = value;
-  }
-}
-
-export class PackedTailPacker {
-
-  /**
-   * Compress adjacency list with sorting and aggregation.
-   *
-   * **The Full Pipeline**:
-   * 1. Sort values for delta encoding optimization
-   * 2. Apply delta encoding (reduces bit requirements)
-   * 3. Handle aggregation (remove duplicates/combine values)
-   * 4. Bit-pack into compressed blocks
-   *
-   * **For**: Raw adjacency data from graph loading
-   *
-   * @param allocator Off-heap memory allocator
-   * @param slice Memory slice to write compressed data
-   * @param values Raw adjacency values to compress
-   * @param length Number of valid values in array
-   * @param aggregation How to handle duplicate edges
-   * @param degree Output parameter for final degree after compression
-   * @param memoryTracker Statistics tracking
-   * @returns Offset where compressed data was stored
-   */
-  static compress(
-    allocator: AdjacencyListBuilder.Allocator<Address>,
-    slice: ModifiableSlice<Address>,
-    values: number[],
-    length: number,
-    aggregation: Aggregation,
-    degree: MutableInt,
-    memoryTracker: MemoryTracker
-  ): Promise<number> {
-    // ✅ SORT FOR OPTIMAL DELTA ENCODING
-    // Sorting ensures delta values are small, reducing bit requirements
-    values.sort((a, b) => a - b);
-
-    if (length > 0) {
-      // ✅ DELTA ENCODING + AGGREGATION
-      // Convert [1000, 1002, 1005] → [1000, 2, 3] (much smaller values!)
-      length = AdjacencyCompression.deltaEncodeSortedValues(values, 0, length, aggregation);
-    }
-
-    // ✅ UPDATE FINAL DEGREE
-    degree.setValue(length);
-
-    return PackedTailPacker.preparePacking(allocator, slice, values, length, memoryTracker);
-  }
-
-  /**
-   * Compress property values without sorting/aggregation.
-   *
-   * **For**: Property values that must maintain their order
-   * (timestamps, weights that correspond to specific edges)
-   *
-   * @param allocator Off-heap memory allocator
-   * @param slice Memory slice to write compressed data
-   * @param values Property values to compress
-   * @param length Number of valid values
-   * @param memoryTracker Statistics tracking
-   * @returns Offset where compressed data was stored
-   */
-  static compressWithProperties(
-    allocator: AdjacencyListBuilder.Allocator<Address>,
-    slice: ModifiableSlice<Address>,
-    values: number[],
-    length: number,
-    memoryTracker: MemoryTracker
-  ): Promise<number> {
-    return PackedTailPacker.preparePacking(allocator, slice, values, length, memoryTracker);
-  }
+export class PackedTailUnpacker {
 
   // ============================================================================
-  // COMPRESSION PIPELINE
+  // CONSTANTS
+  // ============================================================================
+
+  private static readonly BLOCK_SIZE = AdjacencyPacking.BLOCK_SIZE;
+
+  // ============================================================================
+  // COMPRESSED DATA STATE
   // ============================================================================
 
   /**
-   * Analyze compression requirements and prepare packing.
-   *
-   * **Block Analysis Phase**: Examines each block of BLOCK_SIZE values
-   * to determine optimal bit width. Different blocks can use different
-   * bit widths for maximum compression!
-   *
-   * **Header Creation**: Creates header array where each byte represents
-   * the bit width needed for one block.
+   * Header containing bit width for each block
    */
-  private static preparePacking(
-    allocator: AdjacencyListBuilder.Allocator<Address>,
-    slice: ModifiableSlice<Address>,
-    values: number[],
-    length: number,
-    memoryTracker: MemoryTracker
-  ): Promise<number> {
-    // ✅ BLOCK STRUCTURE ANALYSIS
-    const hasTail = length === 0 || length % AdjacencyPacking.BLOCK_SIZE !== 0;
-    const blocks = BitUtil.ceilDiv(length, AdjacencyPacking.BLOCK_SIZE);
-    const header = new Uint8Array(blocks);
+  private readonly header: ByteArrayBuffer;
 
-    let bytes = 0;
-    let offset = 0;
-    let blockIdx = 0;
-    const lastFullBlock = hasTail ? blocks - 1 : blocks;
+  /**
+   * Current pointer in compressed data
+   */
+  private targetPtr: number = 0;
 
-    // ✅ ANALYZE FULL BLOCKS (64 values each)
-    for (; blockIdx < lastFullBlock; blockIdx++, offset += AdjacencyPacking.BLOCK_SIZE) {
-      const bits = AdjacencyPackerUtil.bitsNeeded(values, offset, AdjacencyPacking.BLOCK_SIZE);
-      memoryTracker.recordHeaderBits(bits);
-      bytes += AdjacencyPackerUtil.bytesNeeded(bits);
-      header[blockIdx] = bits;
+  /**
+   * Length of the header in bytes
+   */
+  private headerLength: number = 0;
+
+  // ============================================================================
+  // DECOMPRESSION STATE
+  // ============================================================================
+
+  /**
+   * Current decompressed block (64 values)
+   */
+  private readonly block: number[];
+
+  /**
+   * Current index within the decompressed block
+   */
+  private idxInBlock: number = 0;
+
+  /**
+   * Current block ID being processed
+   */
+  private blockId: number = 0;
+
+  /**
+   * Last delta-decoded value (for delta encoding)
+   */
+  private lastValue: number = 0;
+
+  /**
+   * Remaining values to decompress
+   */
+  private remaining: number = 0;
+
+  // ============================================================================
+  // CONSTRUCTION
+  // ============================================================================
+
+  constructor() {
+    this.block = new Array(PackedTailUnpacker.BLOCK_SIZE);
+    this.header = new ByteArrayBuffer();
+  }
+
+  // ============================================================================
+  // CURSOR MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Copy state from another unpacker (for cursor cloning).
+   *
+   * **Use Case**: Creating multiple cursors from the same compressed data
+   * **Performance**: Avoids re-reading and re-decompressing shared state
+   */
+  copyFrom(other: PackedTailUnpacker): void {
+    // Copy decompressed block
+    for (let i = 0; i < PackedTailUnpacker.BLOCK_SIZE; i++) {
+      this.block[i] = other.block[i];
     }
 
-    // ✅ ANALYZE TAIL BLOCK (< 64 values)
-    const tailLength = length - offset;
-    if (hasTail) {
-      const bits = AdjacencyPackerUtil.bitsNeeded(values, offset, tailLength);
-      memoryTracker.recordHeaderBits(bits);
-      bytes += AdjacencyPackerUtil.bytesNeeded(bits, tailLength);
-      header[blockIdx] = bits;
+    // Copy header buffer
+    this.header.ensureCapacity(other.headerLength);
+    const otherBuffer = other.header.buffer;
+    const thisBuffer = this.header.buffer;
+    for (let i = 0; i < other.headerLength; i++) {
+      thisBuffer[i] = otherBuffer[i];
     }
 
-    return PackedTailPacker.runPacking(
-      allocator,
-      slice,
-      values,
-      header,
-      bytes,
-      tailLength,
-      memoryTracker
+    // Copy state
+    this.targetPtr = other.targetPtr;
+    this.headerLength = other.headerLength;
+    this.idxInBlock = other.idxInBlock;
+    this.blockId = other.blockId;
+    this.lastValue = other.lastValue;
+    this.remaining = other.remaining;
+  }
+
+  // ============================================================================
+  // INITIALIZATION
+  // ============================================================================
+
+  /**
+   * Reset and initialize for new compressed data.
+   *
+   * **Initialization Process**:
+   * 1. Calculate header size based on degree
+   * 2. Read header containing bit widths
+   * 3. Set up pointers and state
+   * 4. Decompress first block
+   *
+   * @param ptr Pointer to start of compressed data
+   * @param degree Total number of values to decompress
+   */
+  reset(ptr: number, degree: number): void {
+    // Calculate header size: 1 byte per block
+    const headerSize = BitUtil.ceilDiv(degree, AdjacencyPacking.BLOCK_SIZE);
+    const alignedHeaderSize = BitUtil.align(headerSize, 8); // Long.BYTES = 8
+
+    // Read header bytes containing bit widths
+    this.headerLength = headerSize;
+    this.header.ensureCapacity(headerSize);
+    UnsafeUtil.copyMemory(
+      ptr,                                           // source ptr
+      this.header.buffer,                           // dest array
+      AdjacencyPackerUtil.BYTE_ARRAY_BASE_OFFSET,   // dest offset
+      headerSize                                    // length
     );
+
+    // Set up decompression state
+    this.targetPtr = ptr + alignedHeaderSize;
+    this.idxInBlock = 0;
+    this.blockId = 0;
+    this.lastValue = 0;
+    this.remaining = degree;
+
+    // Decompress the first block
+    this.decompressBlock();
+  }
+
+  // ============================================================================
+  // ACCESS OPERATIONS
+  // ============================================================================
+
+  /**
+   * Get the next decompressed value.
+   *
+   * **Streaming Access**: Advances the cursor position
+   * **Block Management**: Automatically decompresses next block when needed
+   *
+   * @returns Next decompressed value
+   */
+  next(): number {
+    if (this.idxInBlock === PackedTailUnpacker.BLOCK_SIZE) {
+      this.decompressBlock();
+    }
+    return this.block[this.idxInBlock++];
   }
 
   /**
-   * Execute the actual bit-packing compression.
+   * Peek at the next value without advancing cursor.
    *
-   * **Memory Layout**:
-   * ```
-   * [Header: 1 byte per block] [Padding for alignment] [Packed Data Blocks]
-   * ```
+   * **Non-Destructive**: Does not change cursor position
+   * **Block Management**: Decompresses next block if needed
    *
-   * **The Packing Process**: For each block, pack all 64 values using
-   * the optimal bit width determined in the analysis phase.
+   * @returns Next value that would be returned by next()
    */
-  private static async runPacking(
-    allocator: AdjacencyListBuilder.Allocator<Address>,
-    slice: ModifiableSlice<Address>,
-    values: number[],
-    header: Uint8Array,
-    bytes: number,
-    tailLength: number,
-    memoryTracker: MemoryTracker
-  ): Promise<number> {
-    console.assert(
-      values.length % AdjacencyPacking.BLOCK_SIZE === 0,
-      `values length must be a multiple of ${AdjacencyPacking.BLOCK_SIZE}, but was ${values.length}`
-    );
-
-    // ✅ MEMORY LAYOUT CALCULATION
-    const headerSize = header.length * 1; // 1 byte per block
-    // Align header to 8-byte boundary for efficient long writes
-    const alignedHeaderSize = BitUtil.align(headerSize, 8);
-    const fullSize = alignedHeaderSize + bytes;
-    // Align total size to 8 bytes for safe memory access
-    const alignedFullSize = BitUtil.align(fullSize, 8);
-    const allocationSize = alignedFullSize;
-
-    memoryTracker.recordHeaderAllocation(alignedHeaderSize);
-
-    // ✅ ALLOCATE OFF-HEAP MEMORY
-    const adjacencyOffset = await allocator.allocate(allocationSize, slice);
-
-    const address = slice.slice();
-    let ptr = address.address() + slice.offset();
-    const initialPtr = ptr;
-
-    // ✅ WRITE HEADER
-    UnsafeUtil.copyMemory(header, 0, ptr, headerSize);
-    ptr += alignedHeaderSize;
-
-    // ✅ MAIN PACKING LOOP (Full blocks)
-    const hasTail = tailLength > 0;
-    let valueIndex = 0;
-    const headerLength = hasTail ? header.length - 1 : header.length;
-
-    for (let i = 0; i < headerLength; i++) {
-      const bits = header[i];
-      memoryTracker.recordBlockStatistics(values, valueIndex, AdjacencyPacking.BLOCK_SIZE);
-      ptr = AdjacencyPacking.pack(bits, values, valueIndex, ptr);
-      valueIndex += AdjacencyPacking.BLOCK_SIZE;
+  peek(): number {
+    if (this.idxInBlock === PackedTailUnpacker.BLOCK_SIZE) {
+      this.decompressBlock();
     }
+    return this.block[this.idxInBlock];
+  }
 
-    // ✅ TAIL PACKING (Partial block)
-    if (hasTail) {
-      const bits = header[header.length - 1];
-      memoryTracker.recordBlockStatistics(values, valueIndex, tailLength);
-      ptr = AdjacencyPacking.loopPack(bits, values, valueIndex, tailLength, ptr);
+  /**
+   * Advance cursor by multiple steps and return the final value.
+   *
+   * **Challenge**: Due to delta encoding, we can't skip blocks because
+   * each block depends on the previous block's final value.
+   *
+   * **Strategy**: Decompress intermediate blocks but don't expose values
+   *
+   * @param steps Number of positions to advance
+   * @returns Value at the final position
+   */
+  advanceBy(steps: number): number {
+    // Due to delta encoded target ids, we can't yet skip blocks
+    // as we need to decompress all the previous blocks to get
+    // the correct target id.
+    while (this.idxInBlock + steps >= PackedTailUnpacker.BLOCK_SIZE) {
+      steps = this.idxInBlock + steps - PackedTailUnpacker.BLOCK_SIZE;
+      this.decompressBlock();
     }
+    this.idxInBlock += steps;
+    return this.block[this.idxInBlock++];
+  }
 
-    // ✅ BOUNDS CHECK
-    if (ptr > initialPtr + allocationSize) {
-      throw new Error(
-        `Written more bytes than allocated. ptr=${ptr}, initialPtr=${initialPtr}, allocationSize=${allocationSize}`
+  // ============================================================================
+  // BLOCK DECOMPRESSION
+  // ============================================================================
+
+  /**
+   * Decompress the next block of data.
+   *
+   * **The Decompression Process**:
+   * 1. Read bit width from header
+   * 2. Unpack compressed data using AdjacencyUnpacking
+   * 3. Apply delta decoding to reconstruct original values
+   * 4. Handle partial blocks (tail blocks)
+   *
+   * **Delta Decoding**: Maintains sorted order and reconstructs original IDs
+   */
+  private decompressBlock(): void {
+    if (this.blockId < this.headerLength) {
+      // Read bit width for this block
+      const bits = this.header.buffer[this.blockId];
+      let length: number;
+
+      if (this.remaining < PackedTailUnpacker.BLOCK_SIZE) {
+        // Last block - may be partial
+        this.targetPtr = AdjacencyUnpacking.loopUnpack(
+          bits,           // bit width
+          this.block,     // output array
+          0,              // offset in output
+          this.remaining, // number of values
+          this.targetPtr  // input pointer
+        );
+        length = this.remaining;
+        this.remaining = 0;
+      } else {
+        // Full block
+        this.targetPtr = AdjacencyUnpacking.unpack(
+          bits,           // bit width
+          this.block,     // output array
+          0,              // offset in output
+          this.targetPtr  // input pointer
+        );
+        this.remaining -= PackedTailUnpacker.BLOCK_SIZE;
+        length = PackedTailUnpacker.BLOCK_SIZE;
+      }
+
+      // Apply delta decoding to reconstruct original values
+      this.lastValue = AdjacencyCompression.deltaDecode(
+        this.block,     // array to decode in-place
+        length,         // number of values
+        this.lastValue  // previous value for delta chain
       );
+
+      this.blockId++;
     }
 
-    return adjacencyOffset;
-  }
-
-  private constructor() {
-    // Static utility class
+    // Reset block index for new block
+    this.idxInBlock = 0;
   }
 }

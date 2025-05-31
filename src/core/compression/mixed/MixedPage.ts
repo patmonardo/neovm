@@ -13,8 +13,8 @@
  * the Java enterprise architect's original vision - thankfully simplified!
  */
 
-import { AdjacencyListBuilder } from '../../api/compress/AdjacencyListBuilder';
-import { ModifiableSlice } from '../../api/compress/ModifiableSlice';
+import { ModifiableSlice } from '@/api/compress';
+import { AdjacencyListBuilder } from '@/api/compress';
 import { Address } from '../packed/Address';
 
 export class MixedPage {

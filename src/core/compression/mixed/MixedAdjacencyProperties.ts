@@ -19,9 +19,9 @@
  * the adjacency list for the degree first. No direct property access!
  */
 
-import { AdjacencyList } from '../../api/AdjacencyList';
-import { AdjacencyProperties } from '../../api/AdjacencyProperties';
-import { PropertyCursor } from '../../api/properties/relationships/PropertyCursor';
+import { AdjacencyList } from '@/api';
+import { AdjacencyProperties } from '@/api';
+import { PropertyCursor } from '@/api/properties/relationships';
 import { MixedCompressor } from './MixedCompressor';
 
 export class MixedAdjacencyProperties implements AdjacencyProperties {

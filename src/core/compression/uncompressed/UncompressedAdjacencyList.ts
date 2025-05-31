@@ -14,25 +14,26 @@
  * **Memory**: 8 bytes per node ID, 8 bytes per property value
  */
 
-import { AdjacencyList } from '../../api/AdjacencyList';
-import { AdjacencyProperties } from '../../api/AdjacencyProperties';
-import { AdjacencyCursor } from '../../api/AdjacencyCursor';
-import { PropertyCursor } from '../../api/properties/relationships/PropertyCursor';
-import { RelationshipType } from '../../api/RelationshipType';
-import { GraphDimensions } from '../../core/GraphDimensions';
-import { HugeIntArray } from '../../collections/ha/HugeIntArray';
-import { HugeLongArray } from '../../collections/ha/HugeLongArray';
-import { ArrayUtil } from '../../collections/ArrayUtil';
-import { PageUtil } from '../../collections/PageUtil';
-import { BumpAllocatorConstants } from '../common/BumpAllocator';
-import { MemoryInfo } from '../MemoryInfo';
-import { MutableIntValue } from '../../loading/MutableIntValue';
-import { MemoryEstimation, MemoryEstimations, MemoryRange } from '../../mem/MemoryEstimation';
-import { Estimate } from '../../mem/Estimate';
-import { BitUtil } from '../../mem/BitUtil';
+import { AdjacencyList } from "@/api";
+import { AdjacencyProperties } from "@/api";
+import { AdjacencyCursor } from "@/api";
+import { PropertyCursor } from "@/api/properties/relationships";
+import { RelationshipType } from "@/projection";
+import { GraphDimensions } from "@/core";
+import { HugeIntArray } from "@/collections";
+import { HugeLongArray } from "@/collections";
+import { ArrayUtil } from "@/collections";
+import { PageUtil } from "@/collections";
+import { BumpAllocatorConstants } from "../common/BumpAllocator";
+import { MemoryInfo } from "../MemoryInfo";
+import { MutableIntValue } from "@/core/loading";
+import { MemoryEstimation, MemoryEstimations, MemoryRange } from "@/mem";
+import { Estimate } from "@/mem";
+import { BitUtil } from "@/mem";
 
-export class UncompressedAdjacencyList implements AdjacencyList, AdjacencyProperties {
-
+export class UncompressedAdjacencyList
+  implements AdjacencyList, AdjacencyProperties
+{
   // ============================================================================
   // MEMORY ESTIMATION - The Graph Database Reality Check
   // ============================================================================
@@ -43,10 +44,17 @@ export class UncompressedAdjacencyList implements AdjacencyList, AdjacencyProper
    * **The Big Question**: "How much RAM do I need for this graph?"
    * This calculates the answer BEFORE loading terabytes of data!
    */
-  static adjacencyListEstimation(relationshipType: RelationshipType, undirected: boolean): MemoryEstimation {
-    return MemoryEstimations.setup("", dimensions =>
+  static adjacencyListEstimation(
+    relationshipType: RelationshipType,
+    undirected: boolean
+  ): MemoryEstimation {
+    return MemoryEstimations.setup("", (dimensions) =>
       UncompressedAdjacencyList.adjacencyListEstimationFromStats(
-        UncompressedAdjacencyList.averageDegree(dimensions, relationshipType, undirected),
+        UncompressedAdjacencyList.averageDegree(
+          dimensions,
+          relationshipType,
+          undirected
+        ),
         dimensions.nodeCount()
       )
     );
@@ -55,16 +63,23 @@ export class UncompressedAdjacencyList implements AdjacencyList, AdjacencyProper
   /**
    * Test-only estimation for all relationship types.
    */
-  static adjacencyListEstimationForTesting(undirected: boolean): MemoryEstimation {
-    return UncompressedAdjacencyList.adjacencyListEstimation(RelationshipType.ALL_RELATIONSHIPS, undirected);
+  static adjacencyListEstimationForTesting(
+    undirected: boolean
+  ): MemoryEstimation {
+    return UncompressedAdjacencyList.adjacencyListEstimation(
+      RelationshipType.ALL_RELATIONSHIPS,
+      undirected
+    );
   }
 
-  static adjacencyListEstimationFromStats(avgDegree: number, nodeCount: number): MemoryEstimation {
-    return MemoryEstimations
-      .builder(UncompressedAdjacencyList.name)
+  static adjacencyListEstimationFromStats(
+    avgDegree: number,
+    nodeCount: number
+  ): MemoryEstimation {
+    return MemoryEstimations.builder(UncompressedAdjacencyList.name)
       .fixed("pages", UncompressedAdjacencyList.listSize(avgDegree, nodeCount))
-      .perNode("degrees", HugeIntArray.memoryEstimation())
-      .perNode("offsets", HugeLongArray.memoryEstimation())
+      .perNode("degrees", HugeIntArray.memoryEstimation(avgDegree))
+      .perNode("offsets", HugeLongArray.memoryEstimation(nodeCount))
       .build();
   }
 
@@ -74,12 +89,18 @@ export class UncompressedAdjacencyList implements AdjacencyList, AdjacencyProper
    * **Key Insight**: Properties share the degrees array with adjacency list,
    * so we only count the reference, not the full array again!
    */
-  static adjacencyPropertiesEstimation(relationshipType: RelationshipType, undirected: boolean): MemoryEstimation {
-    return MemoryEstimations
-      .builder(UncompressedAdjacencyList.name)
+  static adjacencyPropertiesEstimation(
+    relationshipType: RelationshipType,
+    undirected: boolean
+  ): MemoryEstimation {
+    return MemoryEstimations.builder(UncompressedAdjacencyList.name)
       .perGraphDimension("pages", (dimensions) =>
         UncompressedAdjacencyList.listSize(
-          UncompressedAdjacencyList.averageDegree(dimensions, relationshipType, undirected),
+          UncompressedAdjacencyList.averageDegree(
+            dimensions,
+            relationshipType,
+            undirected
+          ),
           dimensions.nodeCount()
         )
       )
@@ -101,7 +122,9 @@ export class UncompressedAdjacencyList implements AdjacencyList, AdjacencyProper
     undirected: boolean
   ): number {
     const nodeCount = dimensions.nodeCount();
-    const relCountForType = dimensions.relationshipCounts().get(relationshipType) ?? dimensions.relCountUpperBound();
+    const relCountForType =
+      dimensions.relationshipCounts().get(relationshipType) ??
+      dimensions.relCountUpperBound();
     const relCount = undirected ? relCountForType * 2 : relCountForType;
     return nodeCount > 0 ? BitUtil.ceilDiv(relCount, nodeCount) : 0;
   }
@@ -122,8 +145,11 @@ export class UncompressedAdjacencyList implements AdjacencyList, AdjacencyProper
       BumpAllocatorConstants.PAGE_SHIFT,
       BumpAllocatorConstants.PAGE_MASK
     );
-    const bytesPerPage = Estimate.sizeOfByteArray(BumpAllocatorConstants.PAGE_SIZE);
-    const totalMemory = pages * bytesPerPage + Estimate.sizeOfObjectArray(pages);
+    const bytesPerPage = Estimate.sizeOfByteArray(
+      BumpAllocatorConstants.PAGE_SIZE
+    );
+    const totalMemory =
+      pages * bytesPerPage + Estimate.sizeOfObjectArray(pages);
     return MemoryRange.of(totalMemory);
   }
 
@@ -197,7 +223,11 @@ export class UncompressedAdjacencyList implements AdjacencyList, AdjacencyProper
   /**
    * Create cursor with reuse optimization.
    */
-  adjacencyCursorReuse(reuse: AdjacencyCursor | null, node: number, fallbackValue: number = 0): AdjacencyCursor {
+  adjacencyCursorReuse(
+    reuse: AdjacencyCursor | null,
+    node: number,
+    fallbackValue: number = 0
+  ): AdjacencyCursor {
     const degree = this.degrees.get(node);
     if (degree === 0) {
       return AdjacencyCursor.empty();
@@ -243,7 +273,11 @@ export class UncompressedAdjacencyList implements AdjacencyList, AdjacencyProper
   /**
    * Create property cursor with reuse optimization.
    */
-  propertyCursorReuse(reuse: PropertyCursor | null, node: number, fallbackValue: number = 0): PropertyCursor {
+  propertyCursorReuse(
+    reuse: PropertyCursor | null,
+    node: number,
+    fallbackValue: number = 0
+  ): PropertyCursor {
     const degree = this.degrees.get(node);
     if (degree === 0) {
       return PropertyCursor.empty();
@@ -285,8 +319,10 @@ export class UncompressedAdjacencyList implements AdjacencyList, AdjacencyProper
  *
  * **Performance**: ~5ns per value access (vs ~50ns for compressed)
  */
-export class UncompressedCursor extends MutableIntValue implements AdjacencyCursor, PropertyCursor {
-
+export class UncompressedCursor
+  extends MutableIntValue
+  implements AdjacencyCursor, PropertyCursor
+{
   private pages: number[][] | null = null;
   private currentPage: number[] | null = null;
   private degree: number = 0;
@@ -305,9 +341,15 @@ export class UncompressedCursor extends MutableIntValue implements AdjacencyCurs
    * and position cursor at the start of the node's data block.
    */
   init(fromIndex: number, degree: number): void {
-    const pageIdx = PageUtil.pageIndex(fromIndex, BumpAllocatorConstants.PAGE_SHIFT);
+    const pageIdx = PageUtil.pageIndex(
+      fromIndex,
+      BumpAllocatorConstants.PAGE_SHIFT
+    );
     this.currentPage = this.pages![pageIdx];
-    this.offset = PageUtil.indexInPage(fromIndex, BumpAllocatorConstants.PAGE_MASK);
+    this.offset = PageUtil.indexInPage(
+      fromIndex,
+      BumpAllocatorConstants.PAGE_MASK
+    );
     this.limit = this.offset + degree;
     this.degree = degree;
   }
@@ -376,7 +418,12 @@ export class UncompressedCursor extends MutableIntValue implements AdjacencyCurs
     }
 
     // ✅ BINARY SEARCH: Find last occurrence of target
-    const idx = ArrayUtil.binarySearchLast(this.currentPage!, this.offset, this.limit, target);
+    const idx = ArrayUtil.binarySearchLast(
+      this.currentPage!,
+      this.offset,
+      this.limit,
+      target
+    );
 
     let value: number;
 
@@ -417,7 +464,12 @@ export class UncompressedCursor extends MutableIntValue implements AdjacencyCurs
     }
 
     // ✅ BINARY SEARCH: Find first occurrence of target
-    const idx = ArrayUtil.binarySearchFirst(this.currentPage!, this.offset, this.limit, target);
+    const idx = ArrayUtil.binarySearchFirst(
+      this.currentPage!,
+      this.offset,
+      this.limit,
+      target
+    );
 
     if (idx >= 0) {
       // ✅ FOUND: Exact match

@@ -473,26 +473,6 @@ export class AdjacencyListBuilderTask implements Runnable {
 }
 
 /**
- * Paging strategy interface for distributing relationships across pages.
- */
-export interface AdjacencyBufferPaging {
-  /**
-   * Get the page ID for a given source node.
-   */
-  pageId(source: number): number;
-
-  /**
-   * Get the local ID within a page for a given source node.
-   */
-  localId(source: number): number;
-
-  /**
-   * Convert local ID and page back to global source node ID.
-   */
-  sourceNodeId(localId: number, pageId: number): number;
-}
-
-/**
  * Paging implementation when page size is known at construction time.
  *
  * This uses bit shifting for efficient page/offset calculations when

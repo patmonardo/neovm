@@ -12,8 +12,7 @@
  * - Oversized allocation handling for large adjacency lists
  */
 
-import { ModifiableSlice } from '../../api/compress/ModifiableSlice';
-import { PageUtil } from '../../collections/PageUtil';
+import { ModifiableSlice } from '@/api/compress';
 
 export interface BumpAllocatorFactory<PAGE> {
   newEmptyPages(): PAGE[];

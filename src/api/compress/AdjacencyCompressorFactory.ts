@@ -3,11 +3,24 @@ import { HugeLongArray } from "../../collections/ha/HugeLongArray"; // Adjust pa
 import { AdjacencyCompressor } from "./AdjacencyCompressor";
 import { AdjacencyListsWithProperties } from "./AdjacencyListsWithProperties";
 
-// Assuming a LongAdder equivalent or a simple number for counting if high concurrency atomicity isn't strictly needed in JS.
-// For a direct translation, you might need a custom LongAdder class or use a library.
-// For simplicity here, I'll use 'number' and note that a proper LongAdder might be needed.
-type LongAdder = { add(value: number): void; sum(): number; /* and other methods */ } | number;
+/**
+ * Thread-safe relationship counter (JavaScript doesn't have LongAdder, so we simulate)
+ */
+export class LongAdder {
+  private value = 0;
 
+  add(delta: number): void {
+    this.value += delta;
+  }
+
+  longValue(): number {
+    return this.value;
+  }
+
+  increment(): void {
+    this.value++;
+  }
+}
 
 export interface AdjacencyCompressorFactory {
   /**

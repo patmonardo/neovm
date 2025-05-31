@@ -1,8 +1,7 @@
-import { NodeLabel } from "@/projection/primitive/NodeLabel";
-import { LabelInformation } from "@/core/loading/LabelInformation";
-import { PrimitiveLongIterable } from "@/collections/primitive/PrimitiveLongIterable";
-import { LazyBatchCollection } from "@/core/utils/LazyBatchCollection";
-import { PrimitiveIterator } from "@/collections/primitive/PrimitiveIterator";
+import { NodeLabel } from "@/projection";
+import { PrimitiveIterator } from "@/collections";
+import { PrimitiveLongIterable } from "@/collections";
+import { LabelInformation } from "@/core/loading";
 import { BatchNodeIterable } from "./BatchNodeIterable";
 import { IdMap } from "./IdMap";
 
@@ -84,7 +83,9 @@ export abstract class LabeledIdMap implements IdMap {
     return {} as PrimitiveIterator.OfLong;
   }
 
-  private getInternalNodeIteratorForLabels(labels: Set<NodeLabel>): PrimitiveIterator.OfLong {
+  private getInternalNodeIteratorForLabels(
+    labels: Set<NodeLabel>
+  ): PrimitiveIterator.OfLong {
     // ... your logic to return an PrimitiveIterator.OfLong iterator for specific labels
     return {} as PrimitiveIterator.OfLong;
   }
@@ -93,28 +94,36 @@ export abstract class LabeledIdMap implements IdMap {
   nodeIterator(): PrimitiveIterator.OfLong;
   nodeIterator(labels: Set<NodeLabel>): PrimitiveIterator.OfLong;
   // Implementation
-  nodeIterator(labels?: Set<NodeLabel>):PrimitiveIterator.OfLong {
+  nodeIterator(labels?: Set<NodeLabel>): PrimitiveIterator.OfLong {
     const ofLongIterator = labels
       ? this.getInternalNodeIteratorForLabels(labels)
       : this.getInternalNodeIterator();
 
     // Adapt PrimitiveIterator.OfLong to the standard Iterator<number> interface
     return ofLongIterator;
-
   }
-
 
   /**
    * Returns a collection of iterables for batch processing.
    *
    * @param batchSize The size of each batch
    */
-  batchIterables(batchSize: number): PrimitiveLongIterable[] {
-    return LazyBatchCollection.of(
-      this._nodeCount,
-      batchSize,
-      (start: number, end: number) => new BatchNodeIterable.IdIterable(start, end)
-    );
+  // batchIterables(batchSize: number): Set<PrimitiveLongIterable> {
+  //   return LazyBatchCollection.of(
+  //     this._nodeCount,
+  //     batchSize,
+  //     (start: number, end: number) => new BatchNodeIterable.IdIterable(start, end)
+  //   );
+  // }
+  // TODO: CRITICAL for WASM - needs proper lazy batch collection
+  // For now, simple array implementation
+  batchIterables(batchSize: number): Array<PrimitiveLongIterable> {
+    const batches: Array<PrimitiveLongIterable> = [];
+    for (let start = 0; start < this._nodeCount; start += batchSize) {
+      const end = Math.min(start + batchSize, this._nodeCount);
+      batches.push(new BatchNodeIterable.IdIterable(start, end));
+    }
+    return batches;
   }
 
   /**

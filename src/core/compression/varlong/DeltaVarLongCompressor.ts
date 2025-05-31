@@ -1,7 +1,6 @@
 /**
  * Delta VarLong Compressor - The Heart of Graph Compression
  *
- * **THE MAIN EVENT**: This is where all our compression primitives come together:
  * 1. Sort adjacency lists for optimal delta encoding
  * 2. Apply delta encoding (differences between consecutive node IDs)
  * 3. Apply VarLong encoding (variable-length integers)
@@ -12,21 +11,21 @@
  * **Production**: Powers Neo4j's Graph Data Science library
  */
 
-import { AdjacencyCompressor } from '../../api/compress/AdjacencyCompressor';
-import { AdjacencyCompressorFactory } from '../../api/compress/AdjacencyCompressorFactory';
-import { AdjacencyListBuilder } from '../../api/compress/AdjacencyListBuilder';
-import { AdjacencyListBuilderFactory } from '../../api/compress/AdjacencyListBuilderFactory';
-import { ModifiableSlice } from '../../api/compress/ModifiableSlice';
-import { AdjacencyList } from '../../api/AdjacencyList';
-import { AdjacencyProperties } from '../../api/AdjacencyProperties';
-import { PropertyMappings } from '../../PropertyMappings';
-import { Aggregation } from '../../core/Aggregation';
-import { AbstractAdjacencyCompressorFactory } from '../common/AbstractAdjacencyCompressorFactory';
-import { AdjacencyCompression } from '../common/AdjacencyCompression';
-import { MemoryTracker } from '../common/MemoryTracker';
-import { VarLongEncoding } from '../common/VarLongEncoding';
-import { HugeIntArray } from '../../collections/ha/HugeIntArray';
-import { HugeLongArray } from '../../collections/ha/HugeLongArray';
+import { PropertyMappings } from "@/projection";
+import { AdjacencyList } from "@/api";
+import { AdjacencyProperties } from "@/api";
+import { AdjacencyCompressor } from "@/api/compress";
+import { AdjacencyCompressorFactory } from "@/api/compress";
+import { AdjacencyListBuilder } from "@/api/compress";
+import { AdjacencyListBuilderFactory } from "@/api/compress";
+import { ModifiableSlice } from "@/api/compress";
+import { Aggregation } from "@/core";
+import { HugeIntArray } from "@/collections";
+import { HugeLongArray } from "@/collections";
+import { MemoryTracker } from "@/core/compression";
+import { AdjacencyCompression } from "@/core/compression";
+import { AbstractAdjacencyCompressorFactory } from "@/core/compression";
+import { VarLongEncoding } from "@/core/compression";
 
 // ============================================================================
 // SEPARATE FACTORY CLASS (TypeScript style)

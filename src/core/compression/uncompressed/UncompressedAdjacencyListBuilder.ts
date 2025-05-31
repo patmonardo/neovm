@@ -9,15 +9,15 @@
  * **Performance Gain**: Zero decompression overhead during queries
  */
 
-import { AdjacencyListBuilder } from '../../api/compress/AdjacencyListBuilder';
-import { ModifiableSlice } from '../../api/compress/ModifiableSlice';
-import { HugeIntArray } from '../../collections/ha/HugeIntArray';
-import { HugeLongArray } from '../../collections/ha/HugeLongArray';
+import { MemoryUsage } from '@/mem';
+import { AdjacencyListBuilder } from '@/api/compress';
+import { ModifiableSlice } from '@/api/compress';
+import { HugeIntArray } from '@/collections';
+import { HugeLongArray } from '@/collections';
 import { MemoryInfo } from '../MemoryInfo';
 import { MemoryInfoUtil } from '../MemoryInfoUtil';
-import { BumpAllocator, BumpAllocatorFactory, BumpAllocatorPositionalFactory } from '../common/BumpAllocator';
-import { MemoryTracker } from '../common/MemoryTracker';
-import { MemoryUsage } from '../../mem/MemoryUsage';
+import { MemoryTracker } from '@/core/compression';
+import { BumpAllocator, BumpAllocatorFactory, BumpAllocatorPositionalFactory } from '@/core/compression';
 import { UncompressedAdjacencyList } from './UncompressedAdjacencyList';
 
 /**
@@ -249,7 +249,7 @@ class LongArrayPositionalFactory implements BumpAllocatorPositionalFactory<numbe
  * Allocator for sequential memory allocation.
  * **Performance**: Bump pointer allocation for maximum speed
  */
-export class Allocator implements AdjacencyListBuilder.Allocator<number[]> {
+ class Allocator implements AdjacencyListBuilder.Allocator<number[]> {
 
   private readonly allocator: BumpAllocator.LocalAllocator<number[]>;
   private readonly memoryTracker: MemoryTracker;

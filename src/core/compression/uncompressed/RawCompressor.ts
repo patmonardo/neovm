@@ -16,19 +16,19 @@
  * - Hot partition data in distributed systems
  */
 
-import { AdjacencyCompressor } from '../../api/compress/AdjacencyCompressor';
-import { AdjacencyCompressorFactory } from '../../api/compress/AdjacencyCompressorFactory';
-import { AdjacencyListBuilder } from '../../api/compress/AdjacencyListBuilder';
-import { AdjacencyListBuilderFactory } from '../../api/compress/AdjacencyListBuilderFactory';
-import { ModifiableSlice } from '../../api/compress/ModifiableSlice';
-import { AdjacencyList } from '../../api/AdjacencyList';
-import { AdjacencyProperties } from '../../api/AdjacencyProperties';
-import { PropertyMappings } from '../../PropertyMappings';
-import { Aggregation } from '../../core/Aggregation';
-import { AbstractAdjacencyCompressorFactory } from '../common/AbstractAdjacencyCompressorFactory';
-import { MemoryTracker } from '../common/MemoryTracker';
-import { HugeIntArray } from '../../collections/ha/HugeIntArray';
-import { HugeLongArray } from '../../collections/ha/HugeLongArray';
+import { PropertyMappings } from "@/projection";
+import { AdjacencyList } from "@/api";
+import { AdjacencyProperties } from "@/api";
+import { AdjacencyCompressor } from "@/api/compress";
+import { AdjacencyCompressorFactory } from "@/api/compress";
+import { AdjacencyListBuilder } from "@/api/compress";
+import { AdjacencyListBuilderFactory } from "@/api/compress";
+import { ModifiableSlice } from "@/api/compress";
+import { HugeIntArray } from "@/collections";
+import { HugeLongArray } from "@/collections";
+import { Aggregation } from "@/core";
+import { AbstractAdjacencyCompressorFactory } from "@/core/compression";
+import { MemoryTracker } from "@/core/compression";
 
 // ============================================================================
 // SEPARATE FACTORY CLASS (TypeScript style)
@@ -40,8 +40,10 @@ import { HugeLongArray } from '../../collections/ha/HugeLongArray';
  * **Memory Strategy**: Raw arrays for both adjacency lists AND properties.
  * No compression anywhere - pure speed optimization.
  */
-export class RawCompressorFactory extends AbstractAdjacencyCompressorFactory<number[], number[]> {
-
+export class RawCompressorFactory extends AbstractAdjacencyCompressorFactory<
+  number[],
+  number[]
+> {
   constructor(
     nodeCountSupplier: () => number,
     adjacencyBuilder: AdjacencyListBuilder<number[], AdjacencyList>,
@@ -73,9 +75,10 @@ export class RawCompressorFactory extends AbstractAdjacencyCompressorFactory<num
     adjacencyOffsets: HugeLongArray,
     propertyOffsets: HugeLongArray
   ): AdjacencyCompressor {
-
     let firstAllocator: AdjacencyListBuilder.Allocator<number[]> | null = null;
-    let otherAllocators: AdjacencyListBuilder.PositionalAllocator<number[]>[] | null = null;
+    let otherAllocators:
+      | AdjacencyListBuilder.PositionalAllocator<number[]>[]
+      | null = null;
 
     if (propertyBuilders.length > 0) {
       // ✅ FIRST PROPERTY: Gets an address
@@ -106,7 +109,6 @@ export class RawCompressorFactory extends AbstractAdjacencyCompressorFactory<num
 // ============================================================================
 
 export class RawCompressor implements AdjacencyCompressor {
-
   // ============================================================================
   // STATIC FACTORY METHOD
   // ============================================================================
@@ -121,15 +123,22 @@ export class RawCompressor implements AdjacencyCompressor {
    */
   static factory(
     nodeCountSupplier: () => number,
-    adjacencyListBuilderFactory: AdjacencyListBuilderFactory<number[], AdjacencyList, number[], AdjacencyProperties>,
+    adjacencyListBuilderFactory: AdjacencyListBuilderFactory<
+      number[],
+      AdjacencyList,
+      number[],
+      AdjacencyProperties
+    >,
     propertyMappings: PropertyMappings,
     aggregations: Aggregation[],
     noAggregation: boolean,
     memoryTracker: MemoryTracker
   ): AdjacencyCompressorFactory {
-
     // ✅ CREATE PROPERTY BUILDERS: All uncompressed
-    const propertyBuilders: AdjacencyListBuilder<number[], AdjacencyProperties>[] = [];
+    const propertyBuilders: AdjacencyListBuilder<
+      number[],
+      AdjacencyProperties
+    >[] = [];
     for (let i = 0; i < propertyMappings.numberOfMappings(); i++) {
       propertyBuilders.push(
         adjacencyListBuilderFactory.newAdjacencyPropertiesBuilder(memoryTracker)
@@ -159,12 +168,16 @@ export class RawCompressor implements AdjacencyCompressor {
    * Allocator for first property type.
    * **Storage**: Raw number arrays (8 bytes per property value)
    */
-  private readonly firstPropertyAllocator: AdjacencyListBuilder.Allocator<number[]> | null;
+  private readonly firstPropertyAllocator: AdjacencyListBuilder.Allocator<
+    number[]
+  > | null;
 
   /**
    * Positional allocators for additional property types.
    */
-  private readonly otherPropertyAllocators: AdjacencyListBuilder.PositionalAllocator<number[]>[] | null;
+  private readonly otherPropertyAllocators:
+    | AdjacencyListBuilder.PositionalAllocator<number[]>[]
+    | null;
 
   /**
    * Node degrees after aggregation.
@@ -199,7 +212,9 @@ export class RawCompressor implements AdjacencyCompressor {
   constructor(
     adjacencyAllocator: AdjacencyListBuilder.Allocator<number[]>,
     firstPropertyAllocator: AdjacencyListBuilder.Allocator<number[]> | null,
-    otherPropertyAllocators: AdjacencyListBuilder.PositionalAllocator<number[]>[] | null,
+    otherPropertyAllocators:
+      | AdjacencyListBuilder.PositionalAllocator<number[]>[]
+      | null,
     adjacencyDegrees: HugeIntArray,
     adjacencyOffsets: HugeLongArray,
     propertyOffsets: HugeLongArray,
@@ -236,7 +251,12 @@ export class RawCompressor implements AdjacencyCompressor {
    * @param degree Number of relationships
    * @returns Final degree after aggregation
    */
-  compress(nodeId: number, targets: number[], properties: number[][] | null, degree: number): number {
+  compress(
+    nodeId: number,
+    targets: number[],
+    properties: number[][] | null,
+    degree: number
+  ): number {
     if (properties !== null) {
       return this.withProperties(nodeId, targets, properties, degree);
     } else {
@@ -278,7 +298,11 @@ export class RawCompressor implements AdjacencyCompressor {
    *
    * **Speed**: Fastest possible - just array operations!
    */
-  private withoutProperties(nodeId: number, targets: number[], degree: number): number {
+  private withoutProperties(
+    nodeId: number,
+    targets: number[],
+    degree: number
+  ): number {
     // ✅ STEP 1: Sort and aggregate (remove duplicates)
     degree = this.aggregate(targets, degree, this.aggregations[0]);
 
@@ -304,7 +328,11 @@ export class RawCompressor implements AdjacencyCompressor {
    * Input: [1005, 1002, 1005, 1001] (unsorted with duplicate)
    * Output: [1001, 1002, 1005] (sorted, deduplicated)
    */
-  private aggregate(values: number[], length: number, aggregation: Aggregation): number {
+  private aggregate(
+    values: number[],
+    length: number,
+    aggregation: Aggregation
+  ): number {
     // ✅ SORT: Essential for consistent ordering
     const sortSlice = values.slice(0, length);
     sortSlice.sort((a, b) => a - b);
@@ -453,10 +481,18 @@ export class RawCompressor implements AdjacencyCompressor {
             const outProperty = sortedProperties[i];
 
             // Convert between number and double for aggregation
-            const existingProperty = this.longBitsToDouble(outProperty[existingIdx]);
-            const newProperty = this.longBitsToDouble(unsortedProperties[i][sortIdx]);
-            const aggregatedProperty = aggregation.merge(existingProperty, newProperty);
-            outProperty[existingIdx] = this.doubleToLongBits(aggregatedProperty);
+            const existingProperty = this.longBitsToDouble(
+              outProperty[existingIdx]
+            );
+            const newProperty = this.longBitsToDouble(
+              unsortedProperties[i][sortIdx]
+            );
+            const aggregatedProperty = aggregation.merge(
+              existingProperty,
+              newProperty
+            );
+            outProperty[existingIdx] =
+              this.doubleToLongBits(aggregatedProperty);
           }
         }
       }
@@ -508,9 +544,19 @@ export class RawCompressor implements AdjacencyCompressor {
    * **Same Pattern**: First property gets address, others align to it.
    * This pattern is consistent across all compression strategies.
    */
-  private copyProperties(properties: number[][], degree: number, nodeId: number): void {
-    console.assert(this.firstPropertyAllocator !== null, "First property allocator must exist");
-    console.assert(this.otherPropertyAllocators !== null, "Other property allocators must exist");
+  private copyProperties(
+    properties: number[][],
+    degree: number,
+    nodeId: number
+  ): void {
+    console.assert(
+      this.firstPropertyAllocator !== null,
+      "First property allocator must exist"
+    );
+    console.assert(
+      this.otherPropertyAllocators !== null,
+      "Other property allocators must exist"
+    );
 
     // ✅ FIRST PROPERTY: Gets an address
     const slice = this.slice;
@@ -522,7 +568,11 @@ export class RawCompressor implements AdjacencyCompressor {
 
     // ✅ OTHER PROPERTIES: Write at positions relative to first
     for (let i = 1; i < properties.length; i++) {
-      this.otherPropertyAllocators![i - 1].writeAt(address, properties[i], degree);
+      this.otherPropertyAllocators![i - 1].writeAt(
+        address,
+        properties[i],
+        degree
+      );
     }
 
     // ✅ STORE PROPERTY OFFSET

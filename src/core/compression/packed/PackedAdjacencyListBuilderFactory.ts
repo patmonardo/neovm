@@ -16,7 +16,7 @@
  * - Perfect for real-world graph workloads!
  */
 
-import { AdjacencyListBuilderFactory } from '../../api/compress/AdjacencyListBuilderFactory';
+import { AdjacencyListBuilderFactory } from './AdjacencyListBuilderFactory';
 import { MemoryTracker } from '../common/MemoryTracker';
 import { Address } from './Address';
 import { PackedAdjacencyList } from './PackedAdjacencyList';

@@ -1,9 +1,9 @@
 import { NodeLabel } from "@/projection";
 import { RelationshipType } from "@/projection";
-import { NodePropertyValues } from "./properties/nodes";
-import { RelationshipCursor } from "./properties/relationships";
-import { RelationshipConsumer } from "./properties/relationships";
-import { RelationshipWithPropertyConsumer } from "./properties/relationships";
+import { NodePropertyValues } from "@/api/properties/nodes";
+import { RelationshipCursor } from "@/api/properties/relationships";
+import { RelationshipConsumer } from "@/api/properties/relationships";
+import { RelationshipWithPropertyConsumer } from "@/api/properties/relationships";
 import { PrimitiveLongIterable } from "@/collections";
 import { PrimitiveIterator } from "@/collections";
 import { LongPredicate } from "@/collections";
@@ -41,7 +41,7 @@ export abstract class GraphAdapter implements Graph {
     return this.graph.asNodeFilteredGraph();
   }
 
-  batchIterables(batchSize: number): Set<PrimitiveLongIterable> {
+  batchIterables(batchSize: number): Array<PrimitiveLongIterable> {
     return this.graph.batchIterables(batchSize);
   }
 

@@ -244,7 +244,7 @@ class AddressFactory implements BumpAllocatorFactory<Address> {
  * Allocator for off-heap memory allocation.
  * **Systems Programming**: Direct memory allocation with tracking
  */
-export class Allocator implements AdjacencyListBuilder.Allocator<Address> {
+class Allocator implements AdjacencyListBuilder.Allocator<Address> {
 
   private readonly allocator: BumpAllocator.LocalAllocator<Address>;
   private readonly memoryTracker: MemoryTracker;

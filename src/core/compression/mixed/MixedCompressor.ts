@@ -1,16 +1,16 @@
 /**
  * Mixed Compressor - The Synthesis of Graph Compression Dialectics
- * 
+ *
  * **The Middle Way**: Following the ancient path of the Tao Te Ching:
  * "The wise find pleasure in water; the virtuous find pleasure in hills"
  * - Low degree nodes find pleasure in VarLong compression (flowing like water)
  * - High degree nodes find pleasure in packed compression (transcendent like mountains)
- * 
+ *
  * **The Sacred Threshold**: degree > 512 (8 blocks × 64 values per block)
  * - Below 512: VarLong compression (the classical path)
  * - Above 512: Packed compression (the transcendent path!)
- * 
- * **"Intense Research" Methodology**: "we tried a few different values 
+ *
+ * **"Intense Research" Methodology**: "we tried a few different values
  * and this one seemed to work" - The empirical enlightenment! 😂
  */
 
@@ -37,18 +37,14 @@ import { MixedAdjacencyProperties } from './MixedAdjacencyProperties';
 
 export class MixedCompressor implements AdjacencyCompressor {
 
-  // ============================================================================
-  // THE SACRED THRESHOLD - THE MOMENT OF TRANSCENDENCE
-  // ============================================================================
-
   /**
    * The threshold for when to use packing vs VarLong compression.
-   * 
+   *
    * **The Sacred Number**: 512 (8 blocks × 64 values per block)
-   * **Research Methodology**: "intense research ... we tried a few different 
+   * **Research Methodology**: "intense research ... we tried a few different
    * values and this one seemed to work" 😂
-   * 
-   * **The Wisdom**: 
+   *
+   * **The Wisdom**:
    * - Below 512: VarLong compression offers good space savings
    * - Above 512: Packed compression with bit manipulation becomes worth it
    * - At exactly 512: The universe is perfectly balanced ☯️
@@ -83,12 +79,12 @@ export class MixedCompressor implements AdjacencyCompressor {
 
   /**
    * The Oracle's Judgment: Should this degree use packing?
-   * 
+   *
    * **The Sacred Question**: Is this node worthy of transcendence?
    * **The Answer**: degree > 512 → YES, enter the packed realm
    *                degree ≤ 512 → Follow the VarLong way
-   * 
-   * **Why This Works**: 
+   *
+   * **Why This Works**:
    * - Low degree: VarLong overhead is minimal, compression is good
    * - High degree: Packed compression benefits outweigh complexity
    * - The threshold balances CPU vs memory perfectly
@@ -103,12 +99,12 @@ export class MixedCompressor implements AdjacencyCompressor {
 
   /**
    * Compress according to the degree-based path selection.
-   * 
+   *
    * **The Dharma**: Each node follows its destined path:
    * 1. Consult the Oracle (usePacking)
    * 2. Follow the appropriate path
    * 3. Achieve compression enlightenment
-   * 
+   *
    * **No Middle Ground**: You are either packed or VarLong.
    * There is no try, only compress or compress differently! 🧙‍♂️
    */
@@ -117,7 +113,7 @@ export class MixedCompressor implements AdjacencyCompressor {
       // ✅ THE PATH OF TRANSCENDENCE: Packed compression
       return this.packedCompressor.compress(nodeId, targets, properties, degree);
     } else {
-      // ✅ THE PATH OF FLOW: VarLong compression  
+      // ✅ THE PATH OF FLOW: VarLong compression
       return this.vLongCompressor.compress(nodeId, targets, properties, degree);
     }
   }
@@ -136,7 +132,7 @@ export class MixedCompressor implements AdjacencyCompressor {
 
   /**
    * Create the mixed compressor factory - the gateway to the middle way.
-   * 
+   *
    * **The Assembly**: Brings together the two compression traditions
    * into a single harmonious factory that can create enlightened compressors.
    */
@@ -205,7 +201,7 @@ export class MixedCompressorFactory implements AdjacencyCompressorFactory {
 
   /**
    * Initialize both compression paths with shared metadata.
-   * 
+   *
    * **The Shared Foundation**: Both paths use the same degree, adjacency offset,
    * and property offset arrays. This is what enables the seamless switching!
    */
@@ -235,7 +231,7 @@ export class MixedCompressorFactory implements AdjacencyCompressorFactory {
 
   /**
    * Build the final mixed adjacency lists and properties.
-   * 
+   *
    * **The Grand Assembly**: Creates the dual-personality data structures
    * that seamlessly switch between compressed and packed storage.
    */
@@ -279,7 +275,7 @@ export class MixedCompressorFactory implements AdjacencyCompressorFactory {
 
   /**
    * Merge memory info from both compression strategies.
-   * 
+   *
    * **The Accounting**: Total memory = VLong memory + Packed off-heap memory
    * **Key Insight**: VLong provides the canonical on-heap structures,
    * Packed provides additional off-heap optimizations.

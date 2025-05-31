@@ -1,4 +1,4 @@
-import { MemoryTracker } from "../../core/compression/common/MemoryTracker"; // Adjust path as needed
+import { MemoryTracker } from "@/core/compression";
 import { AdjacencyListBuilder } from "./AdjacencyListBuilder";
 
 /**

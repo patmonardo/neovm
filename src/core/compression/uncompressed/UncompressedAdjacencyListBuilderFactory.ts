@@ -13,8 +13,8 @@
  * **Design Elegance**: One builder to rule them all! 🎯
  */
 
-import { AdjacencyListBuilderFactory } from '../../api/compress/AdjacencyListBuilderFactory';
-import { MemoryTracker } from '../common/MemoryTracker';
+import { AdjacencyListBuilderFactory } from '@/api/compress';
+import { MemoryTracker } from '@/core/compression';
 import { UncompressedAdjacencyList } from './UncompressedAdjacencyList';
 import { UncompressedAdjacencyListBuilder } from './UncompressedAdjacencyListBuilder';
 
