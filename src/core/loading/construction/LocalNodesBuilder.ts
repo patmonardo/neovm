@@ -1,3 +1,29 @@
+/**
+ * LOCAL NODES BUILDER - THREAD-LOCAL NODE PROCESSING WORKER
+ *
+ * This is a thread-local worker that efficiently processes nodes in batches.
+ * Each import thread gets its own LocalNodesBuilder to avoid contention.
+ *
+ * CORE RESPONSIBILITIES:
+ * 🔄 BATCHING: Accumulates nodes into efficient batch sizes
+ * 🚫 DEDUPLICATION: Filters out already-seen node IDs
+ * 🏷️  LABEL PROCESSING: Handles node labels and tokens
+ * 📦 PROPERTY STORAGE: Manages node properties during import
+ * 🚀 BUFFER MANAGEMENT: Auto-flushes when batches are full
+ *
+ * WORKFLOW:
+ * 1. addNode() called with node data
+ * 2. Check if node already seen (deduplication)
+ * 3. Add to batch buffer with labels/properties
+ * 4. Auto-flush when buffer full
+ * 5. close() flushes any remaining data
+ *
+ * THREAD SAFETY:
+ * - Each thread has its own LocalNodesBuilder (no sharing)
+ * - Thread-safe coordination through ThreadLocalContext
+ * - Atomic counter updates for imported node counts
+ */
+
 import { ParallelUtil } from "@/core/concurrency";
 import { RawValues } from "@/core/utils";
 import {
@@ -6,36 +32,46 @@ import {
   NodesBatchBuffer,
   NodesBatchBufferBuilder,
 } from "@/core/loading";
-import { NodeLabelToken } from "./NodeLabelToken";
+import { NodeLabelToken } from "./NodeLabelTokens";
 import { PropertyValues } from "./PropertyValues";
-import { ThreadLocalContext } from "./NodesBuilderContext";
+import { NodesBuilderContext } from "./NodesBuilderContext";
 
 /**
- * Thread-local worker for processing and importing nodes.
- * Handles batching, property storage, and coordination with the underlying import infrastructure.
+ * Thread-local worker for efficient node processing and import.
+ *
+ * DESIGN PATTERNS:
+ * - Worker Pattern: Processes work items (nodes) in batches
+ * - Buffer Pattern: Accumulates items before expensive operations
+ * - Auto-flush Pattern: Triggers processing when thresholds reached
+ * - Resource Management: Implements AutoCloseable for cleanup
  */
 export class LocalNodesBuilder implements AutoCloseable {
+  /** Sentinel indicating no properties for a node */
   static readonly NO_PROPERTY = -1;
 
   private readonly importedNodes: LongAdder;
-  private readonly seenNodeIdPredicate: (id: number) => boolean;
+  private readonly seenNodeIdPredicate: LongPredicate;
   private readonly buffer: NodesBatchBuffer<number>;
   private readonly nodeImporter: NodeImporter;
   private readonly batchNodeProperties: PropertyValues[];
-  private readonly threadLocalContext: ThreadLocalContext;
+  private readonly threadLocalContext: NodesBuilderContext.ThreadLocalContext;
 
-  constructor(
-    importedNodes: LongAdder,
-    nodeImporter: NodeImporter,
-    seenNodeIdPredicate: (id: number) => boolean,
-    hasLabelInformation: boolean,
-    hasProperties: boolean,
-    threadLocalContext: ThreadLocalContext
-  ) {
+  constructor(config: LocalNodesBuilderConfig) {
+    const {
+      importedNodes,
+      nodeImporter,
+      seenNodeIdPredicate,
+      hasLabelInformation,
+      hasProperties,
+      threadLocalContext
+    } = config;
+
     this.importedNodes = importedNodes;
     this.seenNodeIdPredicate = seenNodeIdPredicate;
     this.threadLocalContext = threadLocalContext;
+    this.nodeImporter = nodeImporter;
 
+    // Create batch buffer with standard batch size
     this.buffer = new NodesBatchBufferBuilder<number>()
       .capacity(ParallelUtil.DEFAULT_BATCH_SIZE)
       .hasLabelInformation(hasLabelInformation)
@@ -43,23 +79,28 @@ export class LocalNodesBuilder implements AutoCloseable {
       .propertyReferenceClass(Number)
       .build();
 
-    this.nodeImporter = nodeImporter;
+    // Pre-allocate property storage for the batch
     this.batchNodeProperties = new Array(this.buffer.capacity());
   }
 
   /**
    * Add a node without properties.
+   *
+   * FAST PATH:
+   * - Most common case for simple node import
+   * - Only handles ID and labels, no property processing
+   * - Automatic deduplication and batching
+   *
+   * @param originalId Original node ID from input data
+   * @param nodeLabelToken Labels for this node
    */
   addNode(originalId: number, nodeLabelToken: NodeLabelToken): void {
+    // Skip if already seen (deduplication)
     if (!this.seenNodeIdPredicate(originalId)) {
-      const threadLocalTokens =
-        this.threadLocalContext.addNodeLabelToken(nodeLabelToken);
+      const threadLocalTokens = this.threadLocalContext.addNodeLabelToken(nodeLabelToken);
 
-      this.buffer.add(
-        originalId,
-        LocalNodesBuilder.NO_PROPERTY,
-        threadLocalTokens
-      );
+      this.buffer.add(originalId, LocalNodesBuilder.NO_PROPERTY, threadLocalTokens);
+
       if (this.buffer.isFull()) {
         this.flushBuffer();
         this.reset();
@@ -69,23 +110,31 @@ export class LocalNodesBuilder implements AutoCloseable {
 
   /**
    * Add a node with properties.
+   *
+   * PROPERTY PATH:
+   * - Handles nodes with attached property data
+   * - Stores properties in batch array for efficient processing
+   * - Updates label-to-property mappings for schema building
+   *
+   * @param originalId Original node ID from input data
+   * @param nodeLabelToken Labels for this node
+   * @param properties Property values for this node
    */
-  addNodeWithProperties(
-    originalId: number,
-    nodeLabelToken: NodeLabelToken,
-    properties: PropertyValues
-  ): void {
+  addNode(originalId: number, nodeLabelToken: NodeLabelToken, properties: PropertyValues): void {
+    // Skip if already seen (deduplication)
     if (!this.seenNodeIdPredicate(originalId)) {
-      const threadLocalTokens =
-        this.threadLocalContext.addNodeLabelTokenAndPropertyKeys(
-          nodeLabelToken,
-          properties.propertyKeys()
-        );
+      // Register label-property associations for schema building
+      const threadLocalTokens = this.threadLocalContext.addNodeLabelTokenAndPropertyKeys(
+        nodeLabelToken,
+        properties.propertyKeys()
+      );
 
+      // Store properties in batch array
       const propertyReference = this.batchNodeProperties.length;
-      this.batchNodeProperties.push(properties);
+      this.batchNodeProperties[propertyReference] = properties;
 
       this.buffer.add(originalId, propertyReference, threadLocalTokens);
+
       if (this.buffer.isFull()) {
         this.flushBuffer();
         this.reset();
@@ -94,25 +143,28 @@ export class LocalNodesBuilder implements AutoCloseable {
   }
 
   /**
-   * Reset the buffer and property storage for the next batch.
+   * Reset buffer and property storage for next batch.
+   * Called after each flush to prepare for new batch.
    */
   private reset(): void {
     this.buffer.reset();
-    this.batchNodeProperties.length = 0; // Clear array efficiently
+    this.batchNodeProperties.length = 0; // Efficient array clear
   }
 
   /**
-   * Flush the current buffer to the node importer.
+   * Flush current batch to the node importer.
+   *
+   * BATCH PROCESSING:
+   * - Sends complete batch to underlying importer
+   * - Processes all properties for nodes in batch
+   * - Updates atomic counter with import results
+   * - Efficient bulk operation reduces per-node overhead
    */
   private flushBuffer(): void {
     const importedNodesAndProperties = this.nodeImporter.importNodes(
       this.buffer,
       this.threadLocalContext.threadLocalTokenToNodeLabels(),
-      (
-        nodeReference: number,
-        labelTokens: NodeLabelTokenSet,
-        propertyValueIndex: number
-      ) => this.importProperties(nodeReference, labelTokens, propertyValueIndex)
+      this.importProperties.bind(this)
     );
 
     const importedNodeCount = RawValues.getHead(importedNodesAndProperties);
@@ -120,7 +172,17 @@ export class LocalNodesBuilder implements AutoCloseable {
   }
 
   /**
-   * Import properties for a specific node.
+   * Import properties for a specific node during batch processing.
+   *
+   * PROPERTY IMPORT:
+   * - Called by NodeImporter for each node with properties
+   * - Distributes property values to appropriate builders
+   * - Updates thread-local property builders for final assembly
+   *
+   * @param nodeReference Internal node reference from importer
+   * @param labelTokens Label tokens for this node (unused here)
+   * @param propertyValueIndex Index into batchNodeProperties array
+   * @returns Number of properties processed
    */
   private importProperties(
     nodeReference: number,
@@ -131,13 +193,14 @@ export class LocalNodesBuilder implements AutoCloseable {
       const properties = this.batchNodeProperties[propertyValueIndex];
 
       properties.forEach((propertyKey, propertyValue) => {
-        const nodePropertyBuilder =
-          this.threadLocalContext.nodePropertyBuilder(propertyKey);
+        const nodePropertyBuilder = this.threadLocalContext.nodePropertyBuilder(propertyKey);
+
         if (!nodePropertyBuilder) {
           throw new Error(
             `Observed property key '${propertyKey}' that is not present in schema`
           );
         }
+
         nodePropertyBuilder.set(nodeReference, propertyValue);
       });
 
@@ -147,194 +210,74 @@ export class LocalNodesBuilder implements AutoCloseable {
   }
 
   /**
-   * Get the current batch size.
-   */
-  currentBatchSize(): number {
-    return this.buffer.size();
-  }
-
-  /**
-   * Get the total capacity of the buffer.
-   */
-  capacity(): number {
-    return this.buffer.capacity();
-  }
-
-  /**
-   * Check if the buffer is full.
-   */
-  isFull(): boolean {
-    return this.buffer.isFull();
-  }
-
-  /**
-   * Get the number of properties in the current batch.
-   */
-  currentPropertyCount(): number {
-    return this.batchNodeProperties.length;
-  }
-
-  /**
-   * Force flush the buffer even if not full.
-   */
-  forceFlush(): void {
-    if (this.buffer.size() > 0) {
-      this.flushBuffer();
-      this.reset();
-    }
-  }
-
-  /**
-   * Get statistics about this builder's activity.
-   */
-  getStats(): LocalBuilderStats {
-    return {
-      totalImportedNodes: this.importedNodes.sum(),
-      currentBatchSize: this.currentBatchSize(),
-      currentPropertyCount: this.currentPropertyCount(),
-      capacity: this.capacity(),
-      bufferUtilization: this.currentBatchSize() / this.capacity(),
-    };
-  }
-
-  /**
    * Close the builder and flush any remaining data.
+   * Essential for ensuring all data is processed.
    */
   close(): void {
-    this.forceFlush();
-  }
-
-  /**
-   * AutoCloseable implementation for use with try-with-resources pattern.
-   */
-  [Symbol.dispose](): void {
-    this.close();
+    this.flushBuffer();
   }
 }
 
+// =============================================================================
+// CONFIGURATION AND UTILITY TYPES
+// =============================================================================
+
 /**
- * Statistics about a LocalNodesBuilder's activity.
+ * Configuration for LocalNodesBuilder construction.
+ * Encapsulates all dependencies needed for thread-local node processing.
  */
-export interface LocalBuilderStats {
-  totalImportedNodes: number;
-  currentBatchSize: number;
-  currentPropertyCount: number;
-  capacity: number;
-  bufferUtilization: number;
+export interface LocalNodesBuilderConfig {
+  /** Atomic counter for tracking total imported nodes across threads */
+  importedNodes: LongAdder;
+
+  /** Core importer that handles the actual node creation */
+  nodeImporter: NodeImporter;
+
+  /** Predicate for deduplication - returns true if node already seen */
+  seenNodeIdPredicate: LongPredicate;
+
+  /** Whether to track label information for nodes */
+  hasLabelInformation: boolean;
+
+  /** Whether nodes have properties to import */
+  hasProperties: boolean;
+
+  /** Thread-local context for coordination with other builders */
+  threadLocalContext: NodesBuilderContext.ThreadLocalContext;
 }
 
 /**
- * LongAdder implementation for atomic counters.
+ * Thread-safe atomic long adder for counting across threads.
+ * Simple implementation for tracking imported node counts.
  */
 export class LongAdder {
   private value = 0;
 
-  add(x: number): void {
-    this.value += x;
+  /** Add a value to the counter */
+  add(delta: number): void {
+    this.value += delta;
   }
 
+  /** Get the current sum */
   sum(): number {
     return this.value;
   }
 
+  /** Reset counter to zero */
   reset(): void {
     this.value = 0;
   }
-
-  increment(): void {
-    this.add(1);
-  }
-
-  decrement(): void {
-    this.add(-1);
-  }
 }
 
 /**
- * Factory for creating LocalNodesBuilder instances.
+ * Predicate type for checking if a node ID has been seen.
+ * Used for deduplication during node import.
  */
-export class LocalNodesBuilderFactory {
-  /**
-   * Create a new LocalNodesBuilder with standard configuration.
-   */
-  static create(
-    nodeImporter: NodeImporter,
-    threadLocalContext: ThreadLocalContext,
-    options: LocalBuilderOptions = {}
-  ): LocalNodesBuilder {
-    const {
-      importedNodes = new LongAdder(),
-      seenNodeIdPredicate = () => false, // Default: no nodes have been seen
-      hasLabelInformation = true,
-      hasProperties = true,
-    } = options;
-
-    return new LocalNodesBuilder(
-      importedNodes,
-      nodeImporter,
-      seenNodeIdPredicate,
-      hasLabelInformation,
-      hasProperties,
-      threadLocalContext
-    );
-  }
-
-  /**
-   * Create a LocalNodesBuilder for nodes without properties.
-   */
-  static createNoProperties(
-    nodeImporter: NodeImporter,
-    threadLocalContext: ThreadLocalContext,
-    options: Partial<LocalBuilderOptions> = {}
-  ): LocalNodesBuilder {
-    return this.create(nodeImporter, threadLocalContext, {
-      ...options,
-      hasProperties: false,
-    });
-  }
-
-  /**
-   * Create a LocalNodesBuilder for nodes without labels.
-   */
-  static createNoLabels(
-    nodeImporter: NodeImporter,
-    threadLocalContext: ThreadLocalContext,
-    options: Partial<LocalBuilderOptions> = {}
-  ): LocalNodesBuilder {
-    return this.create(nodeImporter, threadLocalContext, {
-      ...options,
-      hasLabelInformation: false,
-    });
-  }
-
-  /**
-   * Create a LocalNodesBuilder with deduplication enabled.
-   */
-  static createWithDeduplication(
-    nodeImporter: NodeImporter,
-    threadLocalContext: ThreadLocalContext,
-    seenNodes: Set<number>,
-    options: Partial<LocalBuilderOptions> = {}
-  ): LocalNodesBuilder {
-    return this.create(nodeImporter, threadLocalContext, {
-      ...options,
-      seenNodeIdPredicate: (id) => seenNodes.has(id),
-    });
-  }
-}
+export type LongPredicate = (value: number) => boolean;
 
 /**
- * Configuration options for LocalNodesBuilder.
- */
-export interface LocalBuilderOptions {
-  importedNodes?: LongAdder;
-  seenNodeIdPredicate?: (id: number) => boolean;
-  hasLabelInformation?: boolean;
-  hasProperties?: boolean;
-}
-
-/**
- * AutoCloseable interface for TypeScript.
+ * AutoCloseable interface for resource management.
+ * Ensures proper cleanup of resources.
  */
 export interface AutoCloseable {
   close(): void;

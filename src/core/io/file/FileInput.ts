@@ -1,8 +1,8 @@
-import { InputIterable } from '@/batchimport/api/InputIterable';
-import { MutableNodeSchema } from '@/api/schema/MutableNodeSchema';
-import { MutableRelationshipSchema } from '@/api/schema/MutableRelationshipSchema';
-import { PropertySchema } from '@/api/schema/PropertySchema';
-import { Capabilities } from '@/core/loading/Capabilities';
+import { InputIterable } from '@/api/import';
+import { MutableNodeSchema } from '@/api/schema';
+import { MutableRelationshipSchema } from '@/api/schema';
+import { PropertySchema } from '@/api/schema';
+import { Capabilities } from '@/core/loading';
 import { GraphInfo } from './GraphInfo';
 
 /**

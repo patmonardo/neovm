@@ -1,26 +1,12 @@
-import { Graph } from '@/api/Graph';
-import { ResultStore } from '@/api/ResultStore';
-import { Concurrency } from '@/concurrency/Concurrency';
-import { JobId } from '@/core/utils/progress/JobId';
-import { ProgressTracker } from '@/core/utils/progress/tasks';
-import { TerminationFlag } from '@/termination/TerminationFlag';
-import { RelationshipExporter } from './RelationshipExporter';
-import { Optional } from '@/utils/Optional';
-
-/**
- * Function type for translating relationship property values during export.
- *
- * This function converts property values from their internal representation
- * to the format required by the target storage system. Common translations include:
- * - Converting internal numeric types to doubles
- * - Formatting arrays or complex objects as strings
- * - Applying unit conversions or scaling
- * - Handling null/missing values with defaults
- *
- * @param value The raw property value from the graph
- * @returns The translated value suitable for the target storage system
- */
-export type RelationshipPropertyTranslator = (value: any) => any;
+import { Graph } from "@/api/Graph";
+import { ResultStore } from "@/api/ResultStore";
+import { Concurrency } from "@/concurrency/Concurrency";
+import { JobId } from "@/core/utils/progress/JobId";
+import { ProgressTracker } from "@/core/utils/progress/tasks";
+import { TerminationFlag } from "@/termination/TerminationFlag";
+import { Optional } from "@/utils/Optional";
+import { RelationshipExporter } from "./RelationshipExporter";
+import { RelationshipPropertyTranslator } from "./RelationshipPropertyTranslator";
 
 /**
  * Abstract builder for creating RelationshipExporter instances.
@@ -127,7 +113,8 @@ export abstract class RelationshipExporterBuilder {
    * (value) => value > threshold ? 'HIGH' : 'LOW'
    * ```
    */
-  protected propertyTranslator: RelationshipPropertyTranslator = (value) => Number(value);
+  protected propertyTranslator: RelationshipPropertyTranslator =
+    RelationshipPropertyTranslator.IDENTITY;
 
   /**
    * Batch size for relationship export operations.
@@ -196,7 +183,9 @@ export abstract class RelationshipExporterBuilder {
    * @param propertyTranslator Function to translate property values during export
    * @returns This builder for method chaining
    */
-  public withRelationPropertyTranslator(propertyTranslator: RelationshipPropertyTranslator): this {
+  public withRelationPropertyTranslator(
+    propertyTranslator: RelationshipPropertyTranslator
+  ): this {
     this.propertyTranslator = propertyTranslator;
     return this;
   }
@@ -220,7 +209,7 @@ export abstract class RelationshipExporterBuilder {
    */
   public withGraph(graph: Graph): this {
     if (!graph) {
-      throw new Error('Graph cannot be null');
+      throw new Error("Graph cannot be null");
     }
     this.graph = graph;
     return this;
@@ -338,7 +327,7 @@ export abstract class RelationshipExporterBuilder {
    */
   public withBatchSize(batchSize: number): this {
     if (batchSize <= 0) {
-      throw new Error('Batch size must be positive');
+      throw new Error("Batch size must be positive");
     }
     this.batchSize = batchSize;
     return this;

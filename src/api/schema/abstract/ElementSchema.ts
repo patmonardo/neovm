@@ -118,7 +118,7 @@ export abstract class ElementSchema<
    *
    * @returns Map of property keys to their schemas
    */
-  protected unionProperties(): Map<string, PROPERTY_SCHEMA> {
+  unionProperties(): Map<string, PROPERTY_SCHEMA> {
     const result = new Map<string, PROPERTY_SCHEMA>();
 
     for (const entry of this.entries()) {

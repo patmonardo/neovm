@@ -1,86 +1,66 @@
-import { RelationshipType } from "@/projection";
-import { Direction } from "@/api/schema";
-import { Aggregation } from "@/core";
-import { InputRelationshipSchemaVisitor } from "./InputRelationshipSchemaVisitor";
-
 /**
- * Abstract base class for relationship schema visitors that need to track the current
- * relationship type, direction, and aggregation method.
+ * RELATIONSHIP SCHEMA VISITOR - STORES STATE AND PROVIDES GETTERS
  *
- * Extends the InputRelationshipSchemaVisitor adapter and adds state management for
- * relationship-specific schema components that are being processed.
- *
- * This class serves as a convenient base for concrete relationship schema visitors
- * that need to know the current relationship context when processing properties.
+ * Abstract visitor that stores relationship schema state.
+ * Uses method overloading to handle both visitor calls and getter access.
  */
+
+import { RelationshipType } from '@/projection/RelationshipType';
+import { Direction } from '@/api/schema/Direction';
+import { Aggregation } from '@/core/Aggregation';
+import { InputRelationshipSchemaVisitor } from './InputRelationshipSchemaVisitor';
+
 export abstract class RelationshipSchemaVisitor extends InputRelationshipSchemaVisitor.Adapter {
   private _relationshipType: RelationshipType | null = null;
   private _aggregation: Aggregation | null = null;
   private _direction: Direction | null = null;
 
-  /**
-   * Gets the currently active relationship type.
-   * Sets the current relationship type being processed.
-   * Resets the relationship type when passed null.
-   */
+  // OVERLOADED RELATIONSHIP TYPE METHOD
   relationshipType(): RelationshipType | null;
-  relationshipType(relationshipType: RelationshipType | null): boolean;
-  relationshipType(relationshipType?: RelationshipType | null): RelationshipType | null | boolean {
+  relationshipType(relationshipType: RelationshipType): boolean;
+  relationshipType(relationshipType?: RelationshipType): RelationshipType | null | boolean {
     if (relationshipType === undefined) {
-      // Getter behavior
+      // Getter call - return stored value
       return this._relationshipType;
     } else {
-      // Setter/reset behavior
+      // Visitor call - store value and return boolean
       this._relationshipType = relationshipType;
       return true;
     }
   }
 
-  /**
-   * Gets the currently active direction.
-   * Sets the current direction being processed.
-   * Resets the direction when passed null.
-   */
+  // OVERLOADED DIRECTION METHOD
   direction(): Direction | null;
-  direction(direction: Direction | null): boolean;
-  direction(direction?: Direction | null): Direction | null | boolean {
+  direction(direction: Direction): boolean;
+  direction(direction?: Direction): Direction | null | boolean {
     if (direction === undefined) {
-      // Getter behavior
+      // Getter call - return stored value
       return this._direction;
     } else {
-      // Setter/reset behavior
+      // Visitor call - store value and return boolean
       this._direction = direction;
       return true;
     }
   }
 
-  /**
-   * Gets the currently active aggregation method.
-   * Sets the current aggregation method being processed.
-   * Resets the aggregation when passed null.
-   * Implements the aggregation() method from RelationshipPropertySchema interface.
-   */
+  // OVERLOADED AGGREGATION METHOD
   aggregation(): Aggregation | null;
-  aggregation(aggregation: Aggregation | null): boolean;
-  aggregation(aggregation?: Aggregation | null): Aggregation | null | boolean {
+  aggregation(aggregation: Aggregation): boolean;
+  aggregation(aggregation?: Aggregation): Aggregation | null | boolean {
     if (aggregation === undefined) {
-      // Getter behavior
+      // Getter call - return stored value
       return this._aggregation;
     } else {
-      // Setter/reset behavior
+      // Visitor call - store value and return boolean
       this._aggregation = aggregation;
       return true;
     }
   }
 
-  /**
-   * Resets all state including relationship type, aggregation, and direction.
-   * Called after processing each complete property to prepare for the next one.
-   */
   protected reset(): void {
     super.reset();
-    this.relationshipType(null);
-    this.aggregation(null);
-    this.direction(null);
+    this._relationshipType = null;
+    this._aggregation = null;
+    this._direction = null;
   }
 }

@@ -1,7 +1,7 @@
-import { GraphStoreFactorySupplier as IGraphStoreFactorySupplier } from "../api";
-import { GraphStoreFactorySupplierProvider } from "../api";
-import { GraphProjectConfig } from "../config/GraphProjectConfig"; // Adjust path as needed
-import { formatWithLocale } from "../utils"; // Adjust path as needed, or use a simple string formatter
+import { GraphStoreFactorySupplier as IGraphStoreFactorySupplier } from "@/api";
+import { GraphStoreFactorySupplierProvider } from "@/api";
+import { GraphProjectConfig } from "@/config"; // Adjust path as needed
+import { formatWithLocale } from "@/utils"; // Adjust path as needed, or use a simple string formatter
 
 // This array will hold the registered provider instances.
 // In Java, ServiceLoader populates this dynamically. Here, we'll need explicit registration.

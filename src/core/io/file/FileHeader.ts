@@ -1,4 +1,5 @@
 import { PropertySchema } from '@/api/schema';
+import { HeaderProperty } from './HeaderProperty';
 
 /**
  * Interface for file headers in the GDS IO system.
@@ -14,7 +15,7 @@ export interface FileHeader<SCHEMA, PROPERTY_SCHEMA extends PropertySchema> {
    *
    * @returns Set of HeaderProperty objects describing property mappings
    */
-  propertyMappings(): Set<HeaderProperty>;
+  propertyMappings(): Array<HeaderProperty>;
 
   /**
    * Returns a map of property schemas for the given schema identifier.

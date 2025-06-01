@@ -1,4 +1,4 @@
-import { ValueType } from '@/api/ValueType';
+import { ValueType } from '@/api';
 
 /**
  * Represents a property definition in a file header.
@@ -37,7 +37,7 @@ export class HeaderProperty {
     return new HeaderProperty(
       position,
       propertyArgs[0],
-      ValueType.fromCsvName(propertyArgs[1])
+      ValueTypefromCsvName(propertyArgs[1])
     );
   }
 

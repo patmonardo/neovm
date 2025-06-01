@@ -1,11 +1,11 @@
-import { IdMap } from '@/api/IdMap';
-import { HugeLongArray } from '@/collections/ha/HugeLongArray';
-import { Concurrency } from '@/core/concurrency/Concurrency';
-import { HugeLongArrayBuilder } from '@/core/utils/paged/HugeLongArrayBuilder';
-import { AutoCloseableThreadLocal } from '@/utils/AutoCloseableThreadLocal';
-import { LabelInformation } from './LabelInformation';
-import { IdMapBuilder } from './IdMapBuilder';
-import { ArrayIdMapBuilderOps } from './ArrayIdMapBuilderOps';
+import { IdMap } from "@/api/IdMap";
+import { HugeLongArray } from "@/collections/ha/HugeLongArray";
+import { Concurrency } from "@/concurrency";
+import { HugeLongArrayBuilder } from "@/core/utils/paged/HugeLongArrayBuilder";
+import { AutoCloseableThreadLocal } from "@/utils/AutoCloseableThreadLocal";
+import { LabelInformation } from "./LabelInformation";
+import { IdMapBuilder } from "./IdMapBuilder";
+import { ArrayIdMapBuilderOps } from "./ArrayIdMapBuilderOps";
 
 /**
  * Builder for IdMap implementations that uses growing arrays to store node mappings.
@@ -28,7 +28,10 @@ export class GrowingArrayIdMapBuilder implements IdMapBuilder {
   /**
    * Thread-safe counter for allocating sequential indices
    */
-  private readonly allocationIndex: { get: () => number; getAndAdd: (value: number) => number };
+  private readonly allocationIndex: {
+    get: () => number;
+    getAndAdd: (value: number) => number;
+  };
 
   /**
    * Thread-local allocators to enable concurrent batch loading
@@ -58,9 +61,11 @@ export class GrowingArrayIdMapBuilder implements IdMapBuilder {
         const old = counter;
         counter += value;
         return old;
-      }
+      },
     };
-    this.allocators = AutoCloseableThreadLocal.withInitial(() => new HugeLongArrayBuilder.Allocator());
+    this.allocators = AutoCloseableThreadLocal.withInitial(
+      () => new HugeLongArrayBuilder.Allocator()
+    );
   }
 
   /**
@@ -93,7 +98,13 @@ export class GrowingArrayIdMapBuilder implements IdMapBuilder {
     this.allocators.close();
     const nodeCount = this.size();
     const graphIds = this.arrayBuilder.build(nodeCount);
-    return ArrayIdMapBuilderOps.build(graphIds, nodeCount, labelInformationBuilder, highestNodeId, concurrency);
+    return ArrayIdMapBuilderOps.build(
+      graphIds,
+      nodeCount,
+      labelInformationBuilder,
+      highestNodeId,
+      concurrency
+    );
   }
 
   /**

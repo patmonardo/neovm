@@ -150,7 +150,7 @@ export interface GraphStore {
   /**
    * Checks if a node property exists for a collection of labels.
    *
-   * @param labels Collection of node labels to check
+   * @param labels Array of node labels to check
    * @param propertyKey Property key to check
    */
   hasNodeProperty(labels: Set<NodeLabel>, propertyKey: string): boolean;
@@ -158,9 +158,9 @@ export interface GraphStore {
   /**
    * Returns property keys common to all specified node labels.
    *
-   * @param labels Collection of node labels to get common properties for
+   * @param labels Array of node labels to get common properties for
    */
-  nodePropertyKeys(labels: Collection<NodeLabel>): string[];
+  nodePropertyKeys(labels: Array<NodeLabel>): string[];
 
   /**
    * Returns a node property.
@@ -218,7 +218,7 @@ export interface GraphStore {
   /**
    * Returns relationship types that have an inverse index.
    */
-  inverseIndexedRelationshipTypes(): Set<RelationshipType>;
+  inverseIndexedRelationshipTypes(): Array<RelationshipType>;
 
   // Relationship Properties
 
@@ -236,9 +236,9 @@ export interface GraphStore {
   /**
    * Returns property keys common to all specified relationship types.
    *
-   * @param relTypes Collection of relationship types to get common properties for
+   * @param relTypes Array of relationship types to get common properties for
    */
-  relationshipPropertyKeys(relTypes: Collection<RelationshipType>): string[];
+  relationshipPropertyKeys(relTypes: Array<RelationshipType>): string[];
 
   /**
    * Returns the value type of a relationship property.
@@ -326,11 +326,11 @@ export interface GraphStore {
   /**
    * Returns a graph filtered by relationship types and optional property.
    *
-   * @param relationshipTypes Collection of relationship types to filter by
+   * @param relationshipTypes Array of relationship types to filter by
    * @param relationshipProperty Optional relationship property to filter by
    */
   getGraph(
-    relationshipTypes: Collection<RelationshipType>,
+    relationshipTypes: Array<RelationshipType>,
     relationshipProperty?: string
   ): Graph;
 
@@ -357,9 +357,9 @@ export interface GraphStore {
   /**
    * Returns a graph containing only nodes with the given node labels.
    *
-   * @param nodeLabels Collection of node labels to filter by
+   * @param nodeLabels Array of node labels to filter by
    */
-  getGraph(nodeLabels: Collection<NodeLabel>): Graph;
+  getGraph(nodeLabels: Array<NodeLabel>): Graph;
 
   /**
    * Returns a graph filtered by node label, relationship type, and optional property.
@@ -377,13 +377,13 @@ export interface GraphStore {
   /**
    * Returns a graph filtered by node labels, relationship types, and optional property.
    *
-   * @param nodeLabels Collection of node labels to filter by
-   * @param relationshipTypes Collection of relationship types to filter by
+   * @param nodeLabels Array of node labels to filter by
+   * @param relationshipTypes Array of relationship types to filter by
    * @param relationshipProperty Optional relationship property to filter by
    */
   getGraph(
-    nodeLabels: Collection<NodeLabel>,
-    relationshipTypes: Collection<RelationshipType>,
+    nodeLabels: Array<NodeLabel>,
+    relationshipTypes: Array<RelationshipType>,
     relationshipProperty?: string
   ): Graph;
 
@@ -396,15 +396,10 @@ export interface GraphStore {
    * Returns a composite relationship iterator for a relationship type and property keys.
    *
    * @param relationshipType Relationship type to iterate
-   * @param propertyKeys Collection of property keys to include
+   * @param propertyKeys Array of property keys to include
    */
   getCompositeRelationshipIterator(
     relationshipType: RelationshipType,
-    propertyKeys: Collection<string>
+    propertyKeys: Array<string>
   ): CompositeRelationshipIterator;
 }
-
-/**
- * Type alias for collections that can be either arrays or other collection types.
- */
-export type Collection<T> = T[] | Set<T> | Iterable<T>;

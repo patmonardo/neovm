@@ -47,7 +47,7 @@ export class CsvRelationshipTypeMappingVisitor implements SimpleVisitor<Map.Entr
    */
   async close(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.csvWriter.end((error) => {
+      this.csvWriter.end((error: Error) => {
         if (error) {
           reject(new Error(`Failed to close CSV writer: ${error}`));
         } else {

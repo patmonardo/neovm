@@ -1,8 +1,8 @@
-import { ResultStore } from '@/api/ResultStore';
-import { ResultStoreEntry } from '@/api/ResultStoreEntry';
-import { NodePropertyValues } from '@/api/properties/nodes/NodePropertyValues';
+import { ResultStore } from '@/api';
+import { ResultStoreEntry } from '@/api';
+import { NodePropertyValues } from '@/api/properties/nodes';
 import { JobId } from '@/core/utils/progress/JobId';
-import { NodeProperty } from '@/core/write/NodeProperty';
+import { NodeProperty } from '@/core/write';
 import { NodePropertyExporter } from '@/core/write/NodePropertyExporter';
 
 /**

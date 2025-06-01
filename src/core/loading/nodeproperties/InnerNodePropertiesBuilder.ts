@@ -1,6 +1,6 @@
-import { PartialIdMap } from '@/api/IdMap';
-import { NodePropertyValues } from '@/api/properties/nodes/NodePropertyValues';
-import { GdsValue } from '@/values/GdsValue';
+import { PartialIdMap } from '@/api';
+import { NodePropertyValues } from '@/api/properties/nodes';
+import { GdsValue } from '@/values';
 
 /**
  * Interface defining the contract for builders that create node property values.

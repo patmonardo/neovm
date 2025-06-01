@@ -1,22 +1,27 @@
+/**
+ * CSV RELATIONSHIP VISITOR - EXPORTS RELATIONSHIPS TO CSV FILES
+ *
+ * Visitor that exports relationship data to CSV files grouped by relationship type.
+ * Creates separate header and data files for each relationship type.
+ */
+
+import { RelationshipType } from '@/projection';
+import { RelationshipSchema } from '@/api/schema';
+import { PropertySchema } from '@/api/schema';
+import { IdentifierMapper } from '@/core/io/IdentifierMapper';
+import { RelationshipVisitor } from '@/core/io/file/RelationshipVisitor';
+import { SimpleCsvWriter } from './SimpleCsvWriter';
 import * as fs from 'fs';
 import * as path from 'path';
-import { RelationshipVisitor } from '@/core/io/file';
-import { RelationshipType, ValueType } from '@/projection';
-import { RelationshipSchema, PropertySchema, IdentifierMapper } from '@/api/schema';
-import { JacksonFileAppender, CsvSchemaBuilder } from './JacksonFileAppender';
 
-/**
- * CSV visitor that exports relationships to separate CSV files based on their types.
- * Creates one data file per relationship type plus header files.
- */
 export class CsvRelationshipVisitor extends RelationshipVisitor {
-  public static readonly START_ID_COLUMN_NAME = ':START_ID';
-  public static readonly END_ID_COLUMN_NAME = ':END_ID';
+  static readonly START_ID_COLUMN_NAME = ":START_ID";
+  static readonly END_ID_COLUMN_NAME = ":END_ID";
 
   private readonly fileLocation: string;
   private readonly headerFiles: Set<string>;
   private readonly visitorId: number;
-  private readonly csvAppenders: Map<string, JacksonFileAppender>;
+  private readonly csvWriters: Map<string, SimpleCsvWriter>;
 
   constructor(
     fileLocation: string,
@@ -29,153 +34,132 @@ export class CsvRelationshipVisitor extends RelationshipVisitor {
     this.fileLocation = fileLocation;
     this.headerFiles = headerFiles;
     this.visitorId = visitorId;
-    this.csvAppenders = new Map();
+    this.csvWriters = new Map<string, SimpleCsvWriter>();
   }
 
   /**
-   * Test constructor with defaults.
+   * Test-only constructor with default values.
    */
   static forTesting(
     fileLocation: string,
     relationshipSchema: RelationshipSchema,
     relationshipTypeMapping: IdentifierMapper<RelationshipType>
   ): CsvRelationshipVisitor {
-    return new CsvRelationshipVisitor(fileLocation, relationshipSchema, new Set(), 0, relationshipTypeMapping);
-  }
-
-  /**
-   * Export current relationship element to CSV.
-   */
-  protected exportElement(): void {
-    const fileAppender = this.getAppender();
-
-    try {
-      fileAppender.startLine();
-
-      // Write start and end nodes
-      fileAppender.append(this.startNode());
-      fileAppender.append(this.endNode());
-
-      // Write properties
-      this.forEachProperty((key: string, value: any) => {
-        fileAppender.appendAny(value);
-      });
-
-      fileAppender.endLine();
-    } catch (error) {
-      throw new Error(`Failed to export relationship element: ${error}`);
-    }
-  }
-
-  /**
-   * Close all CSV appenders.
-   */
-  public async close(): Promise<void> {
-    const closePromises = Array.from(this.csvAppenders.values())
-      .map(async (csvAppender) => {
-        try {
-          await csvAppender.flush();
-          await csvAppender.close();
-        } catch (error) {
-          throw new Error(`Failed to close appender: ${error}`);
-        }
-      });
-
-    await Promise.all(closePromises);
-  }
-
-  /**
-   * Flush all CSV appenders.
-   */
-  public async flush(): Promise<void> {
-    const flushPromises = Array.from(this.csvAppenders.values())
-      .map(csvAppender => csvAppender.flush());
-
-    await Promise.all(flushPromises);
-  }
-
-  /**
-   * Get or create appender for current relationship type.
-   */
-  private getAppender(): JacksonFileAppender {
-    const relType = this.relationshipType();
-
-    let appender = this.csvAppenders.get(relType);
-
-    if (!appender) {
-      const fileName = this.formatWithLocale('relationships_%s', relType);
-      const headerFileName = this.formatWithLocale('%s_header.csv', fileName);
-      const dataFileName = this.formatWithLocale('%s_%d.csv', fileName, this.visitorId.toString());
-
-      // Write header file if not already written
-      if (this.headerFiles.add(headerFileName)) {
-        this.writeHeaderFile(headerFileName);
-      }
-
-      // Create data file appender
-      const dataFilePath = path.join(this.fileLocation, dataFileName);
-      appender = this.fileAppender(dataFilePath);
-      this.csvAppenders.set(relType, appender);
-    }
-
-    return appender;
-  }
-
-  /**
-   * Write header file for current relationship type.
-   */
-  private writeHeaderFile(headerFileName: string): void {
-    const headerFilePath = path.join(this.fileLocation, headerFileName);
-
-    try {
-      const headerAppender = this.fileAppender(headerFilePath);
-
-      headerAppender.startLine();
-      headerAppender.append(CsvRelationshipVisitor.START_ID_COLUMN_NAME);
-      headerAppender.append(CsvRelationshipVisitor.END_ID_COLUMN_NAME);
-
-      this.forEachPropertyWithType((key: string, value: any, type: ValueType) => {
-        const propertyHeader = this.formatWithLocale(
-          '%s:%s',
-          key,
-          type.csvName()
-        );
-        headerAppender.append(propertyHeader);
-      });
-
-      headerAppender.endLine();
-      headerAppender.close();
-    } catch (error) {
-      throw new Error(`Could not write header file ${headerFileName}: ${error}`);
-    }
-  }
-
-  /**
-   * Create file appender with proper schema.
-   */
-  private fileAppender(filePath: string): JacksonFileAppender {
-    const propertySchema = this.getPropertySchema();
-
-    // Sort by property key for deterministic output
-    propertySchema.sort((a, b) => a.key().localeCompare(b.key()));
-
-    return JacksonFileAppender.of(
-      filePath,
-      propertySchema,
-      (csvSchemaBuilder) => csvSchemaBuilder
-        .addNumberColumn(CsvRelationshipVisitor.START_ID_COLUMN_NAME)
-        .addNumberColumn(CsvRelationshipVisitor.END_ID_COLUMN_NAME)
+    return new CsvRelationshipVisitor(
+      fileLocation,
+      relationshipSchema,
+      new Set<string>(),
+      0,
+      relationshipTypeMapping
     );
   }
 
-  /**
-   * Format string with locale (equivalent to Java formatWithLocale).
-   */
-  private formatWithLocale(template: string, ...args: string[]): string {
-    let result = template;
-    for (const arg of args) {
-      result = result.replace('%s', arg).replace('%d', arg);
+  protected exportElement(): void {
+    const writer = this.getWriter();
+
+    // Start CSV row
+    const row: string[] = [];
+
+    // Add START_ID and END_ID columns
+    row.push(this.startNode().toString());
+    row.push(this.endNode().toString());
+
+    // Add property values
+    this.forEachProperty((key, value) => {
+      row.push(this.formatCsvValue(value));
+    });
+
+    // Write row
+    writer.writeRow(row);
+  }
+
+  close(): void {
+    for (const writer of this.csvWriters.values()) {
+      try {
+        writer.flush();
+        writer.close();
+      } catch (error) {
+        throw new Error(`Failed to close CSV writer: ${(error as Error).message}`);
+      }
     }
-    return result;
+  }
+
+  flush(): void {
+    for (const writer of this.csvWriters.values()) {
+      writer.flush();
+    }
+  }
+
+  private getWriter(): SimpleCsvWriter {
+    const relationshipTypeStr = this.relationshipType();
+
+    return this.csvWriters.get(relationshipTypeStr) || this.createWriter(relationshipTypeStr);
+  }
+
+  private createWriter(relationshipTypeStr: string): SimpleCsvWriter {
+    const fileName = `relationships_${relationshipTypeStr}`;
+    const headerFileName = `${fileName}_header.csv`;
+    const dataFileName = `${fileName}_${this.visitorId}.csv`;
+
+    // Write header file if not already written
+    if (this.headerFiles.add(headerFileName)) {
+      this.writeHeaderFile(headerFileName);
+    }
+
+    // Create data file writer
+    const dataFilePath = path.join(this.fileLocation, dataFileName);
+    const writer = new SimpleCsvWriter(dataFilePath);
+
+    this.csvWriters.set(relationshipTypeStr, writer);
+    return writer;
+  }
+
+  private writeHeaderFile(headerFileName: string): void {
+    const headerFilePath = path.join(this.fileLocation, headerFileName);
+    const headerRow: string[] = [];
+
+    // Add START_ID and END_ID columns
+    headerRow.push(CsvRelationshipVisitor.START_ID_COLUMN_NAME);
+    headerRow.push(CsvRelationshipVisitor.END_ID_COLUMN_NAME);
+
+    // Add property columns with types
+    this.forEachPropertyWithType((key, value, type) => {
+      const propertyHeader = `${key}:${type.csvName()}`;
+      headerRow.push(propertyHeader);
+    });
+
+    // Write header file
+    try {
+      const csvContent = headerRow.join(',');
+      fs.writeFileSync(headerFilePath, csvContent, 'utf-8');
+    } catch (error) {
+      throw new Error(`Could not write header file: ${(error as Error).message}`);
+    }
+  }
+
+  protected getPropertySchema(): PropertySchema[] {
+    const relationshipType = this.relationshipTypeMapping().forIdentifier(this.relationshipType());
+    const propertySchemaForType = this.relationshipSchema().filter(relationshipType);
+    const properties = Array.from(propertySchemaForType.properties().values());
+
+    // Sort by key for consistent ordering
+    properties.sort((a, b) => a.key().localeCompare(b.key()));
+
+    return properties;
+  }
+
+  private formatCsvValue(value: any): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    const str = value.toString();
+
+    // Escape CSV special characters
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+
+    return str;
   }
 }

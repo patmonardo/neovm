@@ -76,7 +76,7 @@ export class NodeStore {
 
     // Build node properties map organized by label
     for (const label of graphStore.nodeLabels()) {
-      const properties = this.getOrCreatePropertiesMap(nodeProperties, label.name);
+      const properties = this.getOrCreatePropertiesMap(nodeProperties, label.name());
 
       const propertySchemas = graphStore.schema().nodeSchema().propertySchemasFor(label);
       for (const propertySchema of propertySchemas) {

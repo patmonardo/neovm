@@ -1,5 +1,5 @@
-import { Graph } from '../../api/Graph'; // Adjust path as needed
-import { GraphStore } from '../../api/GraphStore'; // Adjust path as needed
+import { Graph } from "@/api";
+import { GraphStore } from "@/api";
 
 /**
  * Defines hooks for performing additional validation after a graph and its

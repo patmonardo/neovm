@@ -1,9 +1,9 @@
 import { GraphStore } from "./GraphStore";
-import { GraphProjectConfig } from "@/config/GraphProjectConfig";
+import { GraphProjectConfig } from "@/config";
 import { GraphDimensions } from "@/core/GraphDimensions";
 import { Capabilities } from "@/core/loading/Capabilities";
 import { MemoryEstimation } from "@/mem/MemoryEstimation";
-import { GraphLoaderContext } from "./GraphLoaderContext";
+import { GraphLoaderContext } from "@/GraphLoaderContext";
 
 /**
  * Defines the contract for a supplier of GraphStoreFactory instances.

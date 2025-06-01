@@ -1,12 +1,14 @@
+/**
+ * NODE LABEL MAPPING LOADER - CSV LABEL MAPPING PARSER
+ *
+ * Simple loader with single load() method that reads CSV node label mapping files.
+ * Maps node indices to label strings for efficient label lookup.
+ */
+
+import { CsvNodeLabelMappingVisitor } from './CsvNodeLabelMappingVisitor';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as csv from 'csv-parser';
-import { CsvNodeLabelMappingVisitor } from './CsvNodeLabelMappingVisitor';
 
-/**
- * Loader for node label mappings from CSV files.
- * Loads the mapping between string indices and node label names.
- */
 export class NodeLabelMappingLoader {
   private readonly labelMappingPath: string;
   private readonly mapping: Map<string, string>;
@@ -18,63 +20,73 @@ export class NodeLabelMappingLoader {
 
   /**
    * Load node label mapping from CSV file.
-   * Returns null if file doesn't exist, otherwise returns the mapping.
+   * Returns empty Optional if file doesn't exist.
+   *
+   * @returns Map<string, string> of index -> label mappings, or null if file doesn't exist
+   * @throws Error if file cannot be read or parsed
    */
-  async load(): Promise<Map<string, string> | null> {
-    try {
-      // Check if file exists and is a regular file
-      if (!fs.existsSync(this.labelMappingPath)) {
-        return null;
-      }
-
-      const stats = fs.statSync(this.labelMappingPath);
-      if (!stats.isFile()) {
-        return null;
-      }
-
-      await this.parseMappingFile();
-      return new Map(this.mapping);
-    } catch (error) {
-      throw new Error(`Failed to load node label mapping from ${this.labelMappingPath}: ${error}`);
+  load(): Map<string, string> | null {
+    // Return null if file doesn't exist (Optional.empty() equivalent)
+    if (!fs.existsSync(this.labelMappingPath)) {
+      return null;
     }
+
+    try {
+      // Read CSV file line by line
+      const fileContent = fs.readFileSync(this.labelMappingPath, 'utf-8');
+      const lines = fileContent.trim().split('\n');
+
+      if (lines.length === 0) {
+        return this.mapping;
+      }
+
+      // Parse header line
+      const header = lines[0].split(',').map(col => col.trim());
+      const indexColumn = header.indexOf('index');
+      const labelColumn = header.indexOf('label');
+
+      if (indexColumn === -1) {
+        throw new Error('Missing required "index" column in label mapping');
+      }
+      if (labelColumn === -1) {
+        throw new Error('Missing required "label" column in label mapping');
+      }
+
+      // Process each data line
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line === '') continue;
+
+        const mappingLine = this.parseMappingLine(line, indexColumn, labelColumn);
+        this.mapping.set(mappingLine.index, mappingLine.label);
+      }
+
+    } catch (error) {
+      throw new Error(`Failed to load node label mapping: ${(error as Error).message}`);
+    }
+
+    return this.mapping;
   }
 
   /**
-   * Parse the CSV mapping file.
+   * Parse a single CSV line into a MappingLine object.
    */
-  private async parseMappingFile(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      fs.createReadStream(this.labelMappingPath, { encoding: 'utf8' })
-        .pipe(csv({
-          headers: true,
-          skipEmptyLines: true,
-          strict: false, // Equivalent to Jackson's flexibility
-          mapHeaders: ({ header }) => header.trim() // Equivalent to TRIM_SPACES
-        }))
-        .on('data', (row) => {
-          try {
-            const mappingLine = this.parseMappingLine(row);
-            this.mapping.set(mappingLine.index, mappingLine.label);
-          } catch (error) {
-            reject(new Error(`Failed to parse mapping line: ${error}`));
-          }
-        })
-        .on('end', () => {
-          resolve();
-        })
-        .on('error', (error) => {
-          reject(error);
-        });
-    });
-  }
+  private parseMappingLine(line: string, indexColumn: number, labelColumn: number): MappingLine {
+    const columns = line.split(',').map(col => col.trim());
 
-  /**
-   * Parse a single CSV row into MappingLine.
-   */
-  private parseMappingLine(row: any): MappingLine {
-    return {
-      index: row.index || '',
-      label: row.label || ''
-    };
+    const index = columns[indexColumn] || '';
+    const label = columns[labelColumn] || '';
+
+    return new MappingLine(index, label);
   }
+}
+
+/**
+ * Mapping line data structure.
+ */
+class MappingLine {
+  constructor(
+    public readonly index: string,
+    public readonly label: string
+  ) {}
 }

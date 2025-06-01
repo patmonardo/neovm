@@ -1,6 +1,6 @@
 import { NodeLabel } from "@/projection";
-import { RelationshipType } from "@/projection/RelationshipType";
-import { ValueType } from "@/api/ValueType";
+import { RelationshipType } from "@/projection";
+import { ValueType } from "@/api";
 import { GraphProperty } from "./properties/graph";
 import { GraphPropertyValues } from "./properties/graph";
 import { NodeProperty } from "./properties/nodes";
@@ -8,15 +8,15 @@ import { NodePropertyValues } from "./properties/nodes";
 import { RelationshipProperty } from "./properties/relationships";
 import { RelationshipPropertyStore } from "./properties/relationships";
 import { GraphSchema } from "./schema";
-import { Capabilities } from "@/core/loading/Capabilities";
-import { DeletionResult } from "@/core/loading/DeletionResult";
-import { SingleTypeRelationships } from "@/core/loading/SingleTypeRelationships";
+import { Capabilities } from "@/core/loading";
+import { DeletionResult } from "@/core/loading";
+import { SingleTypeRelationships } from "@/core/loading";
 import { DatabaseInfo } from "./DatabaseInfo";
 import { IdMap } from "./IdMap";
 import { Topology } from "./Topology";
 import { CompositeRelationshipIterator } from "./CompositeRelationshipIterator";
 import { Graph } from "./Graph";
-import { GraphStore, Collection } from "./GraphStore";
+import { GraphStore } from "./GraphStore";
 
 export abstract class GraphStoreAdapter implements GraphStore {
   protected readonly graphStore: GraphStore;
@@ -82,16 +82,16 @@ export abstract class GraphStoreAdapter implements GraphStore {
   // Overloads
   nodePropertyKeys(): Set<string>;
   nodePropertyKeys(label: NodeLabel): Set<string>;
-  nodePropertyKeys(labels: Collection<NodeLabel>): string[];
+  nodePropertyKeys(labels: Array<NodeLabel>): string[];
 
   // Implementation
   nodePropertyKeys(
-    labelOrLabels?: NodeLabel | Collection<NodeLabel>
+    labelOrLabels?: NodeLabel | Array<NodeLabel>
   ): Set<string> | string[] {
     if (labelOrLabels === undefined) {
       return this.graphStore.nodePropertyKeys();
     }
-    if (isCollection(labelOrLabels)) {
+    if (isArray(labelOrLabels)) {
       // Accept Set, Array, or Iterable
       // Convert to Set if needed
       const set =
@@ -106,16 +106,16 @@ export abstract class GraphStoreAdapter implements GraphStore {
 
   hasNodeProperty(propertyKey: string): boolean;
   hasNodeProperty(label: NodeLabel, propertyKey: string): boolean;
-  hasNodeProperty(labels: Collection<NodeLabel>, propertyKey: string): boolean;
+  hasNodeProperty(labels: Array<NodeLabel>, propertyKey: string): boolean;
   hasNodeProperty(
-    labelOrLabelsOrKey: NodeLabel | Collection<NodeLabel> | string,
+    labelOrLabelsOrKey: NodeLabel | Array<NodeLabel> | string,
     propertyKey?: string
   ): boolean {
     if (propertyKey === undefined) {
       // Only propertyKey provided
       return this.graphStore.hasNodeProperty(labelOrLabelsOrKey as string);
     }
-    if (isCollection(labelOrLabelsOrKey)) {
+    if (isArray(labelOrLabelsOrKey)) {
       const set =
         labelOrLabelsOrKey instanceof Set
           ? labelOrLabelsOrKey
@@ -171,15 +171,15 @@ export abstract class GraphStoreAdapter implements GraphStore {
   // Overloads
   relationshipPropertyKeys(): Set<string>;
   relationshipPropertyKeys(relationshipType: RelationshipType): Set<string>;
-  relationshipPropertyKeys(relTypes: Collection<RelationshipType>): string[];
+  relationshipPropertyKeys(relTypes: Array<RelationshipType>): string[];
 
   relationshipPropertyKeys(
-    relTypesOrType?: RelationshipType | Collection<RelationshipType>
+    relTypesOrType?: RelationshipType | Array<RelationshipType>
   ): Set<string> | string[] {
     if (relTypesOrType === undefined) {
       return this.graphStore.relationshipPropertyKeys();
     }
-    if (isCollection(relTypesOrType)) {
+    if (isArray(relTypesOrType)) {
       const set =
         relTypesOrType instanceof Set
           ? relTypesOrType
@@ -219,15 +219,15 @@ export abstract class GraphStoreAdapter implements GraphStore {
 
   // --- Graph Retrieval (getGraph) ---
   getGraph(nodeLabel: NodeLabel): Graph;
-  getGraph(nodeLabels: Collection<NodeLabel>): Graph;
-  getGraph(relationshipTypes: Collection<RelationshipType>): Graph;
+  getGraph(nodeLabels: Array<NodeLabel>): Graph;
+  getGraph(relationshipTypes: Array<RelationshipType>): Graph;
   getGraph(relationshipProperty: string): Graph;
   getGraph(
     relationshipType: RelationshipType,
     relationshipProperty?: string
   ): Graph;
   getGraph(
-    relationshipTypes: Collection<RelationshipType>,
+    relationshipTypes: Array<RelationshipType>,
     relationshipProperty?: string
   ): Graph;
   getGraph(
@@ -241,8 +241,8 @@ export abstract class GraphStoreAdapter implements GraphStore {
     relationshipProperty?: string
   ): Graph;
   getGraph(
-    nodeLabels: Collection<NodeLabel>,
-    relationshipTypes: Collection<RelationshipType>,
+    nodeLabels: Array<NodeLabel>,
+    relationshipTypes: Array<RelationshipType>,
     relationshipProperty?: string
   ): Graph;
   getGraph(param1: any, param2?: any, param3?: any): Graph {
@@ -254,7 +254,7 @@ export abstract class GraphStoreAdapter implements GraphStore {
   }
   getCompositeRelationshipIterator(
     relationshipType: RelationshipType,
-    propertyKeys: Collection<string>
+    propertyKeys: Array<string>
   ): CompositeRelationshipIterator {
     return this.graphStore.getCompositeRelationshipIterator(
       relationshipType,
@@ -264,7 +264,7 @@ export abstract class GraphStoreAdapter implements GraphStore {
 }
 
 // Helper to check if something is a collection (Set, Array, or Iterable but not string)
-function isCollection<T>(obj: any): obj is Collection<T> {
+function isArray<T>(obj: any): obj is Array<T> {
   return (
     (Array.isArray(obj) && typeof obj !== "string") ||
     obj instanceof Set ||

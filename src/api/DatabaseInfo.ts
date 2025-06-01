@@ -1,6 +1,15 @@
 import { DatabaseId } from "./DatabaseId";
 
 /**
+ * Possible locations for a database.
+ */
+export enum DatabaseLocation {
+  LOCAL = "LOCAL",
+  REMOTE = "REMOTE",
+  NONE = "NONE",
+}
+
+/**
  * Information about a database, including its ID and location.
  */
 export interface DatabaseInfo {
@@ -12,7 +21,7 @@ export interface DatabaseInfo {
   /**
    * Returns the database location.
    */
-  databaseLocation(): DatabaseInfo.DatabaseLocation;
+  databaseLocation(): DatabaseLocation;
 
   /**
    * Returns the remote database ID if present.
@@ -24,14 +33,6 @@ export interface DatabaseInfo {
  * Namespace for DatabaseInfo-related types and factory methods.
  */
 export namespace DatabaseInfo {
-  /**
-   * Possible locations for a database.
-   */
-  export enum DatabaseLocation {
-    LOCAL = "LOCAL",
-    REMOTE = "REMOTE",
-    NONE = "NONE",
-  }
   /**
    * Creates a DatabaseInfo for a local or non-remote database.
    *

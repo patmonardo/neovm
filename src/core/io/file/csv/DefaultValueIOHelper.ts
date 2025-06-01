@@ -1,5 +1,5 @@
 import { DefaultValue } from '@/api';
-import { ValueType } from '@/api/nodeproperties';
+import { ValueType } from '@/api';
 
 /**
  * Helper class for serializing and deserializing DefaultValue objects to/from CSV format.

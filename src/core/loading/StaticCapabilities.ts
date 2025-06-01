@@ -1,75 +1,25 @@
-import { Capabilities, CapabilitiesDefaults } from './Capabilities';
-import { WriteMode } from './WriteMode';
-
 /**
- * Extends base Capabilities with specific default behaviors,
- * typically for a static or unchanging capabilities context.
+ * STATIC CAPABILITIES - DEFAULT WRITE MODE LOCAL
  */
-export interface StaticCapabilities extends Capabilities {
-  // writeMode() is inherited and will have a default in the concrete class.
-  // canWriteToLocalDatabase() is inherited and will use CapabilitiesDefaults.
-  // canWriteToRemoteDatabase() is inherited and will use CapabilitiesDefaults.
-}
 
-// --- Concrete Implementation (like ImmutableStaticCapabilities) ---
+import { Capabilities, WriteMode } from './Capabilities';
 
-class ConcreteStaticCapabilities implements StaticCapabilities {
-  private readonly _writeMode: WriteMode;
+export class StaticCapabilities implements Capabilities {
+  constructor(private readonly _writeMode: WriteMode = WriteMode.LOCAL) {}
 
-  // Lazy loaded properties
-  private _canWriteToLocalDatabase: boolean | undefined = undefined;
-  private _canWriteToRemoteDatabase: boolean | undefined = undefined;
-
-  constructor(builder: ConcreteStaticCapabilitiesBuilder) {
-    this._writeMode = builder.getWriteMode();
-  }
-
-  public writeMode(): WriteMode {
+  writeMode(): WriteMode {
     return this._writeMode;
   }
 
-  public canWriteToLocalDatabase(): boolean {
-    if (this._canWriteToLocalDatabase === undefined) {
-      // This mimics Capabilities.super.canWriteToLocalDatabase()
-      // by calling the default logic defined for the Capabilities interface.
-      this._canWriteToLocalDatabase = CapabilitiesDefaults.canWriteToLocalDatabase(this.writeMode());
-    }
-    return this._canWriteToLocalDatabase;
+  canWriteToLocalDatabase(): boolean {
+    return this._writeMode === WriteMode.LOCAL;
   }
 
-  public canWriteToRemoteDatabase(): boolean {
-    if (this._canWriteToRemoteDatabase === undefined) {
-      // This mimics Capabilities.super.canWriteToRemoteDatabase()
-      this._canWriteToRemoteDatabase = CapabilitiesDefaults.canWriteToRemoteDatabase(this.writeMode());
-    }
-    return this._canWriteToRemoteDatabase;
+  canWriteToRemoteDatabase(): boolean {
+    return this._writeMode === WriteMode.REMOTE;
   }
 
-  public static builder(): ConcreteStaticCapabilitiesBuilder {
-    return new ConcreteStaticCapabilitiesBuilder();
+  static of(writeMode: WriteMode = WriteMode.LOCAL): StaticCapabilities {
+    return new StaticCapabilities(writeMode);
   }
 }
-
-class ConcreteStaticCapabilitiesBuilder {
-  private _writeMode: WriteMode = WriteMode.LOCAL; // Default from @Value.Default
-
-  public writeMode(mode: WriteMode): ConcreteStaticCapabilitiesBuilder {
-    this._writeMode = mode;
-    return this;
-  }
-
-  public getWriteMode(): WriteMode { // Getter for the constructor
-      return this._writeMode;
-  }
-
-  public build(): StaticCapabilities {
-    return new ConcreteStaticCapabilities(this);
-  }
-}
-
-// Factory to mimic static methods on the interface if desired, or direct builder usage
-export const StaticCapabilitiesFactory = {
-  builder: ConcreteStaticCapabilities.builder,
-  // Example of creating a default instance
-  createDefault: (): StaticCapabilities => ConcreteStaticCapabilities.builder().build(),
-};

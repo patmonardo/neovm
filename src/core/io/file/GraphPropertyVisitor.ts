@@ -1,4 +1,4 @@
-import { InputEntityVisitor } from '@/batchimport/api/input/InputEntityVisitor';
+import { InputEntityVisitor } from '@/api/import';
 
 /**
  * Interface for objects that can be flushed (similar to Java's Flushable).

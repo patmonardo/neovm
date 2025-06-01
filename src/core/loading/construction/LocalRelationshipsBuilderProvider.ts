@@ -1,420 +1,289 @@
-import { Concurrency } from '@/core/concurrency';
+/**
+ * LOCAL RELATIONSHIPS BUILDER PROVIDER - THREAD-SAFE ACCESS TO RELATIONSHIP BUILDERS
+ *
+ * Provides thread-safe access to LocalRelationshipsBuilder instances using two strategies:
+ * 1. THREAD-LOCAL: Each thread gets its own dedicated builder
+ * 2. POOLED: Shared pool of builders with acquire/release pattern
+ *
+ * USAGE PATTERN:
+ * ```
+ * const slot = provider.acquire();  // Get a builder safely
+ * try {
+ *   slot.get().addRelationship(src, target);  // Use the builder
+ * } finally {
+ *   slot.release();                  // Return it safely
+ * }
+ * ```
+ */
+
+import { Concurrency } from '@/concurrency';
 import { AutoCloseableThreadLocal } from '@/utils';
 import { LocalRelationshipsBuilder } from './LocalRelationshipsBuilder';
 
 /**
- * Provides thread-local or pooled access to LocalRelationshipsBuilder instances.
- * Uses the same strategy pattern as LocalNodesBuilderProvider for resource management.
- *
- * Access pattern:
- * ```typescript
- * const provider = LocalRelationshipsBuilderProvider.threadLocal(() => createBuilder());
- * const slot = provider.acquire();
- * try {
- *   const builder = slot.get();
- *   // use the builder for relationships
- * } finally {
- *   slot.release();
- * }
- * ```
+ * Abstract provider for thread-safe access to LocalRelationshipsBuilder instances.
  */
-export abstract class LocalRelationshipsBuilderProvider implements AutoCloseable {
+export abstract class LocalRelationshipsBuilderProvider {
 
   /**
-   * Create a thread-local provider (fastest, for fixed thread count).
+   * Create a THREAD-LOCAL provider (fastest access).
+   * Each thread gets its own dedicated builder.
    */
   static threadLocal(builderSupplier: () => LocalRelationshipsBuilder): LocalRelationshipsBuilderProvider {
-    return new ThreadLocalProvider(builderSupplier);
+    return new LocalRelationshipsBuilderProvider.ThreadLocalProvider(builderSupplier);
   }
 
   /**
-   * Create a pooled provider (more flexible, for varying thread count).
+   * Create a POOLED provider (flexible access).
+   * Shared pool of builders with acquire/release pattern.
    */
   static pooled(
     builderSupplier: () => LocalRelationshipsBuilder,
     concurrency: Concurrency
   ): LocalRelationshipsBuilderProvider {
-    return PooledProvider.create(builderSupplier, concurrency);
+    return LocalRelationshipsBuilderProvider.PooledProvider.create(builderSupplier, concurrency);
   }
 
-  /**
-   * Acquire a slot containing a LocalRelationshipsBuilder instance.
-   */
-  abstract acquire(): LocalRelationshipsBuilderSlot;
+  /** Acquire a slot containing a LocalRelationshipsBuilder */
+  abstract acquire(): LocalRelationshipsBuilderProvider.Slot;
 
-  /**
-   * Close the provider and clean up all resources.
-   */
+  /** Close provider and cleanup all resources */
   abstract close(): void;
 }
 
 /**
- * Interface for a slot that contains a LocalRelationshipsBuilder instance.
+ * Namespace containing all Provider-related classes and interfaces.
+ * Organizes the complex inner class hierarchy outside the main class.
  */
-export interface LocalRelationshipsBuilderSlot {
-  /**
-   * Get the LocalRelationshipsBuilder instance.
-   */
-  get(): LocalRelationshipsBuilder;
+export namespace LocalRelationshipsBuilderProvider {
 
   /**
-   * Release the slot back to the provider.
+   * Slot interface - safe container for LocalRelationshipsBuilder.
+   * Enforces proper acquire/release lifecycle.
    */
-  release(): void;
-}
+  export interface Slot {
+    /** Get the builder instance */
+    get(): LocalRelationshipsBuilder;
 
-/**
- * ThreadLocal-based provider implementation.
- * Fastest access but uses more memory with many threads.
- */
-class ThreadLocalProvider extends LocalRelationshipsBuilderProvider {
-  private readonly threadLocal: AutoCloseableThreadLocal<Slot>;
-
-  constructor(builderSupplier: () => LocalRelationshipsBuilder) {
-    super();
-    this.threadLocal = AutoCloseableThreadLocal.withInitial(() =>
-      new Slot(builderSupplier())
-    );
+    /** Release the builder back to provider */
+    release(): void;
   }
 
-  acquire(): LocalRelationshipsBuilderSlot {
-    return this.threadLocal.get();
-  }
+  /**
+   * THREAD-LOCAL STRATEGY IMPLEMENTATION
+   * Each thread gets its own dedicated LocalRelationshipsBuilder.
+   */
+  export class ThreadLocalProvider extends LocalRelationshipsBuilderProvider {
+    private readonly threadLocal: AutoCloseableThreadLocal<ThreadLocalSlot>;
 
-  close(): void {
-    this.threadLocal.close();
+    constructor(builderSupplier: () => LocalRelationshipsBuilder) {
+      super();
+      this.threadLocal = AutoCloseableThreadLocal.withInitial(() =>
+        new ThreadLocalSlot(builderSupplier())
+      );
+    }
+
+    acquire(): Slot {
+      return this.threadLocal.get();
+    }
+
+    close(): void {
+      this.threadLocal.close();
+    }
   }
 
   /**
    * Thread-local slot implementation.
+   * No actual release needed since builder stays with thread.
    */
-  private static class Slot implements LocalRelationshipsBuilderSlot, AutoCloseable {
-    private readonly builder: LocalRelationshipsBuilder;
-
-    constructor(builder: LocalRelationshipsBuilder) {
-      this.builder = builder;
-    }
+  export class ThreadLocalSlot implements Slot, AutoCloseable {
+    constructor(private readonly builder: LocalRelationshipsBuilder) {}
 
     get(): LocalRelationshipsBuilder {
       return this.builder;
     }
 
     release(): void {
-      // No-op for thread-local slots - they stay bound to the thread
+      // No-op: thread keeps its builder
     }
 
     close(): void {
       this.builder.close();
     }
+  }
 
-    [Symbol.dispose](): void {
-      this.close();
+  /**
+   * POOLED STRATEGY IMPLEMENTATION
+   * Uses external stormpot library for sophisticated object pooling.
+   */
+  export class PooledProvider extends LocalRelationshipsBuilderProvider {
+    private readonly pool: Pool<PooledSlot>;
+    private readonly timeout = new Timeout(1, TimeUnit.HOURS);
+
+    /**
+     * Create a pooled provider with proper resource management.
+     */
+    static create(
+      builderSupplier: () => LocalRelationshipsBuilder,
+      concurrency: Concurrency
+    ): LocalRelationshipsBuilderProvider {
+      const pool = Pool
+        .fromInline(new PooledSlotAllocator(builderSupplier))
+        .setSize(concurrency.value())
+        .build();
+
+      return new PooledProvider(pool);
     }
-  }
-}
 
-/**
- * Object pool-based provider implementation.
- * More memory efficient but slower access.
- */
-class PooledProvider extends LocalRelationshipsBuilderProvider {
-  private readonly pool: ObjectPool<PooledSlot>;
-  private readonly timeoutMs: number;
-
-  static create(
-    builderSupplier: () => LocalRelationshipsBuilder,
-    concurrency: Concurrency
-  ): LocalRelationshipsBuilderProvider {
-    const pool = new ObjectPool<PooledSlot>(
-      new SlotAllocator(builderSupplier),
-      concurrency.value()
-    );
-    return new PooledProvider(pool);
-  }
-
-  constructor(pool: ObjectPool<PooledSlot>) {
-    super();
-    this.pool = pool;
-    this.timeoutMs = 60 * 60 * 1000; // 1 hour timeout
-  }
-
-  acquire(): LocalRelationshipsBuilderSlot {
-    try {
-      return this.pool.acquire(this.timeoutMs);
-    } catch (error) {
-      throw new Error(`Failed to acquire relationship builder from pool: ${error.message}`);
+    private constructor(pool: Pool<PooledSlot>) {
+      super();
+      this.pool = pool;
     }
-  }
 
-  close(): void {
-    try {
-      this.pool.shutdown(this.timeoutMs);
-    } catch (error) {
-      throw new Error(`Failed to shutdown relationship builder pool: ${error.message}`);
+    acquire(): Slot {
+      try {
+        return this.pool.claim(this.timeout);
+      } catch (error) {
+        if (error instanceof InterruptedException) {
+          throw new Error(`Pool acquisition interrupted: ${error.message}`);
+        }
+        throw error;
+      }
+    }
+
+    async close(): Promise<void> {
+      await this.pool.shutdown().await(this.timeout);
     }
   }
 
   /**
    * Pooled slot implementation.
+   * Must be released back to pool after use.
    */
-  private static class PooledSlot implements LocalRelationshipsBuilderSlot, Poolable {
-    private readonly poolSlot: PoolSlot;
-    private readonly builder: LocalRelationshipsBuilder;
-
-    constructor(poolSlot: PoolSlot, builder: LocalRelationshipsBuilder) {
-      this.poolSlot = poolSlot;
-      this.builder = builder;
-    }
+  export class PooledSlot implements Slot, Poolable {
+    constructor(
+      private readonly slot: stormpot.Slot,
+      private readonly builder: LocalRelationshipsBuilder
+    ) {}
 
     get(): LocalRelationshipsBuilder {
       return this.builder;
     }
 
     release(): void {
-      this.poolSlot.release(this);
-    }
-
-    // Poolable interface
-    deallocate(): void {
-      this.builder.close();
+      this.slot.release(this);
     }
   }
 
   /**
-   * Allocator for creating pooled slots.
+   * Allocator for creating and destroying pooled slots.
+   * Handles the lifecycle of LocalRelationshipsBuilder instances in the pool.
    */
-  private static class SlotAllocator implements PoolAllocator<PooledSlot> {
-    private readonly builderSupplier: () => LocalRelationshipsBuilder;
+  export class PooledSlotAllocator implements stormpot.Allocator<PooledSlot> {
+    constructor(private readonly builderSupplier: () => LocalRelationshipsBuilder) {}
 
-    constructor(builderSupplier: () => LocalRelationshipsBuilder) {
-      this.builderSupplier = builderSupplier;
-    }
-
-    allocate(slot: PoolSlot): PooledSlot {
+    allocate(slot: stormpot.Slot): PooledSlot {
       return new PooledSlot(slot, this.builderSupplier());
     }
 
-    deallocate(pooledSlot: PooledSlot): void {
-      pooledSlot.deallocate();
+    async deallocate(slot: PooledSlot): Promise<void> {
+      await slot.get().close();
     }
   }
 }
 
-/**
- * Object pool implementation (reused from LocalNodesBuilderProvider).
- */
-export class ObjectPool<T extends Poolable> {
-  private readonly allocator: PoolAllocator<T>;
-  private readonly available: T[] = [];
-  private readonly inUse = new Set<T>();
-  private readonly maxSize: number;
-  private isShutdown = false;
-
-  constructor(allocator: PoolAllocator<T>, maxSize: number) {
-    this.allocator = allocator;
-    this.maxSize = maxSize;
-  }
-
-  acquire(timeoutMs: number): T {
-    if (this.isShutdown) {
-      throw new Error('Pool is shutdown');
-    }
-
-    // Try to get from available pool
-    if (this.available.length > 0) {
-      const item = this.available.pop()!;
-      this.inUse.add(item);
-      return item;
-    }
-
-    // Create new if under limit
-    if (this.inUse.size < this.maxSize) {
-      const slot = new SimplePoolSlot(this);
-      const item = this.allocator.allocate(slot);
-      this.inUse.add(item);
-      return item;
-    }
-
-    // Wait for available item (simplified implementation)
-    const startTime = Date.now();
-    while (Date.now() - startTime < timeoutMs) {
-      if (this.available.length > 0) {
-        const item = this.available.pop()!;
-        this.inUse.add(item);
-        return item;
-      }
-      this.sleep(10);
-    }
-
-    throw new Error(`Timeout waiting for relationship builder after ${timeoutMs}ms`);
-  }
-
-  release(item: T): void {
-    if (this.inUse.has(item)) {
-      this.inUse.delete(item);
-      if (!this.isShutdown) {
-        this.available.push(item);
-      } else {
-        this.allocator.deallocate(item);
-      }
-    }
-  }
-
-  shutdown(timeoutMs: number): void {
-    this.isShutdown = true;
-
-    // Wait for all items to be returned
-    const startTime = Date.now();
-    while (this.inUse.size > 0 && Date.now() - startTime < timeoutMs) {
-      this.sleep(10);
-    }
-
-    // Deallocate all items
-    for (const item of this.available) {
-      this.allocator.deallocate(item);
-    }
-    this.available.length = 0;
-
-    // Force deallocate remaining in-use items
-    for (const item of this.inUse) {
-      this.allocator.deallocate(item);
-    }
-    this.inUse.clear();
-  }
-
-  getStats(): PoolStats {
-    return {
-      maxSize: this.maxSize,
-      available: this.available.length,
-      inUse: this.inUse.size,
-      total: this.available.length + this.inUse.size,
-      isShutdown: this.isShutdown
-    };
-  }
-
-  private sleep(ms: number): void {
-    const start = Date.now();
-    while (Date.now() - start < ms) {
-      // Busy wait (simplified)
-    }
-  }
-}
+// =============================================================================
+// EXTERNAL LIBRARY INTERFACES (stormpot)
+// =============================================================================
 
 /**
- * Simple pool slot implementation.
+ * External pooling library interfaces.
+ * These would normally come from @stormpot npm package.
  */
-class SimplePoolSlot implements PoolSlot {
-  private readonly pool: ObjectPool<any>;
 
-  constructor(pool: ObjectPool<any>) {
-    this.pool = pool;
-  }
-
-  release(item: any): void {
-    this.pool.release(item);
-  }
-}
-
-/**
- * Pool-related interfaces (reused from LocalNodesBuilderProvider).
- */
 export interface Poolable {
-  deallocate(): void;
+  // Marker interface for poolable objects
 }
 
-export interface PoolSlot {
-  release(item: any): void;
+export interface Pool<T extends Poolable> {
+  claim(timeout: Timeout): T;
+  shutdown(): PoolShutdown;
 }
 
-export interface PoolAllocator<T> {
-  allocate(slot: PoolSlot): T;
-  deallocate(item: T): void;
+export interface PoolShutdown {
+  await(timeout: Timeout): Promise<void>;
 }
 
-export interface PoolStats {
-  maxSize: number;
-  available: number;
-  inUse: number;
-  total: number;
-  isShutdown: boolean;
-}
-
-/**
- * Factory for creating relationship builder providers with common configurations.
- */
-export class LocalRelationshipsBuilderProviderFactory {
-  /**
-   * Create a provider optimized for single-threaded relationship processing.
-   */
-  static singleThreaded(builderSupplier: () => LocalRelationshipsBuilder): LocalRelationshipsBuilderProvider {
-    return LocalRelationshipsBuilderProvider.threadLocal(builderSupplier);
+export namespace stormpot {
+  export interface Slot {
+    release<T extends Poolable>(poolable: T): void;
   }
 
-  /**
-   * Create a provider optimized for fixed multi-threaded relationship processing.
-   */
-  static fixedThreadPool(
-    builderSupplier: () => LocalRelationshipsBuilder,
-    threadCount: number
-  ): LocalRelationshipsBuilderProvider {
-    return LocalRelationshipsBuilderProvider.threadLocal(builderSupplier);
-  }
-
-  /**
-   * Create a provider optimized for variable multi-threaded relationship processing.
-   */
-  static variableThreadPool(
-    builderSupplier: () => LocalRelationshipsBuilder,
-    maxConcurrency: number
-  ): LocalRelationshipsBuilderProvider {
-    return LocalRelationshipsBuilderProvider.pooled(builderSupplier, new Concurrency(maxConcurrency));
-  }
-
-  /**
-   * Create a provider with automatic strategy selection based on concurrency.
-   */
-  static auto(
-    builderSupplier: () => LocalRelationshipsBuilder,
-    concurrency: Concurrency
-  ): LocalRelationshipsBuilderProvider {
-    // Use thread-local for low concurrency, pooled for high concurrency
-    if (concurrency.value() <= 8) {
-      return LocalRelationshipsBuilderProvider.threadLocal(builderSupplier);
-    } else {
-      return LocalRelationshipsBuilderProvider.pooled(builderSupplier, concurrency);
-    }
-  }
-
-  /**
-   * Create a provider optimized for directed graph processing.
-   */
-  static forDirectedGraphs(
-    builderSupplier: () => LocalRelationshipsBuilder,
-    concurrency: Concurrency
-  ): LocalRelationshipsBuilderProvider {
-    return this.auto(builderSupplier, concurrency);
-  }
-
-  /**
-   * Create a provider optimized for undirected graph processing.
-   * Undirected graphs typically require more memory per relationship (stored in both directions),
-   * so we favor pooled providers to control memory usage.
-   */
-  static forUndirectedGraphs(
-    builderSupplier: () => LocalRelationshipsBuilder,
-    concurrency: Concurrency
-  ): LocalRelationshipsBuilderProvider {
-    if (concurrency.value() <= 4) {
-      return LocalRelationshipsBuilderProvider.threadLocal(builderSupplier);
-    } else {
-      return LocalRelationshipsBuilderProvider.pooled(builderSupplier, concurrency);
-    }
+  export interface Allocator<T extends Poolable> {
+    allocate(slot: Slot): T;
+    deallocate(slot: T): Promise<void>;
   }
 }
 
-/**
- * AutoCloseable interface for TypeScript.
- */
+export class Pool<T extends Poolable> {
+  static fromInline<T extends Poolable>(allocator: stormpot.Allocator<T>): PoolBuilder<T> {
+    return new PoolBuilder(allocator);
+  }
+}
+
+export class PoolBuilder<T extends Poolable> {
+  constructor(private allocator: stormpot.Allocator<T>) {}
+
+  setSize(size: number): this {
+    // Configuration method
+    return this;
+  }
+
+  build(): Pool<T> {
+    // Build the actual pool
+    return new ConcretePool(this.allocator);
+  }
+}
+
+class ConcretePool<T extends Poolable> implements Pool<T> {
+  constructor(public allocator: stormpot.Allocator<T>) {}
+
+  claim(timeout: Timeout): T {
+    // Pool implementation would go here
+    throw new Error('Pool implementation required');
+  }
+
+  shutdown(): PoolShutdown {
+    return new ConcretePoolShutdown();
+  }
+}
+
+class ConcretePoolShutdown implements PoolShutdown {
+  async await(timeout: Timeout): Promise<void> {
+    // Shutdown implementation
+  }
+}
+
+export class Timeout {
+  constructor(
+    public value: number,
+    public unit: TimeUnit
+  ) {}
+}
+
+export enum TimeUnit {
+  HOURS = 'HOURS',
+  MINUTES = 'MINUTES',
+  SECONDS = 'SECONDS'
+}
+
+export class InterruptedException extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InterruptedException';
+  }
+}
+
 export interface AutoCloseable {
   close(): void;
 }

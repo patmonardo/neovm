@@ -1,4 +1,4 @@
-import { EMPTY_MEMORY_INFO, MemoryInfo } from '@/core/compression/MemoryInfo';
+import { EMPTY_MEMORY_INFO, MemoryInfo } from '@/core/compression';
 import { AdjacencyCursor } from './AdjacencyCursor';
 
 /**

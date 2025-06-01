@@ -1,7 +1,7 @@
 import { NodeLabel } from '@/projection';
 import { IdMap } from '@/api';
 import { ResultStore } from '@/api';
-import { ConcurrencyConfig } from '@/config/ConcurrencyConfig';
+import { ConcurrencyConfig } from '@/config';
 import { Concurrency } from '@/concurrency/Concurrency';
 import { JobId } from '@/core/utils/progress/JobId';
 import { ProgressTracker } from '@/core/utils/progress/tasks/ProgressTracker';

@@ -2,10 +2,10 @@ import { GraphStore } from '@/api/GraphStore';
 import { ResultStore } from '@/api/ResultStore';
 import { JobId } from '@/core/utils/progress/JobId';
 import { ProgressTracker } from '@/core/utils/progress/tasks/ProgressTracker';
+import { Optional } from '@/utils/Optional';
 import { TerminationFlag } from '@/termination/TerminationFlag';
 import { RelationshipPropertiesExporter } from './RelationshipPropertiesExporter';
-import { RelationshipPropertyTranslator } from './RelationshipExporterBuilder';
-import { Optional } from '@/utils/Optional';
+import { RelationshipPropertyTranslator } from './RelationshipPropertyTranslator';
 
 /**
  * Abstract builder for creating RelationshipPropertiesExporter instances.
@@ -56,7 +56,7 @@ export abstract class RelationshipPropertiesExporterBuilder {
    * ensures consistent numeric representation across different storage systems.
    */
   private static readonly DEFAULT_PROPERTY_TRANSLATOR: RelationshipPropertyTranslator =
-    (value: any) => Number(value);
+    RelationshipPropertyTranslator.IDENTITY;
 
   /**
    * Minimum batch size for efficient relationship properties export.

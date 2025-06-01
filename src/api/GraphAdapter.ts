@@ -133,7 +133,7 @@ export abstract class GraphAdapter implements Graph {
   }
 
   withFilteredLabels(
-    nodeLabels: Set<NodeLabel>,
+    nodeLabels: Array<NodeLabel>,
     concurrency: Concurrency
   ): FilteredIdMap | undefined {
     return this.graph.withFilteredLabels(nodeLabels, concurrency);

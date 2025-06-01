@@ -1,6 +1,6 @@
-import { Group } from '@/batchimport/api/input/Group';
-import { InputEntityVisitor } from '@/batchimport/api/input/InputEntityVisitor';
-import { ReadableGroups } from '@/batchimport/api/input/ReadableGroups';
+import { Group } from '@/api/import';
+import { ReadableGroups } from '@/api/import';
+import { InputEntityVisitor } from '@/api/import';
 
 /**
  * Interface for visiting entity IDs with different ID handling strategies.
@@ -62,15 +62,15 @@ class MappingEntityLongIdVisitor implements EntityLongIdVisitor {
   }
 
   visitNodeId(visitor: InputEntityVisitor, id: number): void {
-    visitor.idWithGroup(id, this.globalGroup);
+    visitor.id(id, this.globalGroup);
   }
 
   visitSourceId(visitor: InputEntityVisitor, id: number): void {
-    visitor.startIdWithGroup(id, this.globalGroup);
+    visitor.startId(id, this.globalGroup);
   }
 
   visitTargetId(visitor: InputEntityVisitor, id: number): void {
-    visitor.endIdWithGroup(id, this.globalGroup);
+    visitor.endId(id, this.globalGroup);
   }
 }
 
@@ -90,6 +90,6 @@ export namespace EntityLongIdVisitor {
    * @returns A new mapping visitor instance
    */
   export function mapping(readableGroups: ReadableGroups): EntityLongIdVisitor {
-    return new MappingEntityLongIdVisitor(readableGroups.get(null));
+    return new MappingEntityLongIdVisitor(readableGroups.get(0));
   }
 }

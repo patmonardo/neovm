@@ -1,397 +1,234 @@
-import { Concurrency } from '@/core/concurrency';
-import { AutoCloseableThreadLocal } from '@/utils';
+/**
+ * LOCAL NODES BUILDER PROVIDER - THREAD-SAFE ACCESS TO BUILDERS
+ *
+ * The Provider pattern solves the fundamental problem of concurrent access
+ * to LocalNodesBuilder instances during graph construction.
+ *
+ * THE PROBLEM:
+ * - Multiple threads need to add nodes simultaneously
+ * - LocalNodesBuilder is NOT thread-safe (designed for single thread)
+ * - Creating new builders is expensive (buffers, contexts, etc.)
+ * - Need efficient acquire/release pattern for shared resources
+ *
+ * THE SOLUTION:
+ * Two strategies for providing thread-safe access:
+ *
+ * 1. THREAD-LOCAL (Fast): Each thread gets its own dedicated builder
+ * 2. POOLED (Flexible): Shared pool of builders, acquire when needed
+ *
+ * USAGE PATTERN:
+ * ```
+ * const slot = provider.acquire();  // Get a builder safely
+ * try {
+ *   slot.get().addNode(id, labels);  // Use the builder
+ * } finally {
+ *   slot.release();                  // Return it safely
+ * }
+ * ```
+ */
+
+import { Concurrency } from '@/concurrency';
 import { LocalNodesBuilder } from './LocalNodesBuilder';
 
 /**
- * We offer two ways to access thread local NodesBuilder instances:
- * - ThreadLocalProvider: Uses ThreadLocal storage for the NodesBuilder instance.
- * - PooledProvider: Uses an object pool to store the NodesBuilder instances.
+ * Abstract provider for thread-safe access to LocalNodesBuilder instances.
  *
- * The thread provider is the default one. It is the fastest variant and should be used
- * if there is a known fixed amount of threads accessing the NodesBuilder.
- *
- * The pooled provider is useful if there is a large and varying amount of threads
- * accessing the NodesBuilder. The access is slower than the thread provider.
- *
- * Access pattern for both providers:
- * ```typescript
- * const provider = LocalNodesBuilderProvider.threadLocal(() => createBuilder());
- * const slot = provider.acquire();
- * try {
- *   const builder = slot.get();
- *   // use the builder
- * } finally {
- *   slot.release();
- * }
- * ```
+ * DESIGN PATTERN:
+ * - Provider Pattern: Manages access to expensive-to-create resources
+ * - Strategy Pattern: ThreadLocal vs Pooled implementation strategies
+ * - Loan Pattern: Acquire/release resource management
  */
 export abstract class LocalNodesBuilderProvider {
 
   /**
-   * Create a thread-local provider (fastest, for fixed thread count).
+   * Create a THREAD-LOCAL provider (fastest access).
+   *
+   * WHEN TO USE:
+   * - Fixed number of threads (known at startup)
+   * - Each thread does significant work (worth dedicated builder)
+   * - Memory usage acceptable (one builder per thread)
+   *
+   * PERFORMANCE:
+   * - O(1) access time (no contention)
+   * - No locking or synchronization overhead
+   * - Highest throughput for sustained workloads
    */
   static threadLocal(builderSupplier: () => LocalNodesBuilder): LocalNodesBuilderProvider {
     return new ThreadLocalProvider(builderSupplier);
   }
 
   /**
-   * Create a pooled provider (more flexible, for varying thread count).
+   * Create a POOLED provider (flexible access).
+   *
+   * WHEN TO USE:
+   * - Variable number of threads (dynamic thread pools)
+   * - Short-lived tasks (not worth dedicated builder)
+   * - Memory constrained (limit total builder count)
+   *
+   * PERFORMANCE:
+   * - Slightly slower access (contention possible)
+   * - Memory efficient (shared builders)
+   * - Better for bursty workloads
    */
   static pooled(
     builderSupplier: () => LocalNodesBuilder,
     concurrency: Concurrency
   ): LocalNodesBuilderProvider {
-    return PooledProvider.create(builderSupplier, concurrency);
+    return new PooledProvider(builderSupplier, concurrency.value());
   }
 
-  /**
-   * Acquire a slot containing a LocalNodesBuilder instance.
-   */
+  /** Acquire a slot containing a LocalNodesBuilder */
   abstract acquire(): LocalNodesBuilderSlot;
 
-  /**
-   * Close the provider and clean up all resources.
-   */
+  /** Close provider and cleanup all resources */
   abstract close(): void;
 }
 
 /**
- * Interface for a slot that contains a LocalNodesBuilder instance.
+ * Slot interface - safe container for LocalNodesBuilder.
+ * Enforces proper acquire/release lifecycle.
  */
 export interface LocalNodesBuilderSlot {
-  /**
-   * Get the LocalNodesBuilder instance.
-   */
+  /** Get the builder instance */
   get(): LocalNodesBuilder;
 
-  /**
-   * Release the slot back to the provider.
-   */
+  /** Release the builder back to provider */
   release(): void;
 }
 
 /**
- * ThreadLocal-based provider implementation.
- * Fastest access but uses more memory with many threads.
+ * THREAD-LOCAL STRATEGY
+ * Each thread gets its own dedicated LocalNodesBuilder.
  */
 class ThreadLocalProvider extends LocalNodesBuilderProvider {
-  private readonly threadLocal: AutoCloseableThreadLocal<Slot>;
+  private readonly threadBuilders = new Map<number, LocalNodesBuilder>();
+  private readonly builderSupplier: () => LocalNodesBuilder;
 
   constructor(builderSupplier: () => LocalNodesBuilder) {
     super();
-    this.threadLocal = AutoCloseableThreadLocal.withInitial(() =>
-      new Slot(builderSupplier())
-    );
+    this.builderSupplier = builderSupplier;
   }
 
   acquire(): LocalNodesBuilderSlot {
-    return this.threadLocal.get();
+    const threadId = this.getCurrentThreadId();
+
+    if (!this.threadBuilders.has(threadId)) {
+      this.threadBuilders.set(threadId, this.builderSupplier());
+    }
+
+    return new ThreadLocalSlot(this.threadBuilders.get(threadId)!);
   }
 
   close(): void {
-    this.threadLocal.close();
+    for (const builder of this.threadBuilders.values()) {
+      builder.close();
+    }
+    this.threadBuilders.clear();
   }
 
-  /**
-   * Thread-local slot implementation.
-   */
-  private static class Slot implements LocalNodesBuilderSlot, AutoCloseable {
-    private readonly builder: LocalNodesBuilder;
-
-    constructor(builder: LocalNodesBuilder) {
-      this.builder = builder;
-    }
-
-    get(): LocalNodesBuilder {
-      return this.builder;
-    }
-
-    release(): void {
-      // No-op for thread-local slots - they stay bound to the thread
-    }
-
-    close(): void {
-      this.builder.close();
-    }
-
-    [Symbol.dispose](): void {
-      this.close();
-    }
+  private getCurrentThreadId(): number {
+    // Simple thread identification for JavaScript
+    return 0; // Single-threaded in browser, would use worker ID in Node.js
   }
 }
 
 /**
- * Object pool-based provider implementation.
- * More memory efficient but slower access.
+ * Thread-local slot - no actual release needed (builder stays with thread).
+ */
+class ThreadLocalSlot implements LocalNodesBuilderSlot {
+  constructor(private readonly builder: LocalNodesBuilder) {}
+
+  get(): LocalNodesBuilder {
+    return this.builder;
+  }
+
+  release(): void {
+    // No-op: thread keeps its builder
+  }
+}
+
+/**
+ * POOLED STRATEGY
+ * Shared pool of builders, acquired/released as needed.
  */
 class PooledProvider extends LocalNodesBuilderProvider {
-  private readonly pool: ObjectPool<PooledSlot>;
-  private readonly timeoutMs: number;
-
-  static create(
-    builderSupplier: () => LocalNodesBuilder,
-    concurrency: Concurrency
-  ): LocalNodesBuilderProvider {
-    const pool = new ObjectPool<PooledSlot>(
-      new SlotAllocator(builderSupplier),
-      concurrency.value()
-    );
-    return new PooledProvider(pool);
-  }
-
-  constructor(pool: ObjectPool<PooledSlot>) {
-    super();
-    this.pool = pool;
-    this.timeoutMs = 60 * 60 * 1000; // 1 hour timeout
-  }
-
-  acquire(): LocalNodesBuilderSlot {
-    try {
-      return this.pool.acquire(this.timeoutMs);
-    } catch (error) {
-      throw new Error(`Failed to acquire builder from pool: ${error.message}`);
-    }
-  }
-
-  close(): void {
-    try {
-      this.pool.shutdown(this.timeoutMs);
-    } catch (error) {
-      throw new Error(`Failed to shutdown pool: ${error.message}`);
-    }
-  }
-
-  /**
-   * Pooled slot implementation.
-   */
-  private static class PooledSlot implements LocalNodesBuilderSlot, Poolable {
-    private readonly poolSlot: PoolSlot;
-    private readonly builder: LocalNodesBuilder;
-
-    constructor(poolSlot: PoolSlot, builder: LocalNodesBuilder) {
-      this.poolSlot = poolSlot;
-      this.builder = builder;
-    }
-
-    get(): LocalNodesBuilder {
-      return this.builder;
-    }
-
-    release(): void {
-      this.poolSlot.release(this);
-    }
-
-    // Poolable interface
-    deallocate(): void {
-      this.builder.close();
-    }
-  }
-
-  /**
-   * Allocator for creating pooled slots.
-   */
-  private static class SlotAllocator implements PoolAllocator<PooledSlot> {
-    private readonly builderSupplier: () => LocalNodesBuilder;
-
-    constructor(builderSupplier: () => LocalNodesBuilder) {
-      this.builderSupplier = builderSupplier;
-    }
-
-    allocate(slot: PoolSlot): PooledSlot {
-      return new PooledSlot(slot, this.builderSupplier());
-    }
-
-    deallocate(pooledSlot: PooledSlot): void {
-      pooledSlot.deallocate();
-    }
-  }
-}
-
-/**
- * Simple object pool implementation.
- * This would typically be replaced with a more sophisticated pooling library.
- */
-export class ObjectPool<T extends Poolable> {
-  private readonly allocator: PoolAllocator<T>;
-  private readonly available: T[] = [];
-  private readonly inUse = new Set<T>();
+  private readonly available: LocalNodesBuilder[] = [];
+  private readonly inUse = new Set<LocalNodesBuilder>();
   private readonly maxSize: number;
+  private readonly builderSupplier: () => LocalNodesBuilder;
   private isShutdown = false;
 
-  constructor(allocator: PoolAllocator<T>, maxSize: number) {
-    this.allocator = allocator;
+  constructor(builderSupplier: () => LocalNodesBuilder, maxSize: number) {
+    super();
+    this.builderSupplier = builderSupplier;
     this.maxSize = maxSize;
   }
 
-  acquire(timeoutMs: number): T {
+  acquire(): LocalNodesBuilderSlot {
     if (this.isShutdown) {
-      throw new Error('Pool is shutdown');
+      throw new Error('Provider is shutdown');
     }
 
-    // Try to get from available pool
+    // Try to reuse existing builder
     if (this.available.length > 0) {
-      const item = this.available.pop()!;
-      this.inUse.add(item);
-      return item;
+      const builder = this.available.pop()!;
+      this.inUse.add(builder);
+      return new PooledSlot(this, builder);
     }
 
-    // Create new if under limit
+    // Create new builder if under limit
     if (this.inUse.size < this.maxSize) {
-      const slot = new SimplePoolSlot(this);
-      const item = this.allocator.allocate(slot);
-      this.inUse.add(item);
-      return item;
+      const builder = this.builderSupplier();
+      this.inUse.add(builder);
+      return new PooledSlot(this, builder);
     }
 
-    // Wait for available item (simplified - would use proper async waiting)
-    const startTime = Date.now();
-    while (Date.now() - startTime < timeoutMs) {
-      if (this.available.length > 0) {
-        const item = this.available.pop()!;
-        this.inUse.add(item);
-        return item;
-      }
-      // In real implementation, would use proper async waiting
-      this.sleep(10);
-    }
-
-    throw new Error(`Timeout waiting for pool item after ${timeoutMs}ms`);
+    throw new Error(`Pool exhausted: ${this.maxSize} builders in use`);
   }
 
-  release(item: T): void {
-    if (this.inUse.has(item)) {
-      this.inUse.delete(item);
-      if (!this.isShutdown) {
-        this.available.push(item);
-      } else {
-        this.allocator.deallocate(item);
-      }
-    }
-  }
-
-  shutdown(timeoutMs: number): void {
+  close(): void {
     this.isShutdown = true;
 
-    // Wait for all items to be returned
-    const startTime = Date.now();
-    while (this.inUse.size > 0 && Date.now() - startTime < timeoutMs) {
-      this.sleep(10);
-    }
-
-    // Deallocate all items
-    for (const item of this.available) {
-      this.allocator.deallocate(item);
+    // Close all available builders
+    for (const builder of this.available) {
+      builder.close();
     }
     this.available.length = 0;
 
-    // Force deallocate remaining in-use items
-    for (const item of this.inUse) {
-      this.allocator.deallocate(item);
+    // Close all in-use builders (they should have been released!)
+    for (const builder of this.inUse) {
+      builder.close();
     }
     this.inUse.clear();
   }
 
-  getStats(): PoolStats {
-    return {
-      maxSize: this.maxSize,
-      available: this.available.length,
-      inUse: this.inUse.size,
-      total: this.available.length + this.inUse.size,
-      isShutdown: this.isShutdown
-    };
-  }
-
-  private sleep(ms: number): void {
-    // Synchronous sleep for simplicity - in real implementation would use async
-    const start = Date.now();
-    while (Date.now() - start < ms) {
-      // Busy wait
+  /** Internal method for returning builder to pool */
+  release(builder: LocalNodesBuilder): void {
+    if (this.inUse.has(builder)) {
+      this.inUse.delete(builder);
+      if (!this.isShutdown) {
+        this.available.push(builder);
+      } else {
+        builder.close();
+      }
     }
   }
 }
 
 /**
- * Simple pool slot implementation.
+ * Pooled slot - must be released back to pool.
  */
-class SimplePoolSlot implements PoolSlot {
-  private readonly pool: ObjectPool<any>;
+class PooledSlot implements LocalNodesBuilderSlot {
+  constructor(
+    private readonly provider: PooledProvider,
+    private readonly builder: LocalNodesBuilder
+  ) {}
 
-  constructor(pool: ObjectPool<any>) {
-    this.pool = pool;
+  get(): LocalNodesBuilder {
+    return this.builder;
   }
 
-  release(item: any): void {
-    this.pool.release(item);
-  }
-}
-
-/**
- * Pool-related interfaces.
- */
-export interface Poolable {
-  deallocate(): void;
-}
-
-export interface PoolSlot {
-  release(item: any): void;
-}
-
-export interface PoolAllocator<T> {
-  allocate(slot: PoolSlot): T;
-  deallocate(item: T): void;
-}
-
-export interface PoolStats {
-  maxSize: number;
-  available: number;
-  inUse: number;
-  total: number;
-  isShutdown: boolean;
-}
-
-/**
- * Factory for creating providers with common configurations.
- */
-export class LocalNodesBuilderProviderFactory {
-  /**
-   * Create a provider optimized for single-threaded access.
-   */
-  static singleThreaded(builderSupplier: () => LocalNodesBuilder): LocalNodesBuilderProvider {
-    return LocalNodesBuilderProvider.threadLocal(builderSupplier);
-  }
-
-  /**
-   * Create a provider optimized for fixed multi-threaded access.
-   */
-  static fixedThreadPool(
-    builderSupplier: () => LocalNodesBuilder,
-    threadCount: number
-  ): LocalNodesBuilderProvider {
-    return LocalNodesBuilderProvider.threadLocal(builderSupplier);
-  }
-
-  /**
-   * Create a provider optimized for variable multi-threaded access.
-   */
-  static variableThreadPool(
-    builderSupplier: () => LocalNodesBuilder,
-    maxConcurrency: number
-  ): LocalNodesBuilderProvider {
-    return LocalNodesBuilderProvider.pooled(builderSupplier, new Concurrency(maxConcurrency));
-  }
-
-  /**
-   * Create a provider with automatic strategy selection based on concurrency.
-   */
-  static auto(
-    builderSupplier: () => LocalNodesBuilder,
-    concurrency: Concurrency
-  ): LocalNodesBuilderProvider {
-    // Use thread-local for low concurrency, pooled for high concurrency
-    if (concurrency.value() <= 8) {
-      return LocalNodesBuilderProvider.threadLocal(builderSupplier);
-    } else {
-      return LocalNodesBuilderProvider.pooled(builderSupplier, concurrency);
-    }
+  release(): void {
+    this.provider.release(this.builder);
   }
 }

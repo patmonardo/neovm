@@ -50,7 +50,7 @@ export class LoadingExceptions {
    * @throws Error if the node is not loaded.
    */
   private static validateNodeIsLoaded(mappedId: number, neoId: number, side: string): void {
-    if (mappedId === -1n) { // Use BigInt literal for comparison
+    if (mappedId === -1) { // Use BigInt literal for comparison
       throw new Error(
         `Failed to load a relationship because its ${side}-node with id ${neoId} is not part of the node query or projection. ` +
         `To ignore the relationship, set the configuration parameter \`validateRelationships\` to false.`

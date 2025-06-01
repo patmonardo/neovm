@@ -1,21 +1,26 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { GraphPropertyVisitor } from '@/core/io/file';
-import { PropertySchema } from '@/api/schema';
-import { CsvFileAppender } from './CsvFileAppender';
-
 /**
- * CSV visitor that exports graph properties to separate CSV files.
- * Creates one data file per property plus header files.
+ * CSV GRAPH PROPERTY VISITOR - EXPORTS GRAPH PROPERTIES TO CSV FILES
+ *
+ * Visitor that exports graph properties to CSV files, one file per property.
+ * Creates separate header and data files for each graph property.
  */
+
+import { PropertySchema } from "@/api/schema/";
+import { GraphPropertyVisitor } from "@/core/io/file";
+import { SimpleCsvWriter } from "./SimpleCsvWriter";
+import * as fs from "fs";
+import * as path from "path";
+
 export class CsvGraphPropertyVisitor extends GraphPropertyVisitor {
-  static readonly GRAPH_PROPERTY_DATA_FILE_NAME_TEMPLATE = 'graph_property_%s_%d.csv';
-  private static readonly GRAPH_PROPERTY_HEADER_FILE_NAME_TEMPLATE = 'graph_property_%s_header.csv';
+  static readonly GRAPH_PROPERTY_DATA_FILE_NAME_TEMPLATE =
+    "graph_property_%s_%d.csv";
+  private static readonly GRAPH_PROPERTY_HEADER_FILE_NAME_TEMPLATE =
+    "graph_property_%s_header.csv";
 
   private readonly fileLocation: string;
   private readonly graphPropertySchemas: Map<string, PropertySchema>;
   private readonly visitorId: number;
-  private readonly csvAppenders: Map<string, CsvFileAppender>;
+  private readonly csvWriters: Map<string, SimpleCsvWriter>;
   private readonly headerFiles: Set<string>;
 
   constructor(
@@ -29,130 +34,109 @@ export class CsvGraphPropertyVisitor extends GraphPropertyVisitor {
     this.graphPropertySchemas = graphPropertySchemas;
     this.headerFiles = headerFiles;
     this.visitorId = visitorId;
-    this.csvAppenders = new Map();
+    this.csvWriters = new Map<string, SimpleCsvWriter>();
   }
 
-  /**
-   * Export a property key-value pair.
-   */
   property(key: string, value: any): boolean {
-    const appender = this.getAppender(key);
+    const writer = this.getWriter(key);
 
-    try {
-      appender.startLine();
-      appender.appendAny(value);
-      appender.endLine();
-    } catch (error) {
-      throw new Error(`Failed to write property ${key}: ${error}`);
-    }
+    // Write single property value as CSV row
+    writer.writeRow([this.formatCsvValue(value)]);
 
     return true;
   }
 
-  /**
-   * Flush all CSV appenders.
-   */
-  async flush(): Promise<void> {
-    const flushPromises = Array.from(this.csvAppenders.values())
-      .map(appender => appender.flush());
-
-    await Promise.all(flushPromises);
+  flush(): void {
+    for (const writer of this.csvWriters.values()) {
+      writer.flush();
+    }
   }
 
-  /**
-   * Close all CSV appenders.
-   */
-  async close(): Promise<void> {
-    const closePromises = Array.from(this.csvAppenders.values())
-      .map(async (appender) => {
-        try {
-          await appender.flush();
-          await appender.close();
-        } catch (error) {
-          throw new Error(`Failed to close appender: ${error}`);
-        }
-      });
-
-    await Promise.all(closePromises);
+  close(): void {
+    for (const writer of this.csvWriters.values()) {
+      try {
+        writer.flush();
+        writer.close();
+      } catch (error) {
+        throw new Error(
+          `Failed to close CSV writer: ${(error as Error).message}`
+        );
+      }
+    }
   }
 
-  /**
-   * Get or create appender for a property key.
-   */
-  private getAppender(propertyKey: string): CsvFileAppender {
-    let appender = this.csvAppenders.get(propertyKey);
+  private getWriter(propertyKey: string): SimpleCsvWriter {
+    return this.csvWriters.get(propertyKey) || this.createWriter(propertyKey);
+  }
 
-    if (!appender) {
-      const headerFileName = this.formatString(
-        CsvGraphPropertyVisitor.GRAPH_PROPERTY_HEADER_FILE_NAME_TEMPLATE,
-        propertyKey
-      );
-      const dataFileName = this.formatString(
-        CsvGraphPropertyVisitor.GRAPH_PROPERTY_DATA_FILE_NAME_TEMPLATE,
-        propertyKey,
-        this.visitorId.toString()
-      );
-      const propertySchema = this.graphPropertySchemas.get(propertyKey);
+  private createWriter(propertyKey: string): SimpleCsvWriter {
+    const headerFileName = this.formatFileName(
+      CsvGraphPropertyVisitor.GRAPH_PROPERTY_HEADER_FILE_NAME_TEMPLATE,
+      propertyKey
+    );
+    const dataFileName = this.formatFileName(
+      CsvGraphPropertyVisitor.GRAPH_PROPERTY_DATA_FILE_NAME_TEMPLATE,
+      propertyKey,
+      this.visitorId
+    );
 
-      if (!propertySchema) {
-        throw new Error(`No schema found for property: ${propertyKey}`);
-      }
-
-      // Write header file if not already written
-      if (!this.headerFiles.has(headerFileName)) {
-        this.writeHeaderFile(propertySchema, headerFileName);
-        this.headerFiles.add(headerFileName);
-      }
-
-      // Create data file appender
-      const dataFilePath = path.join(this.fileLocation, dataFileName);
-      appender = CsvFileAppender.of(dataFilePath, [propertySchema]);
-      this.csvAppenders.set(propertyKey, appender);
+    const propertySchema = this.graphPropertySchemas.get(propertyKey);
+    if (!propertySchema) {
+      throw new Error(`No schema found for graph property: ${propertyKey}`);
     }
 
-    return appender;
+    // Write header file if not already written
+    if (this.headerFiles.add(headerFileName)) {
+      this.writeHeaderFile(propertySchema, headerFileName);
+    }
+
+    // Create data file writer
+    const dataFilePath = path.join(this.fileLocation, dataFileName);
+    const writer = new SimpleCsvWriter(dataFilePath);
+
+    this.csvWriters.set(propertyKey, writer);
+    return writer;
   }
 
-  /**
-   * Write header file for a property.
-   */
-  private writeHeaderFile(propertySchema: PropertySchema, headerFileName: string): void {
+  private writeHeaderFile(
+    propertySchema: PropertySchema,
+    headerFileName: string
+  ): void {
     const headerFilePath = path.join(this.fileLocation, headerFileName);
 
-    try {
-      const propertyHeader = this.formatString(
-        '%s:%s',
-        propertySchema.key(),
-        propertySchema.valueType().csvName()
-      );
+    const propertyHeader = `${propertySchema.key()}:${propertySchema
+      .valueType()
+      .csvName()}`;
 
-      fs.writeFileSync(headerFilePath, propertyHeader + '\n', 'utf8');
+    try {
+      fs.writeFileSync(headerFilePath, propertyHeader, "utf-8");
     } catch (error) {
-      throw new Error(`Could not write header file ${headerFileName}: ${error}`);
+      throw new Error(
+        `Could not write header file: ${(error as Error).message}`
+      );
     }
   }
 
-  /**
-   * Format string with locale (equivalent to Java formatWithLocale).
-   */
-  private formatString(template: string, ...args: string[]): string {
+  private formatFileName(template: string, ...args: any[]): string {
     let result = template;
-    for (let i = 0; i < args.length; i++) {
-      result = result.replace('%s', args[i]);
-      result = result.replace('%d', args[i]);
-    }
+    args.forEach((arg, index) => {
+      result = result.replace("%s", String(arg)).replace("%d", String(arg));
+    });
     return result;
   }
 
-  /**
-   * Static factory method.
-   */
-  static create(
-    fileLocation: string,
-    graphPropertySchemas: Map<string, PropertySchema>,
-    headerFiles: Set<string>,
-    visitorId: number
-  ): CsvGraphPropertyVisitor {
-    return new CsvGraphPropertyVisitor(fileLocation, graphPropertySchemas, headerFiles, visitorId);
+  private formatCsvValue(value: any): string {
+    if (value === null || value === undefined) {
+      return "";
+    }
+
+    const str = value.toString();
+
+    // Escape CSV special characters
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+
+    return str;
   }
 }

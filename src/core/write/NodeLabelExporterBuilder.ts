@@ -1,7 +1,7 @@
 import { IdMap } from '@/api/IdMap';
 import { ResultStore } from '@/api/ResultStore';
-import { ConcurrencyConfig } from '@/config/ConcurrencyConfig';
-import { Concurrency } from '@/core/concurrency/Concurrency';
+import { ConcurrencyConfig } from '@/config';
+import { Concurrency } from '@/concurrency';
 import { JobId } from '@/core/utils/progress/JobId';
 import { ProgressTracker } from '@/core/utils/progress/tasks/ProgressTracker';
 import { TerminationFlag } from '@/termination/TerminationFlag';

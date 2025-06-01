@@ -1,7 +1,7 @@
-import { ResultStore } from '@/api/ResultStore';
-import { ResultStoreEntry } from '@/api/ResultStoreEntry';
+import { ResultStore } from '@/api';
+import { ResultStoreEntry } from '@/api';
 import { JobId } from '@/core/utils/progress/JobId';
-import { NodeLabelExporter } from '@/core/write/NodeLabelExporter';
+import { NodeLabelExporter } from '@/core/write';
 
 /**
  * Result store implementation of NodeLabelExporter.

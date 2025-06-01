@@ -1,5 +1,5 @@
-import { ValueType } from '@/api';
-import { PropertySchema } from '@/api/schema';
+import { ValueType } from "@/api";
+import { PropertySchema } from "@/api/schema";
 
 /**
  * Functional interface for consuming property key-value pairs.
@@ -104,7 +104,9 @@ export abstract class ElementVisitor<PROPERTY_SCHEMA extends PropertySchema> {
     if (!schemas) return;
 
     for (const propertySchema of schemas) {
-      const propertyPosition = this.propertyKeyPositions.get(propertySchema.key());
+      const propertyPosition = this.propertyKeyPositions.get(
+        propertySchema.key()
+      );
       if (propertyPosition !== undefined) {
         const propertyValue = this.currentProperties[propertyPosition];
         propertyConsumer.accept(propertySchema.key(), propertyValue);
@@ -117,12 +119,16 @@ export abstract class ElementVisitor<PROPERTY_SCHEMA extends PropertySchema> {
    *
    * @param propertyWithTypeConsumer Function to process each property with its type
    */
-  protected forEachPropertyWithType(propertyWithTypeConsumer: PropertyWithTypeConsumer): void {
+  protected forEachPropertyWithType(
+    propertyWithTypeConsumer: PropertyWithTypeConsumer
+  ): void {
     const schemas = this.propertySchemas.get(this.elementIdentifier());
     if (!schemas) return;
 
     for (const propertySchema of schemas) {
-      const propertyPosition = this.propertyKeyPositions.get(propertySchema.key());
+      const propertyPosition = this.propertyKeyPositions.get(
+        propertySchema.key()
+      );
       if (propertyPosition !== undefined) {
         const propertyValue = this.currentProperties[propertyPosition];
         propertyWithTypeConsumer.accept(

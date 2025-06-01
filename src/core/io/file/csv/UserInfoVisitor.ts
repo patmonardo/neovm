@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { SingleRowVisitor } from '@/core/io/file';
+import { SingleRowVisitor } from '@/core/io';
 
 /**
  * Visitor for writing user information to CSV files.

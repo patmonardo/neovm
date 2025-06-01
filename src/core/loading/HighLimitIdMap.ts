@@ -1,9 +1,9 @@
-import { NodeLabel } from '@/api';
-import { FilteredIdMap, IdMap } from '@/api/graph';
-import { IdMapAdapter } from '@/api/graph';
-import { Concurrency } from '@/core/concurrency';
-import { ShardedLongLongMap } from '@/core/utils/paged';
-
+import { NodeLabel } from '@/projection';
+import { FilteredIdMap, IdMap } from '@/api';
+import { IdMapAdapter } from '@/api';
+import { Concurrency } from '@/concurrency';
+import { ShardedLongLongMap } from '@/collections';
+import { HighLimitIdMapBuilder } from './HighLimitIdMapBuilder';
 /**
  * Two-level ID mapping implementation for handling very large node ID spaces.
  *
@@ -186,54 +186,4 @@ export interface HighLimitIdMapStats {
 export interface FilteredHighLimitIdMapStats extends HighLimitIdMapStats {
   filteredNodeCount: number;
   filterEfficiency: number;
-}
-
-// Mock HighLimitIdMapBuilder for the examples
-const HighLimitIdMapBuilder = {
-  ID: 'highlimit'
-};
-
-// Mock IdMapAdapter for the examples
-abstract class IdMapAdapter implements IdMap {
-  protected readonly delegate: IdMap;
-
-  constructor(delegate: IdMap) {
-    this.delegate = delegate;
-  }
-
-  typeId(): string {
-    return this.delegate.typeId();
-  }
-
-  nodeCount(): number {
-    return this.delegate.nodeCount();
-  }
-
-  toOriginalNodeId(mappedNodeId: number): number {
-    return this.delegate.toOriginalNodeId(mappedNodeId);
-  }
-
-  toMappedNodeId(originalNodeId: number): number {
-    return this.delegate.toMappedNodeId(originalNodeId);
-  }
-
-  containsOriginalId(originalNodeId: number): boolean {
-    return this.delegate.containsOriginalId(originalNodeId);
-  }
-
-  highestOriginalId(): number {
-    return this.delegate.highestOriginalId();
-  }
-
-  withFilteredLabels(nodeLabels: NodeLabel[], concurrency: Concurrency): FilteredIdMap | null {
-    return this.delegate.withFilteredLabels(nodeLabels, concurrency);
-  }
-
-  rootIdMap(): IdMap {
-    return this.delegate.rootIdMap();
-  }
-
-  forEachNode(consumer: (nodeId: number) => boolean): void {
-    return this.delegate.forEachNode(consumer);
-  }
 }

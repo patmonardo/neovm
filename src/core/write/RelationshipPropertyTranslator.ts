@@ -137,7 +137,7 @@ export interface RelationshipPropertyTranslator {
  * reducing boilerplate code and ensuring consistent behavior across different
  * parts of the export pipeline.
  */
-export namespace RelationshipPropertyTranslators {
+export namespace RelationshipPropertyTranslator {
   /**
    * Identity translator that returns the value unchanged.
    *

@@ -18,3 +18,15 @@ export enum PropertyState {
    */
   REMOTE
 }
+
+/**
+ * Extension methods for PropertyState enum.
+ */
+export namespace PropertyState {
+  /**
+   * Returns the name of the property state.
+   */
+  export function name(state: PropertyState): string {
+    return PropertyState[state];
+  }
+}

@@ -1,7 +1,7 @@
-import { NodeLabel } from '@/api/NodeLabel';
-import { NodeSchema } from '@/api/schema/NodeSchema';
-import { PropertySchema } from '@/api/schema/PropertySchema';
-import { ElementVisitor } from './ElementVisitor';
+import { NodeLabel } from "@/projection";
+import { NodeSchema } from "@/api/schema";
+import { PropertySchema } from "@/api/schema";
+import { ElementVisitor } from "./ElementVisitor";
 
 /**
  * Abstract base class for visiting nodes during import/export operations.
@@ -9,7 +9,9 @@ import { ElementVisitor } from './ElementVisitor';
  */
 export abstract class NodeVisitor extends ElementVisitor<PropertySchema> {
   private static readonly EMPTY_LABELS: string[] = [];
-  protected static readonly EMPTY_LABELS_LABEL: Set<NodeLabel> = new Set([NodeLabel.ALL_NODES]);
+  protected static readonly EMPTY_LABELS_LABEL: Set<NodeLabel> = new Set([
+    NodeLabel.ALL_NODES,
+  ]);
 
   protected readonly nodeSchema: NodeSchema;
   private currentId: number = -1;
@@ -70,7 +72,11 @@ export abstract class NodeVisitor extends ElementVisitor<PropertySchema> {
    * @param idSequence The ID sequence (unused in this implementation)
    * @returns true to continue processing
    */
-  public setIdWithGroupAndSequence(id: any, group?: any, idSequence?: any): boolean {
+  public setIdWithGroupAndSequence(
+    id: any,
+    group?: any,
+    idSequence?: any
+  ): boolean {
     return this.setId(Number(id));
   }
 
@@ -86,7 +92,7 @@ export abstract class NodeVisitor extends ElementVisitor<PropertySchema> {
 
     if (!this.arraysEqual(this.currentLabels, sortedLabels)) {
       this.currentLabels = sortedLabels;
-      this.labelIdentifier = labels.join('_');
+      this.labelIdentifier = labels.join("_");
     }
 
     return true;
@@ -97,7 +103,7 @@ export abstract class NodeVisitor extends ElementVisitor<PropertySchema> {
   /**
    * Returns the identifier for the current element (label combination).
    */
-  protected elementIdentifier(): string {
+  public elementIdentifier(): string {
     return this.labelIdentifier;
   }
 
@@ -105,9 +111,10 @@ export abstract class NodeVisitor extends ElementVisitor<PropertySchema> {
    * Returns the property schema for the current node labels.
    */
   protected getPropertySchema(): PropertySchema[] {
-    const nodeLabelSet = this.currentLabels.length === 0
-      ? NodeVisitor.EMPTY_LABELS_LABEL
-      : new Set(this.currentLabels.map(label => NodeLabel.of(label)));
+    const nodeLabelSet =
+      this.currentLabels.length === 0
+        ? NodeVisitor.EMPTY_LABELS_LABEL
+        : new Set(this.currentLabels.map((label) => NodeLabel.of(label)));
 
     const propertySchemaForLabels = this.nodeSchema.filter(nodeLabelSet);
     return Array.from(propertySchemaForLabels.unionProperties().values());

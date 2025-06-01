@@ -1,111 +1,86 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as csv from 'csv-parser';
-import { Capabilities } from '@/core/loading/Capabilities';
-import { ImmutableStaticCapabilities, CapabilitiesDTO } from './ImmutableStaticCapabilities';
-import { CsvGraphCapabilitiesWriter } from './CsvGraphCapabilitiesWriter';
-
 /**
- * Loader for graph capabilities from CSV files.
- * Handles reading and parsing capabilities configuration from CSV format.
+ * GRAPH CAPABILITIES LOADER - CSV CAPABILITIES PARSER
+ *
+ * Simple loader with single load() method that reads CSV capabilities files.
+ * Uses simplified CapabilitiesDTO instead of complex Jackson mapping.
  */
+
+import { Capabilities } from "@/core/loading";
+import { StaticCapabilities } from "@/core/loading";
+import { WriteMode } from "@/core/loading";
+import { CapabilitiesDTO } from "./CapabilitiesDTO";
+import { CsvGraphCapabilitiesWriter } from "./CsvGraphCapabilitiesWriter";
+import * as fs from "fs";
+import * as path from "path";
+
 export class GraphCapabilitiesLoader {
   private readonly capabilitiesPath: string;
 
   constructor(csvDirectory: string) {
-    this.capabilitiesPath = path.join(csvDirectory, CsvGraphCapabilitiesWriter.GRAPH_CAPABILITIES_FILE_NAME);
+    this.capabilitiesPath = path.join(
+      csvDirectory,
+      CsvGraphCapabilitiesWriter.GRAPH_CAPABILITIES_FILE_NAME
+    );
   }
 
   /**
-   * Load capabilities from CSV file.
-   * Returns default capabilities if file doesn't exist.
+   * Load Capabilities from CSV file.
+   * Returns default StaticCapabilities if file doesn't exist.
+   *
+   * @returns Capabilities loaded from CSV or default instance
+   * @throws Error if file cannot be read or parsed
    */
-  async load(): Promise<Capabilities> {
+  load(): Capabilities {
     try {
-      // Check if file exists
+      // Return default if file doesn't exist
       if (!fs.existsSync(this.capabilitiesPath)) {
-        return ImmutableStaticCapabilities.builder().build();
+        return StaticCapabilities.of();
       }
 
-      const capabilitiesDTO = await this.parseCsvFile();
-      return ImmutableStaticCapabilities.fromDTO(capabilitiesDTO);
+      // Read and parse CSV file
+      const fileContent = fs.readFileSync(this.capabilitiesPath, "utf-8");
+      const lines = fileContent.trim().split("\n");
+
+      if (lines.length < 2) {
+        // Empty or header-only file, return default
+        return StaticCapabilities.of();
+      }
+
+      // Parse header and data
+      const header = lines[0].split(",").map((col) => col.trim());
+      const data = lines[1].split(",").map((col) => col.trim());
+
+      const writeMode = this.parseWriteMode(header, data);
+      return CapabilitiesDTO.of(writeMode);
     } catch (error) {
-      throw new Error(`Failed to load capabilities from ${this.capabilitiesPath}: ${error}`);
+      throw new Error(
+        `Failed to load graph capabilities: ${(error as Error).message}`
+      );
     }
   }
 
   /**
-   * Parse CSV file and return DTO.
+   * Parse WriteMode from CSV header/data.
    */
-  private async parseCsvFile(): Promise<CapabilitiesDTO> {
-    return new Promise((resolve, reject) => {
-      let capabilitiesDTO: CapabilitiesDTO = {};
-      let recordCount = 0;
+  private parseWriteMode(header: string[], data: string[]): any {
+    const writeModeIndex = header.indexOf("writeMode");
 
-      fs.createReadStream(this.capabilitiesPath)
-        .pipe(csv({
-          headers: true,
-          skipEmptyLines: true,
-          strict: false, // Equivalent to withStrictHeaders(false)
-        }))
-        .on('data', (row) => {
-          recordCount++;
+    if (writeModeIndex >= 0 && writeModeIndex < data.length) {
+      const writeModeStr = data[writeModeIndex];
 
-          // Parse the first row (should only be one record)
-          if (recordCount === 1) {
-            capabilitiesDTO = this.parseCapabilitiesRow(row);
-          }
-        })
-        .on('end', () => {
-          resolve(capabilitiesDTO);
-        })
-        .on('error', (error) => {
-          reject(error);
-        });
-    });
-  }
-
-  /**
-   * Parse a single CSV row into CapabilitiesDTO.
-   */
-  private parseCapabilitiesRow(row: any): CapabilitiesDTO {
-    const dto: CapabilitiesDTO = {};
-
-    // Parse writeMode
-    if (row.writeMode && typeof row.writeMode === 'string') {
-      const trimmedWriteMode = row.writeMode.trim();
-      if (trimmedWriteMode && trimmedWriteMode in Capabilities.WriteMode) {
-        dto.writeMode = trimmedWriteMode;
+      switch (writeModeStr.toUpperCase()) {
+        case "LOCAL":
+          return WriteMode.LOCAL;
+        case "REMOTE":
+          return WriteMode.REMOTE;
+        case "NONE":
+          return WriteMode.NONE;
+        default:
+          console.warn(`Unknown WriteMode: ${writeModeStr}, using LOCAL`);
+          return WriteMode.LOCAL;
       }
     }
 
-    // Parse canWriteToLocalDatabase
-    if (row.canWriteToLocalDatabase !== undefined) {
-      dto.canWriteToLocalDatabase = this.parseBooleanValue(row.canWriteToLocalDatabase);
-    }
-
-    // Parse canWriteToRemoteDatabase
-    if (row.canWriteToRemoteDatabase !== undefined) {
-      dto.canWriteToRemoteDatabase = this.parseBooleanValue(row.canWriteToRemoteDatabase);
-    }
-
-    return dto;
-  }
-
-  /**
-   * Parse boolean value from CSV (handles string representations).
-   */
-  private parseBooleanValue(value: any): boolean | undefined {
-    if (typeof value === 'boolean') {
-      return value;
-    }
-
-    if (typeof value === 'string') {
-      const trimmed = value.trim().toLowerCase();
-      if (trimmed === 'true') return true;
-      if (trimmed === 'false') return false;
-    }
-
-    return undefined;
+    return WriteMode.LOCAL; // Default
   }
 }

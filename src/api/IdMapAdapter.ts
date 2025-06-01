@@ -28,7 +28,7 @@ export abstract class IdMapAdapter implements IdMap {
     return this.idMap.typeId();
   }
 
-  batchIterables(batchSize: number): Set<PrimitiveLongIterable> {
+  batchIterables(batchSize: number): Array<PrimitiveLongIterable> {
     // Convert iterable to array if needed
     return this.idMap.batchIterables(batchSize);
   }
@@ -116,7 +116,7 @@ export abstract class IdMapAdapter implements IdMap {
   }
 
   withFilteredLabels(
-    nodeLabels: Set<NodeLabel>,
+    nodeLabels: Array<NodeLabel>,
     concurrency: Concurrency
   ): FilteredIdMap | undefined {
     return this.idMap.withFilteredLabels(nodeLabels, concurrency);

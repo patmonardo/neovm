@@ -1,10 +1,32 @@
-import { NodeLabel } from '@/gds';
+/**
+ * NODES BUILDER - CONCURRENT GRAPH CONSTRUCTION ORCHESTRATOR
+ *
+ * This is the main coordinator for building large node collections with:
+ * - CONCURRENT PROCESSING: Multiple threads add nodes simultaneously
+ * - DEDUPLICATION: Optional removal of duplicate node IDs
+ * - PROPERTY MANAGEMENT: Efficient storage and schema building
+ * - LABEL HANDLING: Token-based label management for performance
+ * - MEMORY OPTIMIZATION: Pooled or thread-local builder management
+ *
+ * CONSTRUCTION FLOW:
+ * 1. Create NodesBuilder with configuration
+ * 2. Call addNode() methods from multiple threads (thread-safe)
+ * 3. Builder manages LocalNodesBuilder instances per thread
+ * 4. Call build() to assemble final Nodes structure
+ *
+ * THREAD SAFETY:
+ * - NodesBuilder: Thread-safe public API
+ * - LocalNodesBuilder: Thread-local, not shared between threads
+ * - Provider: Manages safe access to LocalNodesBuilder instances
+ * - Context: Shared state with proper synchronization
+ */
+
+import { NodeLabel } from '@/projection';
 import { IdMap, PropertyState } from '@/api';
 import {
   ImmutableNodeProperty,
   NodeProperty,
-  NodePropertyStore,
-  NodePropertyValues
+  NodePropertyStore
 } from '@/api/properties/nodes';
 import {
   MutableNodeSchema,
@@ -25,7 +47,8 @@ import {
   HugeAtomicGrowingBitSet
 } from '@/core/utils/paged';
 import { GdsValue } from '@/values';
-import { NodeLabelTokens, NodeLabelToken } from './NodeLabelTokens';
+import { NodeLabelToken } from "./NodeLabelToken";
+import { NodeLabelTokens } from "./NodeLabelTokens";
 import { NodesBuilderContext } from './NodesBuilderContext';
 import { LocalNodesBuilder } from './LocalNodesBuilder';
 import { LocalNodesBuilderProvider } from './LocalNodesBuilderProvider';
@@ -33,11 +56,19 @@ import { PropertyValues } from './PropertyValues';
 import { NodeLabelTokenToPropertyKeys } from './NodeLabelTokenToPropertyKeys';
 
 /**
- * Core orchestrator for concurrent node construction.
- * Manages threading, deduplication, label handling, and property building.
+ * Main orchestrator for concurrent node construction.
+ *
+ * DESIGN PATTERNS:
+ * - Builder Pattern: Accumulates nodes then builds final structure
+ * - Provider Pattern: Manages thread-safe access to LocalNodesBuilder
+ * - Context Pattern: Shared state and property builders across threads
+ * - Factory Pattern: Creates optimized deduplication predicates
  */
 export class NodesBuilder {
+  /** Sentinel value for properties that don't exist */
   static readonly NO_PROPERTY = -1;
+
+  /** Sentinel value when max ID is unknown */
   static readonly UNKNOWN_MAX_ID = -1;
 
   private readonly maxOriginalId: number;
@@ -69,24 +100,24 @@ export class NodesBuilder {
     this.idMapBuilder = idMapBuilder;
     this.propertyStates = propertyStateFunction;
 
-    // Setup label information builder
+    // Label information strategy: all-nodes vs multi-label
     this.labelInformationBuilder = !hasLabelInformation
-      ? LabelInformationBuilders.allNodes()
-      : LabelInformationBuilders.multiLabelWithCapacity(maxIntermediateId + 1);
+      ? LabelInformationBuilders.allNodes()  // Simple: all nodes have same treatment
+      : LabelInformationBuilders.multiLabelWithCapacity(maxIntermediateId + 1);  // Complex: track per-label
 
     this.importedNodes = new LongAdder();
 
-    // Create node importer
+    // Create the node importer that does the actual work
     const nodeImporter = new NodeImporterBuilder()
       .idMapBuilder(idMapBuilder)
       .labelInformationBuilder(this.labelInformationBuilder)
       .importProperties(hasProperties)
       .build();
 
-    // Setup deduplication predicate
+    // Deduplication strategy: bitset or no-op predicate
     const seenNodeIdPredicate = this.createSeenNodesPredicate(deduplicateIds, maxOriginalId);
 
-    // Create local builder supplier
+    // LocalNodesBuilder factory for thread-local instances
     const nodesBuilderSupplier = (): LocalNodesBuilder => new LocalNodesBuilder({
       importedNodes: this.importedNodes,
       nodeImporter,
@@ -96,34 +127,52 @@ export class NodesBuilder {
       threadLocalContext: this.nodesBuilderContext.threadLocalContext()
     });
 
-    // Setup provider (pooled vs thread-local)
+    // Provider strategy: pooled (reuse) vs thread-local (isolated)
     this.localNodesBuilderProvider = usePooledBuilderProvider
       ? LocalNodesBuilderProvider.pooled(nodesBuilderSupplier, concurrency)
       : LocalNodesBuilderProvider.threadLocal(nodesBuilderSupplier);
   }
 
   /**
-   * Create predicate for tracking seen node IDs (deduplication).
+   * Create deduplication predicate based on strategy and max ID.
+   *
+   * STRATEGIES:
+   * - No deduplication: Always return false (never seen)
+   * - Unknown max ID: Growing bitset (dynamic sizing)
+   * - Known max ID: Fixed bitset (pre-allocated for efficiency)
+   *
+   * PERFORMANCE:
+   * - BitSet operations are O(1) with excellent cache locality
+   * - getAndSet() is atomic for thread safety
+   * - Pre-allocated bitsets avoid memory allocation during construction
    */
   private createSeenNodesPredicate(
     deduplicateIds: boolean,
     maxOriginalId: number
   ): LongPredicate {
     if (!deduplicateIds) {
-      return (nodeId: number) => false; // Never seen
+      return (nodeId: number) => false; // Never seen = no deduplication
     }
 
     if (maxOriginalId === NodesBuilder.UNKNOWN_MAX_ID) {
+      // Dynamic sizing for unknown ID range
       const seenIds = HugeAtomicGrowingBitSet.create(0);
       return (nodeId: number) => seenIds.getAndSet(nodeId);
     } else {
+      // Pre-allocated for known ID range (more efficient)
       const seenIds = HugeAtomicBitSet.create(maxOriginalId + 1);
       return (nodeId: number) => seenIds.getAndSet(nodeId);
     }
   }
 
+  // =============================================================================
+  // PUBLIC API - THREAD-SAFE NODE ADDITION METHODS
+  // =============================================================================
+
   /**
    * Add a node with only an ID (no labels, no properties).
+   *
+   * USAGE: Basic graph construction where labels/properties added later
    */
   addNode(originalId: number): void {
     this.addNodeWithLabels(originalId, NodeLabelTokens.empty());
@@ -131,18 +180,22 @@ export class NodesBuilder {
 
   /**
    * Add a node with ID and label token.
+   *
+   * CORE METHOD: All other addNode variants eventually call this
+   * THREAD SAFETY: Acquires LocalNodesBuilder from pool/thread-local
    */
   addNodeWithLabels(originalId: number, nodeLabels: NodeLabelToken): void {
     const slot = this.localNodesBuilderProvider.acquire();
     try {
       slot.get().addNode(originalId, nodeLabels);
     } finally {
-      slot.release();
+      slot.release(); // Always release for pooled providers
     }
   }
 
   /**
    * Add a node with ID and NodeLabel array.
+   * CONVENIENCE: Type-safe API for multiple labels
    */
   addNodeWithNodeLabels(originalId: number, ...nodeLabels: NodeLabel[]): void {
     this.addNodeWithLabels(originalId, NodeLabelTokens.ofNodeLabels(...nodeLabels));
@@ -150,13 +203,15 @@ export class NodesBuilder {
 
   /**
    * Add a node with ID and single NodeLabel.
+   * CONVENIENCE: Most common case - single label
    */
   addNodeWithLabel(originalId: number, nodeLabel: NodeLabel): void {
-    this.addNodeWithLabels(originalId, NodeLabelTokens.ofNodeLabel(nodeLabel));
+    this.addNodeWithLabels(originalId, NodeLabelTokens.ofNodeLabels(nodeLabel));
   }
 
   /**
    * Add a node with ID and properties (no labels).
+   * CONVENIENCE: Property-focused construction
    */
   addNodeWithProperties(originalId: number, properties: Map<string, GdsValue>): void {
     this.addNodeWithPropertiesAndLabels(originalId, properties, NodeLabelTokens.empty());
@@ -164,6 +219,7 @@ export class NodesBuilder {
 
   /**
    * Add a node with ID, properties, and label token.
+   * CORE METHOD: Full property + label specification
    */
   addNodeWithPropertiesAndLabels(
     originalId: number,
@@ -175,6 +231,7 @@ export class NodesBuilder {
 
   /**
    * Add a node with ID, properties, and NodeLabel array.
+   * CONVENIENCE: Type-safe multi-label with properties
    */
   addNodeWithPropertiesAndNodeLabels(
     originalId: number,
@@ -186,17 +243,21 @@ export class NodesBuilder {
 
   /**
    * Add a node with ID, properties, and single NodeLabel.
+   * CONVENIENCE: Most common case - single label with properties
    */
   addNodeWithPropertiesAndLabel(
     originalId: number,
     properties: Map<string, GdsValue>,
     nodeLabel: NodeLabel
   ): void {
-    this.addNodeWithPropertiesAndLabels(originalId, properties, NodeLabelTokens.ofNodeLabel(nodeLabel));
+    this.addNodeWithPropertiesAndLabels(originalId, properties, NodeLabelTokens.ofNodeLabels(nodeLabel));
   }
 
   /**
    * Add a node with all components (complete API).
+   *
+   * ULTIMATE METHOD: Maximum control over node construction
+   * THREAD SAFETY: Same acquire/release pattern as other methods
    */
   addNodeComplete(originalId: number, nodeLabels: NodeLabelToken, properties: PropertyValues): void {
     const slot = this.localNodesBuilderProvider.acquire();
@@ -207,15 +268,20 @@ export class NodesBuilder {
     }
   }
 
+  // =============================================================================
+  // BUILD PHASE - ASSEMBLY OF FINAL NODES STRUCTURE
+  // =============================================================================
+
   /**
    * Get the current count of imported nodes.
+   * THREAD SAFETY: LongAdder provides atomic read across all threads
    */
   importedNodes(): number {
     return this.importedNodes.sum();
   }
 
   /**
-   * Build the final Nodes structure using the max original ID.
+   * Build the final Nodes structure using the configured max original ID.
    */
   build(): Nodes {
     return this.buildWithHighestId(this.maxOriginalId);
@@ -223,16 +289,31 @@ export class NodesBuilder {
 
   /**
    * Build the final Nodes structure with specified highest Neo4j ID.
+   *
+   * ASSEMBLY PROCESS:
+   * 1. Flush all LocalNodesBuilder buffers
+   * 2. Build IdMap from label information
+   * 3. Build node properties from context builders
+   * 4. Build node schema from labels and properties
+   * 5. Assemble final immutable Nodes structure
    */
   buildWithHighestId(highestNeoId: number): Nodes {
-    // Flush remaining buffer contents
+    // Step 1: Flush remaining buffer contents from all threads
     this.localNodesBuilderProvider.close();
 
+    // Step 2: Build the ID mapping from accumulated label information
     const idMap = this.idMapBuilder.build(this.labelInformationBuilder, highestNeoId, this.concurrency);
+
+    // Step 3: Build properties from all thread-local property builders
     const nodeProperties = this.buildProperties(idMap);
+
+    // Step 4: Build schema by combining labels and property information
     const nodeSchema = this.buildNodeSchema(idMap, nodeProperties);
+
+    // Step 5: Create property store
     const nodePropertyStore = NodePropertyStore.builder().properties(nodeProperties).build();
 
+    // Step 6: Assemble final immutable structure
     return new ImmutableNodes({
       schema: nodeSchema,
       idMap,
@@ -242,11 +323,18 @@ export class NodesBuilder {
 
   /**
    * Build the node schema from imported data.
+   *
+   * SCHEMA CONSTRUCTION:
+   * 1. Collect property schemas from imported properties
+   * 2. Union label-to-property mappings from all threads
+   * 3. Collect all node labels (with and without properties)
+   * 4. Build final schema with complete label-property relationships
    */
   private buildNodeSchema(
     idMap: IdMap,
     nodeProperties: Map<string, NodeProperty>
   ): MutableNodeSchema {
+    // Get label-to-property mappings from all import threads
     const localLabelTokenToPropertyKeys = this.nodesBuilderContext.nodeLabelTokenToPropertyKeys();
 
     // Collect property schemas from imported property values
@@ -255,13 +343,13 @@ export class NodesBuilder {
       propertyKeysToSchema.set(key, property.propertySchema());
     }
 
-    // Union the label to property key mappings from each import thread
+    // Union the label-to-property mappings from each import thread
     const globalLabelTokenToPropertyKeys = localLabelTokenToPropertyKeys.reduce(
       (left, right) => NodeLabelTokenToPropertyKeys.union(left, right, propertyKeysToSchema),
       NodeLabelTokenToPropertyKeys.lazy()
     );
 
-    // Collect node labels without properties from the id map
+    // Collect node labels without properties from the ID map
     const nodeLabels = new Set(idMap.availableNodeLabels());
 
     // Add labels that actually have node properties attached
@@ -271,7 +359,7 @@ export class NodesBuilder {
       }
     }
 
-    // Use all labels and the global label to property key mapping to construct final schema
+    // Build final schema using all labels and their property mappings
     let unionSchema = MutableNodeSchema.empty();
     for (const nodeLabel of nodeLabels) {
       unionSchema = unionSchema.addLabel(
@@ -285,6 +373,11 @@ export class NodesBuilder {
 
   /**
    * Build node properties from the context's property builders.
+   *
+   * PROPERTY BUILDING:
+   * - Each property key has its own builder accumulated across threads
+   * - Builders are converted to final NodeProperty instances
+   * - Property state (TRANSIENT, PERSISTENT) is applied
    */
   private buildProperties(idMap: IdMap): Map<string, NodeProperty> {
     const result = new Map<string, NodeProperty>();
@@ -317,6 +410,7 @@ export class NodesBuilder {
 
   /**
    * Close the builder and propagate any exception.
+   * Used for error handling during construction.
    */
   close(exception: Error): never {
     this.localNodesBuilderProvider.close();
@@ -324,24 +418,51 @@ export class NodesBuilder {
   }
 }
 
+// =============================================================================
+// CONFIGURATION AND UTILITY TYPES
+// =============================================================================
+
 /**
- * Configuration interface for NodesBuilder.
+ * Configuration interface for NodesBuilder construction.
+ *
+ * Encapsulates all the options needed to configure the concurrent
+ * node building process, deduplication, and memory management.
  */
 export interface NodesBuilderConfig {
+  /** Maximum original node ID (-1 if unknown) */
   maxOriginalId: number;
+
+  /** Maximum intermediate ID for label information sizing */
   maxIntermediateId: number;
+
+  /** Concurrency level for parallel processing */
   concurrency: Concurrency;
+
+  /** Shared context for property building across threads */
   context: NodesBuilderContext;
+
+  /** Builder for the final ID mapping */
   idMapBuilder: IdMapBuilder;
+
+  /** Whether to track label information per node */
   hasLabelInformation: boolean;
+
+  /** Whether nodes have properties to import */
   hasProperties: boolean;
+
+  /** Whether to deduplicate node IDs across imports */
   deduplicateIds: boolean;
+
+  /** Whether to use pooled (true) or thread-local (false) builders */
   usePooledBuilderProvider: boolean;
+
+  /** Function to determine property state (TRANSIENT/PERSISTENT) */
   propertyStateFunction: (propertyKey: string) => PropertyState;
 }
 
 /**
- * Thread-safe atomic long adder for counting.
+ * Thread-safe atomic long adder for counting operations.
+ * Provides atomic increment/add operations across multiple threads.
  */
 export class LongAdder {
   private value = 0;
@@ -370,6 +491,7 @@ export class LongAdder {
 
 /**
  * Simple mutex implementation for TypeScript.
+ * Provides exclusive access to critical sections.
  */
 class Mutex {
   private locked = false;
@@ -406,6 +528,7 @@ class Mutex {
 }
 
 /**
- * Long predicate type for node ID checking.
+ * Predicate type for checking if a node ID has been seen before.
+ * Used for deduplication during concurrent node construction.
  */
 export type LongPredicate = (value: number) => boolean;

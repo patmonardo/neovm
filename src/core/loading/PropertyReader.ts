@@ -184,7 +184,7 @@ export namespace PropertyReader {
     /**
      * Convert long bits back to double (equivalent to Java's Double.longBitsToDouble).
      */
-    private longBitsToDouble(bits: number): number {
+    public longBitsToDouble(bits: number): number {
       const buffer = new ArrayBuffer(8);
       const intView = new Uint32Array(buffer);
       const floatView = new Float64Array(buffer);

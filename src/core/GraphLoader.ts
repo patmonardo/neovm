@@ -1,7 +1,7 @@
-import { Graph } from "../api/Graph";
-import { GraphStore } from "../api/GraphStore";
-import { GraphStoreFactory } from "../api/GraphStoreFactory";
-import { GraphProjectConfig } from "../config/GraphProjectConfig"; // Adjust path as needed
+import { Graph } from "../api";
+import { GraphStore } from "../api";
+import { GraphStoreFactory } from "../api";
+import { GraphProjectConfig } from "@/config"; // Adjust path as needed
 
 /**
  * Responsible for loading a graph using a specified configuration and factory.

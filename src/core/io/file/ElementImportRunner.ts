@@ -1,7 +1,6 @@
-import { InputIterator } from '@/batchimport/api/InputIterator';
-import { InputEntityVisitor } from '@/batchimport/api/input/InputEntityVisitor';
-import { GraphStoreInput } from '@/core/io/GraphStoreInput';
-import { ProgressTracker } from '@/core/utils/progress/tasks/ProgressTracker';
+import { InputIterator } from '@/api/import';
+import { InputEntityVisitor } from '@/api/import';
+import { ProgressTracker } from '@/core/utils/progress';
 
 /**
  * Interface for objects that can be flushed (similar to Java's Flushable).
@@ -82,7 +81,7 @@ export class ElementImportRunner<T extends FlushableInputEntityVisitor> implemen
   /**
    * Type guard to check if chunk implements LastProgress interface.
    */
-  private isLastProgressChunk(chunk: any): chunk is GraphStoreInput.LastProgress {
+  private isLastProgressChunk(chunk: any): boolean {
     return chunk && typeof chunk.lastProgress === 'function';
   }
 }

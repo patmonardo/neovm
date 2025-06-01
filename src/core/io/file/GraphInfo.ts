@@ -1,29 +1,23 @@
-import { RelationshipType } from '@/projection';
-import { DatabaseInfo } from '@/api';
-
 /**
  * Contains essential metadata about a graph stored in the GDS file format.
  * This record captures the key structural information needed to reconstruct
  * or understand a graph without loading all the data.
  */
+
+import { RelationshipType } from '@/projection';
+import { DatabaseInfo } from '@/api';
+
 export class GraphInfo {
   /**
    * Creates a new GraphInfo instance.
-   *
-   * @param databaseInfo Information about the source database
-   * @param idMapBuilderType The type of ID mapping strategy used
-   * @param nodeCount Total number of nodes in the graph
-   * @param maxOriginalId The highest original node ID encountered
-   * @param relationshipTypeCounts Map of relationship types to their counts
-   * @param inverseIndexedRelationshipTypes List of relationship types that have inverse indexes
    */
   constructor(
-    public readonly databaseInfo: DatabaseInfo,
-    public readonly idMapBuilderType: string,
-    public readonly nodeCount: number,
-    public readonly maxOriginalId: number,
-    public readonly relationshipTypeCounts: Map<RelationshipType, number>,
-    public readonly inverseIndexedRelationshipTypes: RelationshipType[]
+    private readonly _databaseInfo: DatabaseInfo,
+    private readonly _idMapBuilderType: string,
+    private readonly _nodeCount: number,
+    private readonly _maxOriginalId: number,
+    private readonly _relationshipTypeCounts: Map<RelationshipType, number>,
+    private readonly _inverseIndexedRelationshipTypes: RelationshipType[]
   ) {}
 
   /**
@@ -33,11 +27,36 @@ export class GraphInfo {
     return new GraphInfoBuilder();
   }
 
+  // GETTER METHODS
+  databaseInfo(): DatabaseInfo {
+    return this._databaseInfo;
+  }
+
+  idMapBuilderType(): string {
+    return this._idMapBuilderType;
+  }
+
+  nodeCount(): number {
+    return this._nodeCount;
+  }
+
+  maxOriginalId(): number {
+    return this._maxOriginalId;
+  }
+
+  relationshipTypeCounts(): Map<RelationshipType, number> {
+    return this._relationshipTypeCounts;
+  }
+
+  inverseIndexedRelationshipTypes(): RelationshipType[] {
+    return this._inverseIndexedRelationshipTypes;
+  }
+
   /**
    * Returns the total number of relationships across all types.
    */
-  get totalRelationshipCount(): number {
-    return Array.from(this.relationshipTypeCounts.values())
+  totalRelationshipCount(): number {
+    return Array.from(this._relationshipTypeCounts.values())
       .reduce((sum, count) => sum + count, 0);
   }
 
@@ -45,21 +64,21 @@ export class GraphInfo {
    * Gets the count for a specific relationship type.
    */
   getRelationshipCount(relationshipType: RelationshipType): number {
-    return this.relationshipTypeCounts.get(relationshipType) || 0;
+    return this._relationshipTypeCounts.get(relationshipType) || 0;
   }
 
   /**
    * Checks if a relationship type has an inverse index.
    */
   hasInverseIndex(relationshipType: RelationshipType): boolean {
-    return this.inverseIndexedRelationshipTypes.includes(relationshipType);
+    return this._inverseIndexedRelationshipTypes.includes(relationshipType);
   }
 
   /**
    * Returns all relationship types present in the graph.
    */
-  get relationshipTypes(): RelationshipType[] {
-    return Array.from(this.relationshipTypeCounts.keys());
+  relationshipTypes(): RelationshipType[] {
+    return Array.from(this._relationshipTypeCounts.keys());
   }
 }
 

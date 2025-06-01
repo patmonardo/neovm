@@ -113,7 +113,7 @@ class LongNodeLabelTokenSetImpl implements NodeLabelTokenSet {
         `Index ${index} out of bounds for length ${this.tokens.length}`
       );
     }
-    this.tokens[index] = BigInt(GraphDimensions.IGNORE); // Store IGNORE as a number
+    this.tokens[index] = GraphDimensions.IGNORE; // Store IGNORE as a number
   }
 
   public asIntArray(): number[] {
@@ -157,7 +157,7 @@ export namespace NodeLabelTokenSet {
     if (tokens.length > 0 && typeof tokens[0] === "number") {
       // If the first element is a number, treat all as bigints.
       // This requires all elements to be bigints or safely convertible.
-      const longTokens: number[] = tokens.map((t) => BigInt(t));
+      const longTokens: number[] = tokens.map((t) => Number(t));
       return new LongNodeLabelTokenSetImpl(longTokens);
     } else {
       // Default to number[] or if the first element is a number.

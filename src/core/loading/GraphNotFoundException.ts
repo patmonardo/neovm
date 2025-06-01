@@ -1,12 +1,12 @@
 import { GraphStoreCatalog } from "./GraphStoreCatalog";
-import { StringFormatting } from "@/utils/StringFormatting";
+import { formatWithLocale } from "@/utils";
 
 export class GraphNotFoundException extends Error {
   public readonly userCatalogKey: GraphStoreCatalog.UserCatalog.UserCatalogKey;
 
   constructor(userCatalogKey: GraphStoreCatalog.UserCatalog.UserCatalogKey) {
     super(
-      StringFormatting.formatWithLocale(
+      formatWithLocale(
         "Graph with name `%s` does not exist on database `%s`. It might exist on another database.",
         userCatalogKey.graphName(),
         userCatalogKey.databaseName()

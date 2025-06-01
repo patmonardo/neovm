@@ -1,34 +1,20 @@
 /**
- * Data Transfer Object for capabilities CSV serialization.
+ * CAPABILITIES DTO - CSV SERIALIZATION
  */
-export interface CapabilitiesDTO {
-  canWriteToDatabase: boolean;
-  canWriteToLocalFile: boolean;
-  writeMode: string;
-}
 
-export class CapabilitiesDTO {
-  /**
-   * Convert Capabilities to DTO for CSV export.
-   */
-  static from(capabilities: Capabilities): CapabilitiesDTO {
-    return {
-      canWriteToDatabase: capabilities.canWriteToDatabase(),
-      canWriteToLocalFile: capabilities.canWriteToLocalFile(),
-      writeMode: capabilities.writeMode().toString()
-    };
+import { Capabilities, WriteMode } from '@/core/loading/Capabilities';
+import { StaticCapabilities } from '@/core/loading/StaticCapabilities';
+
+export class CapabilitiesDTO extends StaticCapabilities {
+  constructor(writeMode: WriteMode = WriteMode.LOCAL) {
+    super(writeMode);
   }
 
-  /**
-   * Convert DTO back to Capabilities (for CSV import).
-   */
-  static to(dto: CapabilitiesDTO): Capabilities {
-    const writeMode = WriteMode[dto.writeMode as keyof typeof WriteMode] || WriteMode.LOCAL;
+  static from(capabilities: Capabilities): CapabilitiesDTO {
+    return new CapabilitiesDTO(capabilities.writeMode());
+  }
 
-    return new StaticCapabilities(
-      dto.canWriteToDatabase,
-      dto.canWriteToLocalFile,
-      writeMode
-    );
+  static of(writeMode: WriteMode = WriteMode.LOCAL): CapabilitiesDTO {
+    return new CapabilitiesDTO(writeMode);
   }
 }
