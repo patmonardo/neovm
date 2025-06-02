@@ -1,5 +1,5 @@
 
-export * from "./AtomicDouble";
+export * from "./AtomicNumber";
 export * from "./BackoffIdleStrategy";
 export * from "./BatchSize";
 export * from "./BiLongConsumer";
@@ -27,6 +27,5 @@ export * from "./RunWithConcurrency";
 export * from "./ScheduledFuture";
 export * from "./ScheduledWorkerPool";
 export * from "./SyncBarrier";
-export * from "./Task";
 export * from "./WorkerFactory";
 export * from "./WorkerPool";

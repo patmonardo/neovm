@@ -1,7 +1,5 @@
 import { WorkerPool } from './WorkerPool';
-import { WorkerFactory } from './WorkerFactory';
 import { Runnable } from './Runnable';
-import { Future } from './Future';
 import { ScheduledFuture } from './ScheduledFuture';
 
 /**
@@ -9,30 +7,30 @@ import { ScheduledFuture } from './ScheduledFuture';
  */
 export class ScheduledWorkerPool extends WorkerPool {
   private readonly scheduledTasks: Map<number, NodeJS.Timeout> = new Map();
-  private nextTaskId = 0;
-  
+  private nextTaskId: number = 0;
+
   /**
    * Schedules a task to run after a delay
-   * 
+   *
    * @param task The task to run
    * @param delay The delay in milliseconds
    * @returns A ScheduledFuture representing the pending result
    */
   public schedule<T>(task: Runnable<T>, delay: number): ScheduledFuture<T> {
     const taskId = this.nextTaskId++;
-    
+
     const promise = new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.scheduledTasks.delete(taskId);
-        
+
         this.submit(task)
           .then(resolve)
           .catch(reject);
       }, delay);
-      
+
       this.scheduledTasks.set(taskId, timeout);
     });
-    
+
     return new ScheduledFuture<T>(promise, () => {
       const timeout = this.scheduledTasks.get(taskId);
       if (timeout) {
@@ -43,27 +41,27 @@ export class ScheduledWorkerPool extends WorkerPool {
       return false;
     });
   }
-  
+
   /**
    * Schedules a task to run periodically
-   * 
+   *
    * @param task The task to run
    * @param initialDelay The initial delay in milliseconds
    * @param period The period between executions in milliseconds
    * @returns A ScheduledFuture representing the pending results
    */
   public scheduleAtFixedRate<T>(
-    task: Runnable<T>, 
-    initialDelay: number, 
+    task: Runnable<T>,
+    initialDelay: number,
     period: number
   ): ScheduledFuture<T[]> {
     const taskId = this.nextTaskId++;
     const results: T[] = [];
-    
+
     const promise = new Promise<T[]>((resolve, reject) => {
       let initialTimeout: NodeJS.Timeout;
       let intervalId: NodeJS.Timeout;
-      
+
       // Set up the initial delay
       initialTimeout = setTimeout(() => {
         // Start the periodic execution
@@ -76,10 +74,10 @@ export class ScheduledWorkerPool extends WorkerPool {
               reject(error);
             });
         }, period);
-        
+
         // Store the interval ID
         this.scheduledTasks.set(taskId, intervalId);
-        
+
         // Execute the task for the first time
         this.submit(task)
           .then(result => results.push(result))
@@ -89,10 +87,10 @@ export class ScheduledWorkerPool extends WorkerPool {
             reject(error);
           });
       }, initialDelay);
-      
+
       this.scheduledTasks.set(taskId, initialTimeout);
     });
-    
+
     return new ScheduledFuture<T[]>(promise, () => {
       const timeout = this.scheduledTasks.get(taskId);
       if (timeout) {
@@ -104,7 +102,7 @@ export class ScheduledWorkerPool extends WorkerPool {
       return false;
     });
   }
-  
+
   /**
    * Shuts down the worker pool, stopping all workers and cancelling all scheduled tasks
    */
@@ -115,7 +113,7 @@ export class ScheduledWorkerPool extends WorkerPool {
       clearInterval(timeout as any);
     }
     this.scheduledTasks.clear();
-    
+
     // Shutdown the worker pool
     super.shutdown();
   }

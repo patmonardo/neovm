@@ -1,4 +1,4 @@
-import { ConcurrencyValidator } from './ConcurrencyValidator';
+import { ConcurrencyValidator } from "./ConcurrencyValidator";
 
 /**
  * Default implementation of ConcurrencyValidator.
@@ -11,7 +11,9 @@ export class OpenGdsConcurrencyValidator implements ConcurrencyValidator {
     concurrencyLimitation: number
   ): void {
     if (requestedConcurrency <= 0) {
-      throw new Error(`${configKey} must be positive, but got ${requestedConcurrency}`);
+      throw new Error(
+        `${configKey} must be positive, but got ${requestedConcurrency}`
+      );
     }
 
     if (requestedConcurrency > concurrencyLimitation) {

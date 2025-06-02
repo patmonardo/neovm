@@ -1,19 +1,21 @@
-import { UserLogStore } from './UserLogStore'; // Assuming this is the interface with addUserLogMessage, query
-import { PerDatabaseUserLogStore } from './PerDatabaseUserLogStore';
+import { UserLogStore } from "./UserLogStore"; // Assuming this is the interface with addUserLogMessage, query
+import { PerDatabaseUserLogStore } from "./PerDatabaseUserLogStore";
 
 // Placeholder for StringFormatting.toLowerCaseWithLocale
 // In a real scenario, if locale-specific lowercasing is crucial,
 // you might use a library or more specific string manipulation.
 // For now, standard toLowerCase() is used.
 namespace StringFormatting {
-  export function toLowerCaseWithLocale(str: string /*, locale?: string */): string {
+  export function toLowerCaseWithLocale(
+    str: string /*, locale?: string */
+  ): string {
     // return str.toLocaleLowerCase(locale); // If a specific locale is needed
     return str.toLowerCase(); // Standard JavaScript toLowerCase
   }
 }
 
 /**
- * @deprecated this is a temporary workaround.
+ * @ deprecated this is a temporary workaround.
  * We need to satisfy each procedure facade having its own user log stores, so that we can new them up in a known,
  * good, isolated state.
  * Plus for the time being we have to ensure each test using a user log store sees unique user log stores.
@@ -34,12 +36,13 @@ namespace StringFormatting {
  */
 export class UserLogStoreHolder {
   /**
-   * @deprecated we eliminate this as soon as possible
+   * @ deprecated we eliminate this as soon as possible
    */
   // Using a standard Map. In Node.js, if this needs to be shared across
   // worker threads or different processes, a more complex solution (e.g., Redis, IPC)
   // would be needed. For a single Node.js process, this Map acts as a singleton store.
-  private static readonly USER_LOG_STORES: Map<string, UserLogStore> = new Map();
+  private static readonly USER_LOG_STORES: Map<string, UserLogStore> =
+    new Map();
 
   /**
    * Private constructor to prevent instantiation, making it a static utility class.
@@ -54,11 +57,15 @@ export class UserLogStoreHolder {
    * @returns The UserLogStore for the given database name.
    */
   public static getUserLogStore(databaseName: string): UserLogStore {
-    const normalizedDatabaseName = StringFormatting.toLowerCaseWithLocale(databaseName);
+    const normalizedDatabaseName =
+      StringFormatting.toLowerCaseWithLocale(databaseName);
 
     // Simulate computeIfAbsent
     if (!UserLogStoreHolder.USER_LOG_STORES.has(normalizedDatabaseName)) {
-      UserLogStoreHolder.USER_LOG_STORES.set(normalizedDatabaseName, new PerDatabaseUserLogStore());
+      UserLogStoreHolder.USER_LOG_STORES.set(
+        normalizedDatabaseName,
+        new PerDatabaseUserLogStore()
+      );
     }
     return UserLogStoreHolder.USER_LOG_STORES.get(normalizedDatabaseName)!;
   }

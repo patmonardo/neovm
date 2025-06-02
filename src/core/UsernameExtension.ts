@@ -1,4 +1,5 @@
 import { Username } from "./Username";
+import { Context } from "./Context";
 
 /**
  * Simulates the registration of a Username provider in a global registry.
@@ -37,12 +38,4 @@ export interface GlobalProceduresRegistry {
     factory: (context: Context) => T,
     singleton: boolean
   ): void;
-}
-
-export interface Context {
-  securityContext(): {
-    subject(): {
-      executingUser(): string;
-    };
-  };
 }

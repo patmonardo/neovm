@@ -24,13 +24,13 @@ class LogStore {
    * We shall solve that another day.
    */
   private static readonly TASK_COMPARATOR = (a: Task, b: Task): number => {
-    const startTimeA = a.startTime();
-    const startTimeB = b.startTime();
+    const startTimeA = a.getStartTime();
+    const startTimeB = b.getStartTime();
     if (startTimeA < startTimeB) return -1;
     if (startTimeA > startTimeB) return 1;
 
-    const descA = a.description();
-    const descB = b.description();
+    const descA = a.getDescription();
+    const descB = b.getDescription();
     if (descA < descB) return -1;
     if (descA > descB) return 1;
 

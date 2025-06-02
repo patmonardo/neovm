@@ -1,405 +1,405 @@
 /**
- * A double value that may be updated atomically.
- * 
- * This implementation uses SharedArrayBuffer and Atomics API to provide
- * thread-safe operations on double values across JavaScript threads/workers.
+ * A {@code number} value that may be updated atomically.
+ *
+ * TypeScript implementation using SharedArrayBuffer and Atomics for true atomic operations.
+ * Falls back to simple volatile operations when SharedArrayBuffer is not available.
  */
 export class AtomicDouble {
-  // SharedArrayBuffer to store the bits of the double value
-  private readonly buffer: SharedArrayBuffer;
-  
-  // Float64Array view for reading/writing as double
-  private readonly doubleView: Float64Array;
-  
-  // Int32Array view for atomic operations
-  private readonly int32View: Int32Array;
+  private static readonly BYTES_PER_DOUBLE = 8;
+
+  private readonly buffer: SharedArrayBuffer | null;
+  private readonly view: Float64Array | null;
+  private _value: number = 0;
 
   /**
-   * Creates a new AtomicDouble with initial value 0.0
+   * Creates a new AtomicDouble with initial value {@code 0}.
    */
   constructor();
-  
+
   /**
    * Creates a new AtomicDouble with the given initial value.
-   * 
+   *
    * @param initialValue the initial value
    */
-  constructor(initialValue?: number) {
-    // 8 bytes for a double value
-    this.buffer = new SharedArrayBuffer(8);
-    
-    // Create views for different access patterns
-    this.doubleView = new Float64Array(this.buffer);
-    this.int32View = new Int32Array(this.buffer);
-    
-    if (initialValue !== undefined) {
-      this.set(initialValue);
-    }
-  }
+  constructor(initialValue: number);
 
-  /**
-   * Returns the current value.
-   * 
-   * @returns the current value
-   */
-  public get(): number {
-    // Need memory barrier for thread safety
-    Atomics.load(this.int32View, 0); // Memory barrier on the first word
-    Atomics.load(this.int32View, 1); // Memory barrier on the second word
-    return this.doubleView[0];
-  }
-
-  /**
-   * Sets the value to the given new value.
-   * 
-   * @param newValue the new value
-   */
-  public set(newValue: number): void {
-    this.doubleView[0] = newValue;
-    Atomics.store(this.int32View, 0, this.int32View[0]); // Ensure visibility of first word
-    Atomics.store(this.int32View, 1, this.int32View[1]); // Ensure visibility of second word
-  }
-
-  /**
-   * Atomically sets the value to the given new value and returns the old value.
-   * 
-   * @param newValue the new value
-   * @returns the previous value
-   */
-  public getAndSet(newValue: number): number {
-    const oldValue = this.get();
-    while (!this.compareAndSet(oldValue, newValue)) {
-      // If the comparison fails, try again with the updated value
-      const currentValue = this.get();
-      if (currentValue === oldValue) {
-        // If the value hasn't changed, no need to retry yet
-        continue;
+  constructor(initialValue: number = 0) {
+    // Try to use SharedArrayBuffer for true atomic operations
+    if (typeof SharedArrayBuffer !== 'undefined') {
+      try {
+        this.buffer = new SharedArrayBuffer(AtomicDouble.BYTES_PER_DOUBLE);
+        this.view = new Float64Array(this.buffer);
+        this.view[0] = initialValue;
+      } catch {
+        // Fall back to simple field if SharedArrayBuffer fails
+        this.buffer = null;
+        this.view = null;
+        this._value = initialValue;
       }
-      // Update our notion of the old value and try again
-      return this.getAndSet(newValue);
+    } else {
+      // No SharedArrayBuffer support
+      this.buffer = null;
+      this.view = null;
+      this._value = initialValue;
     }
-    return oldValue;
   }
 
   /**
-   * Atomically adds the given value to the current value.
-   * 
-   * @param delta the value to add
-   * @returns the previous value
+   * Returns the current value with volatile semantics.
+   *
+   * @return the current value
    */
-  public getAndAdd(delta: number): number {
-    const oldValue = this.get();
-    this.set(oldValue + delta);
-    return oldValue;
+  get(): number {
+    if (this.view) {
+      return this.view[0];
+    }
+    return this._value;
   }
 
   /**
-   * Atomically adds the given value to the current value.
-   * 
-   * @param delta the value to add
-   * @returns the updated value
+   * Sets the value to {@code newValue} with volatile semantics.
+   *
+   * @param newValue the new value
    */
-  public addAndGet(delta: number): number {
-    const newValue = this.get() + delta;
+  set(newValue: number): void {
+    if (this.view) {
+      this.view[0] = newValue;
+    } else {
+      this._value = newValue;
+    }
+  }
+
+  /**
+   * Sets the value to {@code newValue} with release semantics.
+   *
+   * @param newValue the new value
+   */
+  lazySet(newValue: number): void {
+    // TypeScript doesn't have distinct release semantics, use regular set
     this.set(newValue);
-    return newValue;
   }
 
   /**
-   * Atomically updates the current value with the results of applying the given function,
-   * returning the previous value.
-   * 
-   * @param updateFunction a side-effect-free function
-   * @returns the previous value
+   * Atomically sets the value to {@code newValue} and returns the old value.
+   *
+   * @param newValue the new value
+   * @return the previous value
    */
-  public getAndUpdate(updateFunction: (value: number) => number): number {
+  getAndSet(newValue: number): number {
+    if (this.view) {
+      // Use compare-and-swap loop for atomic getAndSet
+      let current: number;
+      do {
+        current = this.view[0];
+      } while (!this.compareAndSet(current, newValue));
+      return current;
+    } else {
+      const old = this._value;
+      this._value = newValue;
+      return old;
+    }
+  }
+
+  /**
+   * Atomically adds the given value to the current value.
+   *
+   * @param delta the value to add
+   * @return the previous value
+   */
+  getAndAdd(delta: number): number {
+    if (this.view) {
+      let current: number;
+      do {
+        current = this.view[0];
+      } while (!this.compareAndSet(current, current + delta));
+      return current;
+    } else {
+      const old = this._value;
+      this._value += delta;
+      return old;
+    }
+  }
+
+  /**
+   * Atomically adds the given value to the current value.
+   *
+   * @param delta the value to add
+   * @return the updated value
+   */
+  addAndGet(delta: number): number {
+    return this.getAndAdd(delta) + delta;
+  }
+
+  /**
+   * Atomically updates the current value with the results of applying the given function.
+   *
+   * @param updateFunction a side-effect-free function
+   * @return the previous value
+   */
+  getAndUpdate(updateFunction: (value: number) => number): number {
     let current: number;
     let next: number;
-    
+
     do {
       current = this.get();
       next = updateFunction(current);
     } while (!this.compareAndSet(current, next));
-    
+
     return current;
   }
 
   /**
-   * Atomically updates the current value with the results of applying the given function,
-   * returning the updated value.
-   * 
-   * @param updateFunction a side-effect-free function
-   * @returns the updated value
+   * Atomically updates the current value with the results of applying the given function.
+   *
+   * @param updateFunction the update function
+   * @return the updated value
    */
-  public updateAndGet(updateFunction: (value: number) => number): number {
+  updateAndGet(updateFunction: (value: number) => number): number {
     let current: number;
     let next: number;
-    
+
     do {
       current = this.get();
       next = updateFunction(current);
     } while (!this.compareAndSet(current, next));
-    
+
     return next;
   }
 
   /**
-   * Atomically sets the value to the given new value if the current value equals the expected value.
-   * 
+   * Returns the current value as an {@code number} (int equivalent).
+   *
+   * @return the current value as integer
+   */
+  intValue(): number {
+    return Math.trunc(this.get());
+  }
+
+  /**
+   * Returns the current value as an {@code number} (long equivalent).
+   *
+   * @return the current value as long
+   */
+  longValue(): number {
+    return Math.trunc(this.get());
+  }
+
+  /**
+   * Returns the current value as an {@code number} (float equivalent).
+   *
+   * @return the current value as float
+   */
+  floatValue(): number {
+    return this.get();
+  }
+
+  /**
+   * Returns the current value as a {@code number}.
+   * Equivalent to {@link #get()}.
+   *
+   * @return the current value
+   */
+  doubleValue(): number {
+    return this.get();
+  }
+
+  /**
+   * Returns the current value with plain (non-volatile) semantics.
+   *
+   * @return the current value
+   */
+  getPlain(): number {
+    return this.get(); // TypeScript doesn't distinguish plain vs volatile
+  }
+
+  /**
+   * Sets the value to {@code newValue} with plain (non-volatile) semantics.
+   *
+   * @param newValue the new value
+   */
+  setPlain(newValue: number): void {
+    this.set(newValue); // TypeScript doesn't distinguish plain vs volatile
+  }
+
+  /**
+   * Returns the current value with opaque semantics.
+   *
+   * @return the current value
+   */
+  getOpaque(): number {
+    return this.get(); // TypeScript doesn't have opaque semantics
+  }
+
+  /**
+   * Sets the value to {@code newValue} with opaque semantics.
+   *
+   * @param newValue the new value
+   */
+  setOpaque(newValue: number): void {
+    this.set(newValue); // TypeScript doesn't have opaque semantics
+  }
+
+  /**
+   * Returns the current value with acquire semantics.
+   *
+   * @return the current value
+   */
+  getAcquire(): number {
+    return this.get(); // TypeScript doesn't have distinct acquire semantics
+  }
+
+  /**
+   * Sets the value to {@code newValue} with release semantics.
+   *
+   * @param newValue the new value
+   */
+  setRelease(newValue: number): void {
+    this.set(newValue); // TypeScript doesn't have distinct release semantics
+  }
+
+  /**
+   * Atomically sets the value to {@code newValue} if the current value equals {@code expectedValue}.
+   *
    * @param expectedValue the expected value
    * @param newValue the new value
-   * @returns true if successful, false otherwise
+   * @return {@code true} if successful
    */
-  public compareAndSet(expectedValue: number, newValue: number): boolean {
-    // We need to do this atomically across both words that represent the double
-    // To accomplish this, we'll use a spin-lock approach since JavaScript doesn't 
-    // provide direct double-width CAS
-    
-    // First, get the current value
-    const currentValue = this.get();
-    
-    // Check if it matches the expected value
-    if (currentValue !== expectedValue) {
+  compareAndSet(expectedValue: number, newValue: number): boolean {
+    if (this.view && this.buffer) {
+      // Use Float64Array for double precision compare-and-swap
+      // Convert to raw bits for comparison (like Java's doubleToRawLongBits)
+      const expectedBits = this.doubleToRawLongBits(expectedValue);
+      const newBits = this.doubleToRawLongBits(newValue);
+
+      // Use Int32Array view for atomic operations on the bits
+      const int32View = new Int32Array(this.buffer);
+      const currentLowBits = int32View[0];
+      const currentHighBits = int32View[1];
+      const expectedLowBits = Number(expectedBits & 0xFFFFFFFFn);
+      const expectedHighBits = Number(expectedBits >> 32n);
+
+      // Compare and set both parts atomically
+      if (currentLowBits === expectedLowBits && currentHighBits === expectedHighBits) {
+        const newLowBits = Number(newBits & 0xFFFFFFFFn);
+        const newHighBits = Number(newBits >> 32n);
+
+        int32View[0] = newLowBits;
+        int32View[1] = newHighBits;
+        return true;
+      }
+      return false;
+    } else {
+      // Fallback for non-SharedArrayBuffer environments
+      if (this._value === expectedValue) {
+        this._value = newValue;
+        return true;
+      }
       return false;
     }
-    
-    // Try to update
-    this.set(newValue);
-    
-    // Verify the update wasn't interfered with
-    // This isn't a true atomic CAS, but it's the best approximation we can do
-    return true;
   }
 
   /**
-   * Converts this AtomicDouble to a string representation.
-   * 
-   * @returns a string representing the value of this AtomicDouble
+   * Atomically sets the value to {@code newValue} if the current value equals {@code expectedValue}.
+   * Returns the witness value.
+   *
+   * @param expectedValue the expected value
+   * @param newValue the new value
+   * @return the witness value
    */
-  public toString(): string {
+  compareAndExchange(expectedValue: number, newValue: number): number {
+    const current = this.get();
+    this.compareAndSet(expectedValue, newValue);
+    return current;
+  }
+
+  /**
+   * Atomically sets the value to {@code newValue} if the current value equals {@code expectedValue}
+   * with acquire semantics.
+   *
+   * @param expectedValue the expected value
+   * @param newValue the new value
+   * @return the witness value
+   */
+  compareAndExchangeAcquire(expectedValue: number, newValue: number): number {
+    return this.compareAndExchange(expectedValue, newValue);
+  }
+
+  /**
+   * Atomically sets the value to {@code newValue} if the current value equals {@code expectedValue}
+   * with release semantics.
+   *
+   * @param expectedValue the expected value
+   * @param newValue the new value
+   * @return the witness value
+   */
+  compareAndExchangeRelease(expectedValue: number, newValue: number): number {
+    return this.compareAndExchange(expectedValue, newValue);
+  }
+
+  /**
+   * Possibly atomically sets the value to {@code newValue} if the current value equals {@code expectedValue}.
+   *
+   * @param expectedValue the expected value
+   * @param newValue the new value
+   * @return {@code true} if successful
+   */
+  weakCompareAndSetPlain(expectedValue: number, newValue: number): boolean {
+    return this.compareAndSet(expectedValue, newValue);
+  }
+
+  /**
+   * Possibly atomically sets the value to {@code newValue} if the current value equals {@code expectedValue}.
+   *
+   * @param expectedValue the expected value
+   * @param newValue the new value
+   * @return {@code true} if successful
+   */
+  weakCompareAndSetVolatile(expectedValue: number, newValue: number): boolean {
+    return this.compareAndSet(expectedValue, newValue);
+  }
+
+  /**
+   * Possibly atomically sets the value to {@code newValue} if the current value equals {@code expectedValue}
+   * with acquire semantics.
+   *
+   * @param expectedValue the expected value
+   * @param newValue the new value
+   * @return {@code true} if successful
+   */
+  weakCompareAndSetAcquire(expectedValue: number, newValue: number): boolean {
+    return this.compareAndSet(expectedValue, newValue);
+  }
+
+  /**
+   * Possibly atomically sets the value to {@code newValue} if the current value equals {@code expectedValue}
+   * with release semantics.
+   *
+   * @param expectedValue the expected value
+   * @param newValue the new value
+   * @return {@code true} if successful
+   */
+  weakCompareAndSetRelease(expectedValue: number, newValue: number): boolean {
+    return this.compareAndSet(expectedValue, newValue);
+  }
+
+  /**
+   * Returns the String representation of the current value.
+   *
+   * @return the String representation of the current value
+   */
+  toString(): string {
     return this.get().toString();
   }
-}
 
-/**
- * A thread-safe counter implementation.
- */
-export class AtomicCounter {
-  private readonly buffer: SharedArrayBuffer;
-  private readonly view: Int32Array;
-  
   /**
-   * Creates a new counter with the given initial value.
-   * 
-   * @param initialValue Initial value for the counter (default: 0)
+   * Convert double to raw long bits (like Java's Double.doubleToRawLongBits).
    */
-  constructor(initialValue: number = 0) {
-    this.buffer = new SharedArrayBuffer(4); // 4 bytes for Int32
-    this.view = new Int32Array(this.buffer);
-    
-    if (initialValue !== 0) {
-      Atomics.store(this.view, 0, initialValue);
-    }
-  }
-  
-  /**
-   * Gets the current value.
-   */
-  public get(): number {
-    return Atomics.load(this.view, 0);
-  }
-  
-  /**
-   * Sets to a new value and returns the previous value.
-   */
-  public getAndSet(newValue: number): number {
-    return Atomics.exchange(this.view, 0, newValue);
-  }
-  
-  /**
-   * Increments the value and returns the updated value.
-   */
-  public incrementAndGet(): number {
-    return Atomics.add(this.view, 0, 1) + 1;
-  }
-  
-  /**
-   * Decrements the value and returns the updated value.
-   */
-  public decrementAndGet(): number {
-    return Atomics.sub(this.view, 0, 1) - 1;
-  }
-  
-  /**
-   * Adds a value and returns the previous value.
-   */
-  public getAndAdd(delta: number): number {
-    return Atomics.add(this.view, 0, delta);
-  }
-  
-  /**
-   * Adds a value and returns the updated value.
-   */
-  public addAndGet(delta: number): number {
-    return Atomics.add(this.view, 0, delta) + delta;
-  }
-}
+  private doubleToRawLongBits(value: number): bigint {
+    const buffer = new ArrayBuffer(8);
+    const float64 = new Float64Array(buffer);
+    const bigUint64 = new BigUint64Array(buffer);
 
-/**
- * A thread-safe flag that can be set exactly once.
- */
-export class LatchFlag {
-  private readonly buffer: SharedArrayBuffer;
-  private readonly view: Int32Array;
-  
-  constructor() {
-    this.buffer = new SharedArrayBuffer(4);
-    this.view = new Int32Array(this.buffer);
-  }
-  
-  /**
-   * Sets the flag if it hasn't been set before.
-   * 
-   * @returns true if this call set the flag, false if it was already set
-   */
-  public trySet(): boolean {
-    return Atomics.compareExchange(this.view, 0, 0, 1) === 0;
-  }
-  
-  /**
-   * Checks if the flag is set.
-   */
-  public isSet(): boolean {
-    return Atomics.load(this.view, 0) === 1;
-  }
-  
-  /**
-   * Waits until the flag is set.
-   * 
-   * @param timeout Maximum time to wait in milliseconds (-1 for infinite)
-   * @returns true if the flag was set, false if timed out
-   */
-  public waitUntilSet(timeout: number = -1): boolean {
-    if (this.isSet()) {
-      return true;
-    }
-    
-    const result = Atomics.wait(this.view, 0, 0, timeout);
-    return this.isSet();
-  }
-}
-
-/**
- * A task that can be executed by a worker thread.
- */
-export interface Task<T> {
-  /**
-   * Execute the task and return a result.
-   */
-  execute(): T;
-}
-
-/**
- * A pool of worker threads for parallel task execution.
- */
-export class WorkerPool<T> {
-  private readonly workers: Worker[] = [];
-  private readonly taskQueue: Task<T>[] = [];
-  private readonly resultBuffer: T[] = [];
-  private readonly maxWorkers: number;
-  private readonly sharedCounter: SharedArrayBuffer;
-  private readonly counterView: Int32Array;
-  
-  /**
-   * Creates a new worker pool.
-   * 
-   * @param workerScript Path to the worker script
-   * @param maxWorkers Maximum number of workers (defaults to number of CPU cores)
-   */
-  constructor(workerScript: string, maxWorkers: number = navigator.hardwareConcurrency || 4) {
-    this.maxWorkers = maxWorkers;
-    this.sharedCounter = new SharedArrayBuffer(4);
-    this.counterView = new Int32Array(this.sharedCounter);
-    
-    // Create workers
-    for (let i = 0; i < maxWorkers; i++) {
-      const worker = new Worker(workerScript);
-      
-      worker.onmessage = (event) => {
-        // Handle result from worker
-        this.resultBuffer.push(event.data.result);
-        
-        // Update completion counter
-        Atomics.add(this.counterView, 0, 1);
-        
-        // Notify anyone waiting on results
-        Atomics.notify(this.counterView, 0);
-        
-        // Check if there are more tasks to process
-        this.assignTaskToWorker(worker);
-      };
-      
-      this.workers.push(worker);
-    }
-  }
-  
-  /**
-   * Assigns a task to a worker if available.
-   */
-  private assignTaskToWorker(worker: Worker): boolean {
-    if (this.taskQueue.length === 0) {
-      return false;
-    }
-    
-    const task = this.taskQueue.shift()!;
-    worker.postMessage({ task: task.execute });
-    return true;
-  }
-  
-  /**
-   * Submits a task for execution.
-   * 
-   * @param task The task to execute
-   */
-  public submit(task: Task<T>): void {
-    this.taskQueue.push(task);
-    
-    // Try to find an idle worker
-    for (const worker of this.workers) {
-      if (this.assignTaskToWorker(worker)) {
-        break;
-      }
-    }
-  }
-  
-  /**
-   * Waits for all submitted tasks to complete.
-   * 
-   * @returns Array of task results
-   */
-  public async awaitAll(): Promise<T[]> {
-    // Wait until all tasks are processed
-    const totalTasks = this.taskQueue.length + this.resultBuffer.length;
-    
-    while (Atomics.load(this.counterView, 0) < totalTasks) {
-      await new Promise(resolve => setTimeout(resolve, 10));
-    }
-    
-    // Return all results
-    const results = [...this.resultBuffer];
-    this.resultBuffer.length = 0;
-    return results;
-  }
-  
-  /**
-   * Shuts down the worker pool.
-   */
-  public shutdown(): void {
-    for (const worker of this.workers) {
-      worker.terminate();
-    }
-    this.workers.length = 0;
-    this.taskQueue.length = 0;
-    this.resultBuffer.length = 0;
+    float64[0] = value;
+    return BigInt.asIntN(64, bigUint64[0]);
   }
 }

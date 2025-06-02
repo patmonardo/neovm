@@ -6,7 +6,7 @@
 export interface RenamesCurrentThread {
   /**
    * Returns the name to use for the current thread when executing operations.
-   * 
+   *
    * @returns The thread name to use
    */
   threadName(): string;
@@ -39,7 +39,7 @@ export namespace RenamesCurrentThread {
 
   /**
    * Renames the current thread/worker to the specified name.
-   * 
+   *
    * @param newThreadName The new name for the current thread/worker
    * @returns A Revert object that can be used to restore the original name
    */
@@ -57,7 +57,7 @@ export namespace RenamesCurrentThread {
       if (typeof self !== 'undefined' && 'name' in self) {
         self.name = newThreadName;
       }
-      
+
       // Store the current name in our thread-local storage
       threadNameStorage.current = newThreadName;
       renamed = true;
@@ -77,13 +77,13 @@ export namespace RenamesCurrentThread {
         }
       };
     }
-    
+
     return EMPTY;
   }
 
   /**
    * Gets the current thread/worker name.
-   * 
+   *
    * @returns The current thread name
    */
   export function getCurrentThreadName(): string {
@@ -93,7 +93,7 @@ export namespace RenamesCurrentThread {
   /**
    * Executes a function with a temporary thread name and automatically
    * reverts to the original name when finished.
-   * 
+   *
    * @param name The temporary thread name
    * @param fn The function to execute
    * @returns The result of the function
@@ -110,7 +110,7 @@ export namespace RenamesCurrentThread {
   /**
    * Executes an async function with a temporary thread name and automatically
    * reverts to the original name when finished.
-   * 
+   *
    * @param name The temporary thread name
    * @param fn The async function to execute
    * @returns A Promise resolving to the result of the function
@@ -132,7 +132,7 @@ export namespace RenamesCurrentThread {
 export abstract class ThreadRenamingSupport implements RenamesCurrentThread {
   /**
    * Returns a name for the current thread based on the class name and instance identity.
-   * 
+   *
    * @returns A name for the current thread
    */
   threadName(): string {
@@ -142,7 +142,7 @@ export abstract class ThreadRenamingSupport implements RenamesCurrentThread {
   /**
    * Gets a unique ID for this instance.
    * In JavaScript we don't have System.identityHashCode, so we use a Symbol.
-   * 
+   *
    * @returns A string representation of the instance identity
    */
   private getInstanceId(): string {
@@ -156,7 +156,7 @@ export abstract class ThreadRenamingSupport implements RenamesCurrentThread {
 
   /**
    * Renames the current thread to this object's thread name.
-   * 
+   *
    * @returns A Revert object that can be used to restore the original name
    */
   protected renameToThreadName(): RenamesCurrentThread.Revert {

@@ -2,7 +2,7 @@ import { BackoffIdleStrategy } from './BackoffIdleStrategy';
 
 /**
  * Synchronization barrier for coordinating concurrent operations.
- * 
+ *
  * This class allows multiple workers to register themselves and provides
  * a mechanism to wait until all registered workers have finished before
  * proceeding with the next phase of work.
@@ -11,10 +11,10 @@ export class SyncBarrier {
   // Use a shared array buffer for atomic operations across workers
   private readonly workerCountBuffer: SharedArrayBuffer;
   private readonly workerCount: Int32Array;
-  
+
   private readonly isSyncingBuffer: SharedArrayBuffer;
   private readonly isSyncing: Int32Array;
-  
+
   private readonly lockBuffer: SharedArrayBuffer;
   private readonly lock: Int32Array;
 
@@ -22,39 +22,29 @@ export class SyncBarrier {
   private readonly rejectAction: () => void;
 
   /**
-   * Creates a new SyncBarrier with a default no-op reject action.
-   * 
-   * @returns A new SyncBarrier instance
+   * Creates a new SyncBarrier with optional reject action.
    */
-  public static create(): SyncBarrier {
-    return new SyncBarrier(() => {});
-  }
-
-  /**
-   * Creates a new SyncBarrier with the specified reject action.
-   * 
-   * @param rejectAction Action to execute when a worker is rejected
-   * @returns A new SyncBarrier instance
-   */
-  public static create(rejectAction: () => void): SyncBarrier {
+  public static create(): SyncBarrier;
+  public static create(rejectAction: () => void): SyncBarrier;
+  public static create(rejectAction: () => void = () => {}): SyncBarrier {
     return new SyncBarrier(rejectAction);
   }
 
   /**
    * Creates a new SyncBarrier.
-   * 
+   *
    * @param rejectAction Action to execute when a worker is rejected
    */
   private constructor(rejectAction: () => void) {
     this.workerCountBuffer = new SharedArrayBuffer(4);
     this.workerCount = new Int32Array(this.workerCountBuffer);
-    
+
     this.isSyncingBuffer = new SharedArrayBuffer(4);
     this.isSyncing = new Int32Array(this.isSyncingBuffer);
-    
+
     this.lockBuffer = new SharedArrayBuffer(4);
     this.lock = new Int32Array(this.lockBuffer);
-    
+
     this.idleStrategy = new BackoffIdleStrategy();
     this.rejectAction = rejectAction;
   }
@@ -67,12 +57,12 @@ export class SyncBarrier {
     try {
       // Acquire the lock
       this.acquireLock();
-      
+
       // Check if synchronization is in progress
       if (Atomics.load(this.isSyncing, 0) === 1) {
         this.rejectAction();
       }
-      
+
       // Increment the worker count
       Atomics.add(this.workerCount, 0, 1);
     } finally {
@@ -87,7 +77,7 @@ export class SyncBarrier {
   public stopWorker(): void {
     // Decrement the worker count
     Atomics.sub(this.workerCount, 0, 1);
-    
+
     // Notify any waiting threads
     Atomics.notify(this.workerCount, 0);
   }
@@ -99,7 +89,7 @@ export class SyncBarrier {
     try {
       // Acquire the lock
       this.acquireLock();
-      
+
       // Set the syncing flag
       Atomics.store(this.isSyncing, 0, 1);
     } finally {
@@ -119,7 +109,7 @@ export class SyncBarrier {
   public reset(): void {
     // Clear the syncing flag
     Atomics.store(this.isSyncing, 0, 0);
-    
+
     // Reset the idle strategy
     this.idleStrategy.reset();
   }

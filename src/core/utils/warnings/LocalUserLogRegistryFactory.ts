@@ -1,6 +1,6 @@
-import { UserLogRegistryFactory } from './UserLogRegistryFactory';
-import { UserLogRegistry } from './UserLogRegistry';
-import { UserLogStore } from './UserLogStore';
+import { UserLogRegistryFactory } from "./UserLogRegistryFactory";
+import { UserLogRegistry } from "./UserLogRegistry";
+import { UserLogStore } from "./UserLogStore";
 
 /**
  * A factory that creates UserLogRegistry instances for a specific user,

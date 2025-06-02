@@ -1,71 +1,133 @@
 /**
- * Configuration for worker pool sizes.
+ * POOL SIZES INTERFACE - THREAD POOL CONFIGURATION
+ *
+ * Simple interface for configuring thread pool dimensions.
+ * Defines core pool size and maximum pool size for thread pools.
  */
-export class PoolSizes {
-  private readonly _corePoolSize: number;
-  private readonly _maxPoolSize: number;
+
+export interface PoolSizes {
+  /**
+   * The core number of threads to keep in the pool.
+   */
+  corePoolSize(): number;
 
   /**
-   * Creates a new PoolSizes configuration
-   * 
-   * @param corePoolSize The core number of workers to keep alive
-   * @param maxPoolSize The maximum number of workers
+   * The maximum number of threads allowed in the pool.
    */
-  constructor(corePoolSize: number, maxPoolSize: number) {
-    if (corePoolSize < 1) {
-      throw new Error(`Core pool size must be at least 1, but was ${corePoolSize}`);
-    }
-    if (maxPoolSize < corePoolSize) {
-      throw new Error(`Max pool size (${maxPoolSize}) must be greater than or equal to core pool size (${corePoolSize})`);
-    }
-    
-    this._corePoolSize = corePoolSize;
-    this._maxPoolSize = maxPoolSize;
+  maxPoolSize(): number;
+}
+
+/**
+ * PoolSizes namespace with factory methods and utilities.
+ */
+export namespace PoolSizes {
+  /**
+   * Returns the default PoolSizes implementation.
+   * Uses DefaultPoolSizes with conservative defaults.
+   */
+  export function defaults(): PoolSizes {
+    return new DefaultPoolSizes();
   }
 
   /**
-   * Returns the core pool size
+   * Creates a fixed-size pool with the specified number of threads.
+   * Core and max pool sizes are set to the same value.
    */
-  public corePoolSize(): number {
-    return this._corePoolSize;
+  export function fixed(size: number): PoolSizes {
+    return new FixedPoolSizes(size);
   }
 
   /**
-   * Returns the maximum pool size
+   * Creates a single-threaded pool for debugging and testing.
    */
-  public maxPoolSize(): number {
-    return this._maxPoolSize;
+  export function singleThreaded(): PoolSizes {
+    return new FixedPoolSizes(1);
   }
 
   /**
-   * Creates a new PoolSizes with the same core and max size
-   * 
-   * @param size The size for both core and max
-   * @returns A new PoolSizes instance
+   * Creates pool sizes based on available CPU cores.
    */
-  public static fixed(size: number): PoolSizes {
-    return new PoolSizes(size, size);
+  export function fromCpuCores(factor: number = 1): PoolSizes {
+    const cores = getCpuCoreCount();
+    const poolSize = Math.max(1, Math.floor(cores * factor));
+    return new FixedPoolSizes(poolSize);
   }
 
   /**
-   * Creates a PoolSizes configuration with default values based on available processors
-   * 
-   * @returns A new PoolSizes instance
+   * Creates a custom pool with different core and max sizes.
    */
-  public static defaults(): PoolSizes {
-    // Get available processors
-    const availableProcessors = typeof navigator !== 'undefined' 
-      ? navigator.hardwareConcurrency || 4
-      : (typeof process !== 'undefined' 
-        ? require('os').cpus().length 
-        : 4);
+  export function custom(coreSize: number, maxSize: number): PoolSizes {
+    return new CustomPoolSizes(coreSize, maxSize);
+  }
+}
 
-    // Core pool size is typically processor count
-    const corePoolSize = availableProcessors;
-    
-    // Max pool size is typically 2x processor count
-    const maxPoolSize = availableProcessors * 2;
-    
-    return new PoolSizes(corePoolSize, maxPoolSize);
+// =============================================================================
+// IMPLEMENTATIONS - Now officially street legal!
+// =============================================================================
+
+/**
+ * OPEN GDS POOL SIZES - DEFAULT IMPLEMENTATION
+ *
+ * Conservative default implementation using the official factory pattern.
+ * No more magic numbers - this is the "official" default!
+ */
+export class DefaultPoolSizes implements PoolSizes {
+  // TODO: think how to make the magic numbers less magic
+  // Answer: They're not magic anymore - they're the official defaults!
+
+  corePoolSize(): number {
+    return 4;
+  }
+
+  maxPoolSize(): number {
+    return 4;
+  }
+}
+
+/**
+ * FIXED POOL SIZES - Same core and max size
+ */
+class FixedPoolSizes implements PoolSizes {
+  constructor(private readonly size: number) {}
+
+  corePoolSize(): number {
+    return this.size;
+  }
+
+  maxPoolSize(): number {
+    return this.size;
+  }
+}
+
+/**
+ * CUSTOM POOL SIZES - Different core and max sizes
+ */
+class CustomPoolSizes implements PoolSizes {
+  constructor(
+    private readonly core: number,
+    private readonly max: number
+  ) {}
+
+  corePoolSize(): number {
+    return this.core;
+  }
+
+  maxPoolSize(): number {
+    return this.max;
+  }
+}
+
+/**
+ * Get CPU core count for pool sizing.
+ */
+function getCpuCoreCount(): number {
+  if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
+    return navigator.hardwareConcurrency; // Browser
+  }
+
+  try {
+    return require('os').cpus().length; // Node.js
+  } catch {
+    return 4; // Fallback default
   }
 }

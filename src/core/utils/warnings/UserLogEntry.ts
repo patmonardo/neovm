@@ -1,4 +1,4 @@
-import { Task } from '../progress/tasks/Task'; // Adjust path as needed
+import { Task } from "../progress/tasks/Task"; // Adjust path as needed
 
 export class UserLogEntry {
   public readonly taskName: string;
@@ -6,10 +6,10 @@ export class UserLogEntry {
   public readonly timeStarted: Date; // Store as a Date object
 
   constructor(task: Task, message: string) {
-    this.taskName = task.description();
+    this.taskName = task.getDescription();
     this.message = message;
     // Convert epoch milliseconds from task.startTime() to a Date object
-    this.timeStarted = new Date(task.startTime());
+    this.timeStarted = new Date(task.getStartTime());
   }
 
   public getTaskName(): string {
@@ -34,6 +34,11 @@ export class UserLogEntry {
    */
   public getTimeStartedString(): string {
     // Uses system's local timezone by default
-    return this.timeStarted.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    return this.timeStarted.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
   }
 }

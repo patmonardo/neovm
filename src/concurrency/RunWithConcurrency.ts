@@ -1,7 +1,7 @@
-import { Concurrency } from './Concurrency';
-import { TerminationFlag } from '../termination/TerminationFlag';
-import { WorkerPool } from './WorkerPool';
-import { ParallelUtil } from './ParallelUtil';
+import { Concurrency } from "./Concurrency";
+import { TerminationFlag } from "@/termination";
+import { WorkerPool } from "./WorkerPool";
+import { ParallelUtil } from "./ParallelUtil";
 
 /**
  * Parameters for running tasks with concurrency.
@@ -70,16 +70,19 @@ export class RunWithConcurrencyBuilder {
   private _waitMillis: number = 1;
   private _maxWaitRetries: number = DEFAULT_MAX_NUMBER_OF_RETRIES;
   private _mayInterruptIfRunning: boolean = true;
-  private _terminationFlag: TerminationFlag = TerminationFlag.RUNNING;
-  private _executor: WorkerPool | null = WorkerPool.defaultPool();
+  private _terminationFlag: TerminationFlag = TerminationFlag.DEFAULT;
+  private _executor: WorkerPool | null = null;
 
   /**
    * Sets the concurrency level.
    */
-  public concurrency(concurrency: Concurrency | number): RunWithConcurrencyBuilder {
-    this._concurrency = concurrency instanceof Concurrency
-      ? concurrency
-      : new Concurrency(concurrency);
+  public concurrency(
+    concurrency: Concurrency | number
+  ): RunWithConcurrencyBuilder {
+    this._concurrency =
+      concurrency instanceof Concurrency
+        ? concurrency
+        : new Concurrency(concurrency);
     return this;
   }
 
@@ -114,7 +117,9 @@ export class RunWithConcurrencyBuilder {
   /**
    * Sets whether to force usage of the executor even for single-threaded execution.
    */
-  public forceUsageOfExecutor(force: boolean = true): RunWithConcurrencyBuilder {
+  public forceUsageOfExecutor(
+    force: boolean = true
+  ): RunWithConcurrencyBuilder {
     this._forceUsageOfExecutor = force;
     return this;
   }
@@ -135,7 +140,9 @@ export class RunWithConcurrencyBuilder {
    */
   public maxWaitRetries(maxWaitRetries: number): RunWithConcurrencyBuilder {
     if (maxWaitRetries < 0) {
-      throw new Error(`[maxWaitRetries] must be at least 0, but got ${maxWaitRetries}`);
+      throw new Error(
+        `[maxWaitRetries] must be at least 0, but got ${maxWaitRetries}`
+      );
     }
     this._maxWaitRetries = maxWaitRetries;
     return this;
@@ -144,7 +151,9 @@ export class RunWithConcurrencyBuilder {
   /**
    * Sets whether running tasks can be interrupted when cancelling.
    */
-  public mayInterruptIfRunning(mayInterrupt: boolean = true): RunWithConcurrencyBuilder {
+  public mayInterruptIfRunning(
+    mayInterrupt: boolean = true
+  ): RunWithConcurrencyBuilder {
     this._mayInterruptIfRunning = mayInterrupt;
     return this;
   }
@@ -152,7 +161,9 @@ export class RunWithConcurrencyBuilder {
   /**
    * Sets the flag to check for early termination.
    */
-  public terminationFlag(terminationFlag: TerminationFlag): RunWithConcurrencyBuilder {
+  public terminationFlag(
+    terminationFlag: TerminationFlag
+  ): RunWithConcurrencyBuilder {
     this._terminationFlag = terminationFlag;
     return this;
   }
@@ -178,10 +189,15 @@ export class RunWithConcurrencyBuilder {
     }
 
     if (this._concurrency.value() < 0) {
-      throw new Error(`[concurrency] must be at least 0, but got ${this._concurrency.value()}`);
+      throw new Error(
+        `[concurrency] must be at least 0, but got ${this._concurrency.value()}`
+      );
     }
 
-    if (this._forceUsageOfExecutor && !ParallelUtil.canRunInParallel(this._executor)) {
+    if (
+      this._forceUsageOfExecutor &&
+      !ParallelUtil.canRunInParallel(this._executor)
+    ) {
       throw new Error(
         "[executor] cannot be used to run tasks because it is terminated or shut down."
       );
@@ -199,7 +215,7 @@ export class RunWithConcurrencyBuilder {
 
       async run(): Promise<void> {
         return ParallelUtil.runWithConcurrency(params);
-      }
+      },
     };
 
     return params;

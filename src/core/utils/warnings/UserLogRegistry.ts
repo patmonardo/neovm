@@ -1,7 +1,8 @@
-import { Task } from '../progress/tasks/Task'; // Adjust path as needed
-import { UserLogStore } from './UserLogStore';   // Adjust path as needed
+import { Task } from "@/core/utils/progress/tasks/Task";
+import { UserLogStore } from "./UserLogStore";
+import { EmptyUserLogStore } from "./EmptyUserLogStore";
 
-export class UserLogRegistry {
+export abstract class UserLogRegistry {
   private readonly username: string;
   private readonly userLogStore: UserLogStore;
 
@@ -19,9 +20,37 @@ export class UserLogRegistry {
     this.userLogStore.addUserLogMessage(this.username, task, message);
   }
 
-  // If the Java class had other methods, they would be translated here.
-  // For example, if it had a method to query logs:
-  // public getWarnings(): UserLogEntry[] {
-  //   return this.userLogStore.query(this.username);
-  // }
+  /**
+   * Static factory for empty UserLogRegistry instances.
+   */
+  public static empty(): UserLogRegistry {
+    return new EmptyUserLogRegistry();
+  }
+}
+
+/**
+ * Empty implementation that discards all warnings.
+ * Used for testing and minimal setups.
+ */
+class EmptyUserLogRegistry extends UserLogRegistry {
+
+  public constructor() {
+    super("", EmptyUserLogStore);
+  }
+
+  public addWarningToLog(task: Task, message: string): void {
+    // NOOP - discard warning
+  }
+
+  public getWarnings(): string[] {
+    return []; // No warnings stored
+  }
+
+  public hasWarnings(): boolean {
+    return false;
+  }
+
+  public clear(): void {
+    // NOOP - nothing to clear
+  }
 }
