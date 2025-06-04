@@ -1,8 +1,8 @@
-import { Concurrency } from '@/concurrency/Concurrency';
-import { ProgressTracker } from './tasks/ProgressTracker';
-import { ProgressTrackerAdapter } from './tasks/ProgressTrackerAdapter';
-import { Task } from './tasks/Task';
-import { BatchingProgressLogger } from './BatchingProgressLogger';
+import { Concurrency } from "@/concurrency/Concurrency";
+import { Task } from "./tasks/Task";
+import { ProgressTracker } from "./tasks/ProgressTracker";
+import { ProgressTrackerAdapter } from "./tasks/ProgressTrackerAdapter";
+import { BatchingProgressLogger } from "./BatchingProgressLogger";
 
 /**
  * Factory for creating batched progress trackers that optimize high-frequency updates.
@@ -17,7 +17,11 @@ export class BatchingTaskProgressTracker {
    * Create a batched progress tracker.
    * Uses WithLogging for known volumes, WithoutLogging for unknown volumes.
    */
-  public static create(delegate: ProgressTracker, volume: number, concurrency: Concurrency): ProgressTracker {
+  public static create(
+    delegate: ProgressTracker,
+    volume: number,
+    concurrency: Concurrency
+  ): ProgressTracker {
     return volume === Task.UNKNOWN_VOLUME
       ? new WithoutLogging(delegate)
       : new WithLogging(delegate, volume, concurrency);
@@ -32,9 +36,16 @@ class WithLogging extends ProgressTrackerAdapter {
   private readonly batchSize: number;
   private rowCounter: number;
 
-  constructor(delegate: ProgressTracker, volume: number, concurrency: Concurrency) {
+  constructor(
+    delegate: ProgressTracker,
+    volume: number,
+    concurrency: Concurrency
+  ) {
     super(delegate);
-    this.batchSize = BatchingProgressLogger.calculateBatchSizeForVolume(volume, concurrency);
+    this.batchSize = BatchingProgressLogger.calculateBatchSizeForVolume(
+      volume,
+      concurrency
+    );
     this.rowCounter = 0;
   }
 
@@ -71,6 +82,5 @@ class WithoutLogging extends ProgressTrackerAdapter {
 
   public logProgress(): void;
   public logProgress(value: number): void;
-  public logProgress(value?: number, messageTemplate?: string): void {
-  }
+  public logProgress(value?: number, messageTemplate?: string): void {}
 }

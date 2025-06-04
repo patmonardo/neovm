@@ -1,10 +1,9 @@
-/**
- * CONCURRENCY VALIDATOR BUILDER - SERVICE PROVIDER INTERFACE
- */
-
 import { LicenseState } from '@/core/LicenseState';
 import { ConcurrencyValidator } from './ConcurrencyValidator';
 
+/**
+ * CONCURRENCY VALIDATOR BUILDER - SERVICE PROVIDER INTERFACE
+ */
 export interface ConcurrencyValidatorBuilder {
   /**
    * Build a concurrency validator for the given license state.

@@ -20,7 +20,7 @@ import { CompositeRelationshipIterator } from "./CompositeRelationshipIterator";
 /**
  * Central interface for managing and accessing graph data.
  * Provides methods for querying and manipulating nodes, relationships,
- * and their properties at both individual and collection levels.
+ * and their properties at both individual and Array levels.
  */
 export interface GraphStore {
   /**
@@ -148,12 +148,12 @@ export interface GraphStore {
   hasNodeProperty(label: NodeLabel, propertyKey: string): boolean;
 
   /**
-   * Checks if a node property exists for a collection of labels.
+   * Checks if a node property exists for a Array of labels.
    *
    * @param labels Array of node labels to check
    * @param propertyKey Property key to check
    */
-  hasNodeProperty(labels: Set<NodeLabel>, propertyKey: string): boolean;
+  hasNodeProperty(labels: Array<NodeLabel>, propertyKey: string): boolean;
 
   /**
    * Returns property keys common to all specified node labels.
@@ -218,7 +218,7 @@ export interface GraphStore {
   /**
    * Returns relationship types that have an inverse index.
    */
-  inverseIndexedRelationshipTypes(): Array<RelationshipType>;
+  inverseIndexedRelationshipTypes(): Set<RelationshipType>;
 
   // Relationship Properties
 

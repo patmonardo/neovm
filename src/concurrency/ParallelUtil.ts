@@ -1,9 +1,9 @@
 import { Concurrency } from "./Concurrency";
 import { BiLongConsumer } from "./BiLongConsumer";
 import { TerminationFlag } from "@/termination/TerminationFlag";
-import { WorkerPool } from "./WorkerPool";
 import { Future } from "./Future";
 import { Runnable } from "./Runnable";
+import { WorkerPool } from "./WorkerPool";
 import { NamedThreadFactory } from "./NamedThreadFactory";
 import { PoolSizes } from "./PoolSizes";
 import { Log } from "@/utils/Log";

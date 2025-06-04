@@ -18,11 +18,13 @@ export class GraphCharacteristics {
   // Static properties initialized immediately with proper instances
   public static readonly ALL: GraphCharacteristics = new GraphCharacteristics(
     GraphCharacteristics.DIRECTED |
-    GraphCharacteristics.UNDIRECTED |
-    GraphCharacteristics.INVERSE_INDEXED
+      GraphCharacteristics.UNDIRECTED |
+      GraphCharacteristics.INVERSE_INDEXED
   );
 
-  public static readonly NONE: GraphCharacteristics = new GraphCharacteristics(0);
+  public static readonly NONE: GraphCharacteristics = new GraphCharacteristics(
+    0
+  );
 
   /**
    * Creates a new builder for GraphCharacteristics.
@@ -142,7 +144,7 @@ export class GraphCharacteristics {
 /**
  * Builder for creating GraphCharacteristics instances.
  */
-export class Builder {
+class Builder {
   private characteristics = 0;
 
   /**

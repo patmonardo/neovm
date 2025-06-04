@@ -10,6 +10,8 @@
 // import { UserLogRegistryFactory } from "@/core/utils/warnings/UserLogRegistryFactory"; // Placeholder
 // import { EmptyUserLogRegistryFactory } from "@/core/utils/warnings/EmptyUserLogRegistryFactory"; // Placeholder
 
+export interface GraphLoaderContext {};
+
 // /**
 //  * Context object providing necessary components for graph loading operations.
 //  */

@@ -1,4 +1,5 @@
 import { WorkerFactory } from './WorkerFactory';
+import { Worker } from 'worker_threads';
 
 /**
  * Factory for creating named worker threads.

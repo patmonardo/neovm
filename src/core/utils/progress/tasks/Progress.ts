@@ -44,7 +44,6 @@ export class Progress {
     return this.volume === Task.UNKNOWN_VOLUME;
   }
 
-  // Java compatibility getters - THE ONE TRUE WAY
   public getCurrentProgress(): number {
     return this.currentProgress;
   }

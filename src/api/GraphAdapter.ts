@@ -1,9 +1,9 @@
 import { NodeLabel } from "@/projection";
 import { RelationshipType } from "@/projection";
-import { NodePropertyValues } from "@/api/properties/nodes";
-import { RelationshipCursor } from "@/api/properties/relationships";
-import { RelationshipConsumer } from "@/api/properties/relationships";
-import { RelationshipWithPropertyConsumer } from "@/api/properties/relationships";
+import { NodePropertyValues } from "./properties/nodes";
+import { RelationshipCursor } from "./properties/relationships";
+import { RelationshipConsumer } from "./properties/relationships";
+import { RelationshipWithPropertyConsumer } from "./properties/relationships";
 import { PrimitiveLongIterable } from "@/collections";
 import { PrimitiveIterator } from "@/collections";
 import { LongPredicate } from "@/collections";
@@ -41,7 +41,7 @@ export abstract class GraphAdapter implements Graph {
     return this.graph.asNodeFilteredGraph();
   }
 
-  batchIterables(batchSize: number): Array<PrimitiveLongIterable> {
+  batchIterables(batchSize: number): Set<PrimitiveLongIterable> {
     return this.graph.batchIterables(batchSize);
   }
 
@@ -133,7 +133,7 @@ export abstract class GraphAdapter implements Graph {
   }
 
   withFilteredLabels(
-    nodeLabels: Array<NodeLabel>,
+    nodeLabels: Set<NodeLabel>,
     concurrency: Concurrency
   ): FilteredIdMap | undefined {
     return this.graph.withFilteredLabels(nodeLabels, concurrency);

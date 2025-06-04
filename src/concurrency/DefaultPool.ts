@@ -15,12 +15,12 @@ export class DefaultPool {
 
   /**
    * Creates a worker pool with the specified pool sizes
-   * 
+   *
    * @param poolSizes Configuration for pool sizes
    * @returns A new worker pool instance
    */
   private static createDefaultPool(poolSizes: PoolSizes): WorkerPool {
-    return new WorkerPool(poolSizes.corePoolSize(), poolSizes.maxPoolSize());
+    return new WorkerPool(poolSizes);
   }
 
   /**

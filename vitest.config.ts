@@ -6,7 +6,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-    exclude: ['./node_modules/**','./src/core/loading'],
+    exclude: ['./node_modules/**'],
     typecheck: {
       enabled: true,
       tsconfig: './tsconfig.json',

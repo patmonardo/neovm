@@ -1,37 +1,47 @@
-import { Runnable } from './Runnable';
-import { Future } from './Future';
-import { WorkerFactory } from './WorkerFactory';
-import { PoolSizes } from './PoolSizes';
-import { Log } from '@/utils/Log';
+import { Runnable } from "./Runnable";
+import { Future } from "./Future";
+import { Worker } from "worker_threads";
+import { WorkerFactory } from "./WorkerFactory";
+import { PoolSizes } from "./PoolSizes";
+import { Log } from "@/utils/Log";
+
+/**
+ * ManagedWorker wraps a native Worker and provides unified interface.
+ */
+interface ManagedWorker {
+  worker: Worker; // Raw native worker
+  busy: boolean; // Task execution state
+  currentTaskId: string | null; // Current task tracking
+
+  // Adapter methods that WorkerPool needs:
+  setupMessageHandling(
+    onMessage: (data: any) => void,
+    onError: (error: any) => void
+  ): void;
+  postMessage(message: any): void;
+  terminate(): void;
+  isReady(): boolean;
+}
 
 /**
  * Task message sent to workers
  */
-interface TaskMessage {
+export interface WorkerMessage {
   id: string;
   type: 'task';
-  taskData: any;
+  taskData?: any;
   functionCode: string;
 }
 
 /**
  * Result message from workers
  */
-interface ResultMessage {
+export interface WorkerResult {
   id: string;
   type: 'result' | 'error';
   result?: any;
   error?: string;
   stack?: string;
-}
-
-/**
- * Worker wrapper with state tracking
- */
-interface ManagedWorker {
-  worker: Worker;
-  busy: boolean;
-  currentTaskId: string | null;
 }
 
 /**
@@ -74,7 +84,7 @@ export class WorkerPool {
    */
   constructor(
     poolSizes: PoolSizes,
-    workerFactory: WorkerFactory = WorkerFactory.daemon('worker-pool'),
+    workerFactory: WorkerFactory = WorkerFactory.daemon("worker-pool"),
     log: Log = Log.noOp()
   ) {
     this.corePoolSize = poolSizes.corePoolSize();
@@ -87,8 +97,23 @@ export class WorkerPool {
       this.createWorker();
     }
 
-    this.log.debug('WorkerPool created with %d core workers, %d max workers',
-      this.corePoolSize, this.maxPoolSize);
+    this.log.debug(
+      "WorkerPool created with %d core workers, %d max workers",
+      this.corePoolSize,
+      this.maxPoolSize
+    );
+  }
+
+  getCorePoolSize(): number {
+    return this.corePoolSize;
+  }
+
+  getMaxPoolSize(): number {
+    return this.maxPoolSize;
+  }
+
+  getWorkerCount(): number {
+    return this.workers.length;
   }
 
   /**
@@ -96,38 +121,91 @@ export class WorkerPool {
    */
   private createWorker(): ManagedWorker {
     if (this._isShutdown) {
-      throw new Error('WorkerPool has been shut down');
+      throw new Error("WorkerPool has been shut down");
     }
 
-    const worker = this.workerFactory.newWorker();
+    const rawWorker = this.workerFactory.newWorker();
+    // Build complete ManagedWorker with adapter methods
     const managedWorker: ManagedWorker = {
-      worker,
+      worker: rawWorker,
       busy: false,
-      currentTaskId: null
+      currentTaskId: null,
+
+      // Adapter method: Set up cross-platform message handling
+      setupMessageHandling: (
+        onMessage: (data: any) => void,
+        onError: (error: any) => void
+      ) => {
+        if (this.isBrowser()) {
+          // Browser Web Worker API
+          (rawWorker as any).onmessage = (event: MessageEvent) => {
+            onMessage(event.data);
+          };
+          (rawWorker as any).onerror = (error: ErrorEvent) => {
+            onError(error);
+          };
+        } else {
+          // Node.js worker_threads API
+          (rawWorker as any).on("message", (data: any) => {
+            onMessage(data);
+          });
+          (rawWorker as any).on("error", (error: Error) => {
+            onError({ message: error.message, error } as ErrorEvent);
+          });
+        }
+      },
+
+      // Adapter method: Cross-platform postMessage
+      postMessage: (message: any) => {
+        rawWorker.postMessage(message);
+      },
+
+      // Adapter method: Cross-platform terminate
+      terminate: () => {
+        rawWorker.terminate();
+      },
+
+      // Adapter method: Check if worker is ready
+      isReady: () => {
+        return !this._isShutdown && !managedWorker.busy;
+      },
     };
 
-    // Set up message handling
-    worker.onmessage = (event: MessageEvent<ResultMessage>) => {
-      this.handleWorkerMessage(managedWorker, event.data);
-    };
-
-    worker.onerror = (error: ErrorEvent) => {
-      this.handleWorkerError(managedWorker, error);
-    };
+    // Set up message handling using the adapter
+    managedWorker.setupMessageHandling(
+      (data: WorkerResult) => {
+        this.handleWorkerMessage(managedWorker, data);
+      },
+      (error: ErrorEvent) => {
+        this.handleWorkerError(managedWorker, error);
+      }
+    );
 
     this.workers.push(managedWorker);
-    this.log.debug('Created worker, total workers: %d', this.workers.length);
+    this.log.debug("Created worker, total workers: %d", this.workers.length);
 
     return managedWorker;
   }
 
   /**
+   * Detect if running in browser environment
+   */
+  private isBrowser(): boolean {
+    return (
+      typeof window !== "undefined" && typeof globalThis.Worker !== "undefined"
+    );
+  }
+
+  /**
    * Handles messages from workers.
    */
-  private handleWorkerMessage(managedWorker: ManagedWorker, message: ResultMessage): void {
+  private handleWorkerMessage(
+    managedWorker: ManagedWorker,
+    message: WorkerResult
+  ): void {
     const task = this.pendingTasks.get(message.id);
     if (!task) {
-      this.log.warn('Received result for unknown task: %s', message.id);
+      this.log.warn("Received result for unknown task: %s", message.id);
       return;
     }
 
@@ -138,9 +216,9 @@ export class WorkerPool {
 
     // Handle the result
     if (task.cancelled) {
-      this.log.debug('Task %s was cancelled, ignoring result', message.id);
-    } else if (message.type === 'error') {
-      const error = new Error(message.error || 'Worker task failed');
+      this.log.debug("Task %s was cancelled, ignoring result", message.id);
+    } else if (message.type === "error") {
+      const error = new Error(message.error || "Worker task failed");
       if (message.stack) {
         error.stack = message.stack;
       }
@@ -156,8 +234,11 @@ export class WorkerPool {
   /**
    * Handles worker errors.
    */
-  private handleWorkerError(managedWorker: ManagedWorker, error: ErrorEvent): void {
-    this.log.error('Worker error: %s', error.message, error.error);
+  private handleWorkerError(
+    managedWorker: ManagedWorker,
+    error: ErrorEvent
+  ): void {
+    this.log.error("Worker error: %s", error.message, error.error);
 
     // If there's a current task, reject it
     if (managedWorker.currentTaskId) {
@@ -197,7 +278,7 @@ export class WorkerPool {
     }
 
     // Find an idle worker
-    let managedWorker = this.workers.find(w => !w.busy);
+    let managedWorker = this.workers.find((w) => !w.busy);
 
     // If no idle workers and below maxPoolSize, create a new one
     if (!managedWorker && this.workers.length < this.maxPoolSize) {
@@ -221,7 +302,10 @@ export class WorkerPool {
   /**
    * Executes a task on the specified worker.
    */
-  private executeTaskOnWorker<T>(managedWorker: ManagedWorker, task: PendingTask<T>): void {
+  private executeTaskOnWorker<T>(
+    managedWorker: ManagedWorker,
+    task: PendingTask<T>
+  ): void {
     managedWorker.busy = true;
     managedWorker.currentTaskId = task.id;
 
@@ -229,23 +313,26 @@ export class WorkerPool {
       // Serialize the task function for the worker
       const functionCode = this.serializeTask(task.task);
 
-      const message: TaskMessage = {
+      const message: WorkerMessage = {
         id: task.id,
-        type: 'task',
+        type: "task",
         taskData: null, // Tasks are functions, not data
-        functionCode
+        functionCode,
       };
 
       managedWorker.worker.postMessage(message);
-      this.log.debug('Task %s sent to worker', task.id);
-
+      this.log.debug("Task %s sent to worker", task.id);
     } catch (error) {
       // Failed to serialize or send task
       managedWorker.busy = false;
       managedWorker.currentTaskId = null;
 
       if (!task.cancelled) {
-        task.reject(new Error(`Failed to send task to worker: ${(error as Error).message}`));
+        task.reject(
+          new Error(
+            `Failed to send task to worker: ${(error as Error).message}`
+          )
+        );
       }
 
       // Try next task
@@ -257,8 +344,8 @@ export class WorkerPool {
    * Serializes a task function for execution in a worker.
    */
   private serializeTask<T>(task: Runnable<T>): string {
-    if (typeof task.run !== 'function') {
-      throw new Error('Task must have a run() method');
+    if (typeof task.run !== "function") {
+      throw new Error("Task must have a run() method");
     }
 
     // Convert the function to a string
@@ -283,7 +370,7 @@ export class WorkerPool {
    */
   public submit<T>(task: Runnable<T>): Future<T> {
     if (this._isShutdown) {
-      return Future.rejected(new Error('WorkerPool has been shut down'));
+      return Future.rejected(new Error("WorkerPool has been shut down"));
     }
 
     return new Future<T>((resolve, reject) => {
@@ -294,13 +381,17 @@ export class WorkerPool {
         task,
         resolve,
         reject,
-        cancelled: false
+        cancelled: false,
       };
 
       this.pendingTasks.set(taskId, pendingTask);
       this.taskQueue.push(pendingTask);
 
-      this.log.debug('Task %s queued, queue size: %d', taskId, this.taskQueue.length);
+      this.log.debug(
+        "Task %s queued, queue size: %d",
+        taskId,
+        this.taskQueue.length
+      );
 
       // Try to process immediately
       this.processNextTask();
@@ -315,7 +406,7 @@ export class WorkerPool {
       return Future.resolved([]);
     }
 
-    const futures = tasks.map(task => this.submit(task));
+    const futures = tasks.map((task) => this.submit(task));
     return Future.all(futures);
   }
 
@@ -332,7 +423,7 @@ export class WorkerPool {
       if (queueIndex >= 0) {
         this.taskQueue.splice(queueIndex, 1);
         this.pendingTasks.delete(taskId);
-        task.reject(new Error('Task was cancelled'));
+        task.reject(new Error("Task was cancelled"));
         return true;
       }
     }
@@ -343,7 +434,7 @@ export class WorkerPool {
    * Returns the current number of active workers.
    */
   public getActiveWorkerCount(): number {
-    return this.workers.filter(w => w.busy).length;
+    return this.workers.filter((w) => w.busy).length;
   }
 
   /**
@@ -357,9 +448,10 @@ export class WorkerPool {
    * Returns true if the pool can accept more work.
    */
   public canAcceptWork(): boolean {
-    return !this._isShutdown && (
-      this.workers.some(w => !w.busy) ||
-      this.workers.length < this.maxPoolSize
+    return (
+      !this._isShutdown &&
+      (this.workers.some((w) => !w.busy) ||
+        this.workers.length < this.maxPoolSize)
     );
   }
 
@@ -371,14 +463,17 @@ export class WorkerPool {
       return;
     }
 
-    this.log.info('Shutting down WorkerPool with %d workers', this.workers.length);
+    this.log.info(
+      "Shutting down WorkerPool with %d workers",
+      this.workers.length
+    );
     this._isShutdown = true;
 
     // Cancel all pending tasks
     for (const task of this.taskQueue) {
       if (!task.cancelled) {
         task.cancelled = true;
-        task.reject(new Error('WorkerPool is shutting down'));
+        task.reject(new Error("WorkerPool is shutting down"));
       }
     }
     this.taskQueue.length = 0;
@@ -412,8 +507,10 @@ export class WorkerPool {
    * Returns true if all tasks have completed following shut down.
    */
   public isTerminated(): boolean {
-    return this._isShutdown &&
-           this.workers.length === 0 &&
-           this.pendingTasks.size === 0;
+    return (
+      this._isShutdown &&
+      this.workers.length === 0 &&
+      this.pendingTasks.size === 0
+    );
   }
 }

@@ -32,14 +32,22 @@ export class NoOpLog implements Log {
 
   warn(message: string, error?: Error): void;
   warn(format: string, ...args: any[]): void;
-  warn(messageOrFormat: string, errorOrFirstArg?: Error | any, ...args: any[]): void {
+  warn(
+    messageOrFormat: string,
+    errorOrFirstArg?: Error | any,
+    ...args: any[]
+  ): void {
     // No-op
   }
 
   error(message: string, error?: Error): void;
   error(format: string, ...args: any[]): void;
   error(format: string, error: Error, ...args: any[]): void;
-  error(messageOrFormat: string, errorOrFirstArg?: Error | any, ...restArgs: any[]): void {
+  error(
+    messageOrFormat: string,
+    errorOrFirstArg?: Error | any,
+    ...restArgs: any[]
+  ): void {
     // No-op
   }
 
@@ -68,7 +76,11 @@ export class ConsoleLog implements Log {
 
   warn(message: string, error?: Error): void;
   warn(format: string, ...args: any[]): void;
-  warn(messageOrFormat: string, errorOrFirstArg?: Error | any, ...args: any[]): void {
+  warn(
+    messageOrFormat: string,
+    errorOrFirstArg?: Error | any,
+    ...args: any[]
+  ): void {
     if (errorOrFirstArg instanceof Error && args.length === 0) {
       console.warn(messageOrFormat, errorOrFirstArg);
     } else {
@@ -80,15 +92,24 @@ export class ConsoleLog implements Log {
   error(message: string, error?: Error): void;
   error(format: string, ...args: any[]): void;
   error(format: string, error: Error, ...args: any[]): void;
-  error(messageOrFormat: string, errorOrFirstArg?: Error | any, ...restArgs: any[]): void {
+  error(
+    messageOrFormat: string,
+    errorOrFirstArg?: Error | any,
+    ...restArgs: any[]
+  ): void {
     if (errorOrFirstArg instanceof Error) {
       if (restArgs.length === 0) {
         console.error(messageOrFormat, errorOrFirstArg);
       } else {
-        console.error(this.format(messageOrFormat, ...restArgs), errorOrFirstArg);
+        console.error(
+          this.format(messageOrFormat, ...restArgs),
+          errorOrFirstArg
+        );
       }
     } else {
-      const allArgs = errorOrFirstArg ? [errorOrFirstArg, ...restArgs] : restArgs;
+      const allArgs = errorOrFirstArg
+        ? [errorOrFirstArg, ...restArgs]
+        : restArgs;
       console.error(this.format(messageOrFormat, ...allArgs));
     }
   }
@@ -100,9 +121,10 @@ export class ConsoleLog implements Log {
   }
 
   isDebugEnabled(): boolean {
-    return process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true';
+    return (
+      process.env.NODE_ENV === "development" || process.env.DEBUG === "true"
+    );
   }
-
   private format(template: string, ...args: any[]): string {
     // Simple string interpolation - replace %s, %d, %j with arguments
     let result = template;
@@ -113,19 +135,32 @@ export class ConsoleLog implements Log {
 
       const arg = args[argIndex++];
       switch (match) {
-        case '%s': return String(arg);
-        case '%d': return Number(arg).toString();
-        case '%j': return JSON.stringify(arg);
-        default: return match;
+        case "%s":
+          // Use JSON.stringify for objects, String for primitives
+          return typeof arg === "object" && arg !== null
+            ? JSON.stringify(arg)
+            : String(arg);
+        case "%d":
+          return Number(arg).toString();
+        case "%j":
+          return JSON.stringify(arg);
+        default:
+          return match;
       }
     });
 
     // Append remaining arguments
     const remaining = args.slice(argIndex);
     if (remaining.length > 0) {
-      result += ' ' + remaining.map(arg =>
-        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-      ).join(' ');
+      result +=
+        " " +
+        remaining
+          .map((arg) =>
+            typeof arg === "object" && arg !== null
+              ? JSON.stringify(arg)
+              : String(arg)
+          )
+          .join(" ");
     }
 
     return result;
@@ -153,7 +188,10 @@ export namespace Log {
   /**
    * Create a logger with a specific prefix.
    */
-  export function withPrefix(prefix: string, baseLog: Log = new ConsoleLog()): Log {
+  export function withPrefix(
+    prefix: string,
+    baseLog: Log = new ConsoleLog()
+  ): Log {
     return new PrefixedLog(prefix, baseLog);
   }
 }
@@ -162,10 +200,7 @@ export namespace Log {
  * Logger that adds a prefix to all messages.
  */
 class PrefixedLog implements Log {
-  constructor(
-    private readonly prefix: string,
-    private readonly baseLog: Log
-  ) {}
+  constructor(private readonly prefix: string, private readonly baseLog: Log) {}
 
   info(message: string): void;
   info(format: string, ...args: any[]): void;
@@ -175,15 +210,31 @@ class PrefixedLog implements Log {
 
   warn(message: string, error?: Error): void;
   warn(format: string, ...args: any[]): void;
-  warn(messageOrFormat: string, errorOrFirstArg?: Error | any, ...args: any[]): void {
-    this.baseLog.warn(`[${this.prefix}] ${messageOrFormat}`, errorOrFirstArg, ...args);
+  warn(
+    messageOrFormat: string,
+    errorOrFirstArg?: Error | any,
+    ...args: any[]
+  ): void {
+    this.baseLog.warn(
+      `[${this.prefix}] ${messageOrFormat}`,
+      errorOrFirstArg,
+      ...args
+    );
   }
 
   error(message: string, error?: Error): void;
   error(format: string, ...args: any[]): void;
   error(format: string, error: Error, ...args: any[]): void;
-  error(messageOrFormat: string, errorOrFirstArg?: Error | any, ...restArgs: any[]): void {
-    this.baseLog.error(`[${this.prefix}] ${messageOrFormat}`, errorOrFirstArg, ...restArgs);
+  error(
+    messageOrFormat: string,
+    errorOrFirstArg?: Error | any,
+    ...restArgs: any[]
+  ): void {
+    this.baseLog.error(
+      `[${this.prefix}] ${messageOrFormat}`,
+      errorOrFirstArg,
+      ...restArgs
+    );
   }
 
   debug(format: string, ...args: any[]): void {

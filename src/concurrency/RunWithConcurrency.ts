@@ -1,228 +1,226 @@
-import { Concurrency } from "./Concurrency";
 import { TerminationFlag } from "@/termination";
+import { Concurrency } from "./Concurrency";
 import { WorkerPool } from "./WorkerPool";
+import { DefaultPool } from "./DefaultPool";
 import { ParallelUtil } from "./ParallelUtil";
 
 /**
- * Parameters for running tasks with concurrency.
- * Used with ParallelUtil.runWithConcurrency.
+ * Default value for how often a task is retried before giving up.
+ * The default is so that retrying every millisecond will stop after about 3 days.
+ */
+const DEFAULT_MAX_NUMBER_OF_RETRIES = 2.5e8; // about 3 days in millis
+
+/**
+ * Parameters for ParallelUtil.runWithConcurrency().
+ *
+ * Create an instance by using the builder().
  */
 export interface RunWithConcurrency {
   /**
    * The maximum concurrency for running the tasks.
    */
-  concurrency: Concurrency;
+  concurrency(): Concurrency;
 
   /**
    * The tasks that will be executed.
+   * Simple iterator of Runnable tasks - no fancy generics.
    */
-  tasks: Iterator<() => void> | Array<() => void>;
+  tasks(): Iterator<{ run(): void }>;
 
   /**
-   * Whether to force usage of the executor even for single-threaded execution.
+   * Force usage of executor even for single-threaded execution.
    */
-  forceUsageOfExecutor: boolean;
+  forceUsageOfExecutor(): boolean;
 
   /**
-   * The time to wait between retries in milliseconds.
+   * Wait time in milliseconds between retries.
    */
-  waitMillis: number;
+  waitMillis(): number;
 
   /**
-   * The maximum number of retry attempts.
+   * Maximum number of retry attempts.
    */
-  maxWaitRetries: number;
+  maxWaitRetries(): number;
 
   /**
    * Whether running tasks can be interrupted when cancelling.
    */
-  mayInterruptIfRunning: boolean;
+  mayInterruptIfRunning(): boolean;
 
   /**
    * Flag to check for early termination.
    */
-  terminationFlag: TerminationFlag;
+  terminationFlag(): TerminationFlag;
 
   /**
-   * The worker pool to use.
+   * The executor that will run the tasks.
    */
-  executor: WorkerPool | null;
+  executor(): WorkerPool | null;
 
   /**
-   * Runs all tasks using the specified parameters.
+   * Try to run all tasks for their side effects using at most concurrency() threads at once.
    */
   run(): Promise<void>;
 }
 
 /**
- * Default maximum number of retries.
- * Approximately 3 days if retrying every millisecond.
- */
-const DEFAULT_MAX_NUMBER_OF_RETRIES = 2.5e8; // about 3 days in milliseconds
-
-/**
  * Builder for RunWithConcurrency parameters.
  */
-export class RunWithConcurrencyBuilder {
+export class Builder {
   private _concurrency: Concurrency | null = null;
-  private _tasks: Iterator<() => void> | Array<() => void> | null = null;
+  private _tasks: Iterator<{ run(): void }> | null = null;
   private _forceUsageOfExecutor: boolean = false;
   private _waitMillis: number = 1;
   private _maxWaitRetries: number = DEFAULT_MAX_NUMBER_OF_RETRIES;
   private _mayInterruptIfRunning: boolean = true;
-  private _terminationFlag: TerminationFlag = TerminationFlag.DEFAULT;
-  private _executor: WorkerPool | null = null;
+  private _terminationFlag: TerminationFlag = TerminationFlag.RUNNING_TRUE;
+  private _executor: WorkerPool | null = DefaultPool.INSTANCE;
 
   /**
    * Sets the concurrency level.
    */
-  public concurrency(
-    concurrency: Concurrency | number
-  ): RunWithConcurrencyBuilder {
+  public concurrency(concurrency: Concurrency | number): Builder {
     this._concurrency =
-      concurrency instanceof Concurrency
-        ? concurrency
-        : new Concurrency(concurrency);
+      typeof concurrency === "number"
+        ? new Concurrency(concurrency)
+        : concurrency;
     return this;
   }
 
   /**
-   * Sets the tasks to run from an iterator.
+   * Sets the tasks from an iterator.
    */
-  public tasks(tasks: Iterator<() => void>): RunWithConcurrencyBuilder;
+  public tasks(tasks: Iterator<{ run(): void }>): Builder;
 
   /**
-   * Sets the tasks to run from an array.
+   * Sets the tasks from an iterable.
    */
-  public tasks(tasks: Array<() => void>): RunWithConcurrencyBuilder;
-
-  /**
-   * Sets the tasks to run from an iterable.
-   */
-  public tasks(tasks: Iterable<() => void>): RunWithConcurrencyBuilder;
+  public tasks(tasks: Iterable<{ run(): void }>): Builder;
 
   public tasks(
-    tasks: Iterator<() => void> | Array<() => void> | Iterable<() => void>
-  ): RunWithConcurrencyBuilder {
-    if (Array.isArray(tasks)) {
-      this._tasks = tasks;
-    } else if (Symbol.iterator in tasks) {
-      this._tasks = Array.from(tasks);
+    tasks: Iterator<{ run(): void }> | Iterable<{ run(): void }>
+  ): Builder {
+    if (Symbol.iterator in tasks) {
+      this._tasks = (tasks as Iterable<{ run(): void }>)[Symbol.iterator]();
     } else {
-      this._tasks = tasks;
+      this._tasks = tasks as Iterator<{ run(): void }>;
     }
     return this;
   }
 
   /**
-   * Sets whether to force usage of the executor even for single-threaded execution.
+   * Sets whether to force usage of executor.
    */
-  public forceUsageOfExecutor(
-    force: boolean = true
-  ): RunWithConcurrencyBuilder {
+  public forceUsageOfExecutor(force: boolean = true): Builder {
     this._forceUsageOfExecutor = force;
     return this;
   }
 
   /**
-   * Sets the time to wait between retries in milliseconds.
+   * Sets the wait time in milliseconds.
    */
-  public waitMillis(waitMillis: number): RunWithConcurrencyBuilder {
-    if (waitMillis < 0) {
-      throw new Error(`[waitMillis] must be at least 0, but got ${waitMillis}`);
-    }
+  public waitMillis(waitMillis: number): Builder {
     this._waitMillis = waitMillis;
     return this;
   }
 
   /**
-   * Sets the maximum number of retry attempts.
+   * Sets the maximum number of retries.
    */
-  public maxWaitRetries(maxWaitRetries: number): RunWithConcurrencyBuilder {
-    if (maxWaitRetries < 0) {
-      throw new Error(
-        `[maxWaitRetries] must be at least 0, but got ${maxWaitRetries}`
-      );
-    }
+  public maxWaitRetries(maxWaitRetries: number): Builder {
     this._maxWaitRetries = maxWaitRetries;
     return this;
   }
 
   /**
-   * Sets whether running tasks can be interrupted when cancelling.
+   * Sets whether running tasks can be interrupted.
    */
-  public mayInterruptIfRunning(
-    mayInterrupt: boolean = true
-  ): RunWithConcurrencyBuilder {
+  public mayInterruptIfRunning(mayInterrupt: boolean = true): Builder {
     this._mayInterruptIfRunning = mayInterrupt;
     return this;
   }
 
   /**
-   * Sets the flag to check for early termination.
+   * Sets the termination flag.
    */
-  public terminationFlag(
-    terminationFlag: TerminationFlag
-  ): RunWithConcurrencyBuilder {
+  public terminationFlag(terminationFlag: TerminationFlag): Builder {
     this._terminationFlag = terminationFlag;
     return this;
   }
 
-  /**
-   * Sets the worker pool to use.
-   */
-  public executor(executor: WorkerPool | null): RunWithConcurrencyBuilder {
-    this._executor = executor;
-    return this;
+  // Add getter for the executor
+  public get executor(): WorkerPool | null {
+    return this._executor;
   }
-
   /**
-   * Builds and returns a RunWithConcurrency object.
+   * Sets the executor.
    */
   public build(): RunWithConcurrency {
     if (!this._concurrency) {
       throw new Error("[concurrency] must be provided");
     }
-
     if (!this._tasks) {
       throw new Error("[tasks] must be provided");
     }
 
+    // Validation
     if (this._concurrency.value() < 0) {
       throw new Error(
         `[concurrency] must be at least 0, but got ${this._concurrency.value()}`
       );
     }
-
+    if (this._waitMillis < 0) {
+      throw new Error(
+        `[waitMillis] must be at least 0, but got ${this._waitMillis}`
+      );
+    }
     if (
       this._forceUsageOfExecutor &&
       !ParallelUtil.canRunInParallel(this._executor)
     ) {
       throw new Error(
-        "[executor] cannot be used to run tasks because it is terminated or shut down."
+        "[executor] cannot be used to run tasks because it is terminated or shut down"
       );
     }
 
-    const params = {
-      concurrency: this._concurrency,
-      tasks: this._tasks,
-      forceUsageOfExecutor: this._forceUsageOfExecutor,
-      waitMillis: this._waitMillis,
-      maxWaitRetries: this._maxWaitRetries,
-      mayInterruptIfRunning: this._mayInterruptIfRunning,
-      terminationFlag: this._terminationFlag,
-      executor: this._executor,
+    // Create the implementation
+    const concurrency = this._concurrency;
+    const tasks = this._tasks;
+    const forceUsageOfExecutor = this._forceUsageOfExecutor;
+    const waitMillis = this._waitMillis;
+    const maxWaitRetries = this._maxWaitRetries;
+    const mayInterruptIfRunning = this._mayInterruptIfRunning;
+    const terminationFlag = this._terminationFlag;
+    const executor = this._executor;
+
+    return {
+      concurrency: () => concurrency,
+      tasks: () => tasks,
+      forceUsageOfExecutor: () => forceUsageOfExecutor,
+      waitMillis: () => waitMillis,
+      maxWaitRetries: () => maxWaitRetries,
+      mayInterruptIfRunning: () => mayInterruptIfRunning,
+      terminationFlag: () => terminationFlag,
+      executor: () => executor,
 
       async run(): Promise<void> {
-        return ParallelUtil.runWithConcurrency(params);
+        // Create RunWithConcurrencyParams object instead of passing `this`
+        return ParallelUtil.runWithConcurrency({
+          concurrency: concurrency, // Use captured values directly
+          tasks: tasks,
+          forceUsageOfExecutor: forceUsageOfExecutor,
+          waitMillis: waitMillis,
+          maxWaitRetries: maxWaitRetries,
+          mayInterruptIfRunning: mayInterruptIfRunning,
+          terminationFlag: terminationFlag,
+          executor: executor,
+        });
       },
     };
-
-    return params;
   }
 
   /**
-   * Builds the RunWithConcurrency object and runs it.
+   * Builds and immediately runs the tasks.
    */
   public async run(): Promise<void> {
     return this.build().run();
@@ -230,8 +228,22 @@ export class RunWithConcurrencyBuilder {
 }
 
 /**
- * Creates a new RunWithConcurrencyBuilder.
+ * Returns a new Builder.
  */
-export function runWithConcurrency(): RunWithConcurrencyBuilder {
-  return new RunWithConcurrencyBuilder();
+export function builder(): Builder {
+  return new Builder();
+}
+
+/**
+ * Helper function to create a runnable from a plain function.
+ */
+export function runnable(fn: () => void): { run(): void } {
+  return { run: fn };
+}
+
+/**
+ * Helper function to convert array of functions to runnables.
+ */
+export function runnables(functions: (() => void)[]): { run(): void }[] {
+  return functions.map((fn) => ({ run: fn }));
 }

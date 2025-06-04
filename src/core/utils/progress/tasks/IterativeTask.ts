@@ -61,10 +61,7 @@ export class IterativeTask extends Task {
       this.mode === IterativeTaskMode.OPEN &&
       this.getStatus() !== Status.FINISHED
     ) {
-      return Progress.of(
-        progress.getCurrentProgress(),
-        Task.UNKNOWN_VOLUME
-      );
+      return Progress.of(progress.getCurrentProgress(), Task.UNKNOWN_VOLUME);
     }
 
     return progress;
@@ -113,11 +110,11 @@ export class IterativeTask extends Task {
    * Get current iteration number (0-based).
    */
   public getCurrentIteration(): number {
-    const finishedTasks = this.getSubTasks().filter(
-      (t) => t.getStatus() === Status.FINISHED
+    const completedTasks = this.getSubTasks().filter((t) =>
+      Status.isTerminal(t.getStatus())
     ).length;
     const tasksPerIteration = this.subTasksSupplier().length;
-    return Math.floor(finishedTasks / tasksPerIteration);
+    return Math.floor(completedTasks / tasksPerIteration);
   }
 
   /**

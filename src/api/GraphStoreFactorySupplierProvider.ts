@@ -1,4 +1,4 @@
-import { GraphProjectConfig } from "@/config"; // Placeholder
+import { GraphProjectConfig } from "@/config/GraphProjectConfig"; // Placeholder
 import { GraphStoreFactorySupplier } from "./GraphStoreFactory"; // Assuming GraphStoreFactory.ts contains GraphStoreFactorySupplier
 
 /**

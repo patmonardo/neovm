@@ -1,6 +1,6 @@
 import { NodeLabel } from "@/projection";
-import { RelationshipType } from "@/projection";
-import { ValueType } from "@/api";
+import { RelationshipType } from "@/projection/RelationshipType";
+import { ValueType } from "@/api/ValueType";
 import { GraphProperty } from "./properties/graph";
 import { GraphPropertyValues } from "./properties/graph";
 import { NodeProperty } from "./properties/nodes";
@@ -8,9 +8,9 @@ import { NodePropertyValues } from "./properties/nodes";
 import { RelationshipProperty } from "./properties/relationships";
 import { RelationshipPropertyStore } from "./properties/relationships";
 import { GraphSchema } from "./schema";
-import { Capabilities } from "@/core/loading";
-import { DeletionResult } from "@/core/loading";
-import { SingleTypeRelationships } from "@/core/loading";
+import { Capabilities } from "@/core/loading/Capabilities";
+import { DeletionResult } from "@/core/loading/DeletionResult";
+import { SingleTypeRelationships } from "@/core/loading/SingleTypeRelationships";
 import { DatabaseInfo } from "./DatabaseInfo";
 import { IdMap } from "./IdMap";
 import { Topology } from "./Topology";
@@ -94,11 +94,11 @@ export abstract class GraphStoreAdapter implements GraphStore {
     if (isArray(labelOrLabels)) {
       // Accept Set, Array, or Iterable
       // Convert to Set if needed
-      const set =
-        labelOrLabels instanceof Set
-          ? labelOrLabels
-          : new Set(labelOrLabels as Iterable<NodeLabel>);
-      return this.graphStore.nodePropertyKeys(set);
+      // const set =
+      //   labelOrLabels instanceof Set
+      //     ? labelOrLabels
+      //     : new Array(labelOrLabels as Iterable<NodeLabel>);
+      return this.graphStore.nodePropertyKeys(labelOrLabels);
     }
     // Single label
     return this.graphStore.nodePropertyKeys(labelOrLabels as NodeLabel);
@@ -116,11 +116,11 @@ export abstract class GraphStoreAdapter implements GraphStore {
       return this.graphStore.hasNodeProperty(labelOrLabelsOrKey as string);
     }
     if (isArray(labelOrLabelsOrKey)) {
-      const set =
-        labelOrLabelsOrKey instanceof Set
-          ? labelOrLabelsOrKey
-          : new Set(labelOrLabelsOrKey as Iterable<NodeLabel>);
-      return this.graphStore.hasNodeProperty(set, propertyKey);
+      // const set =
+      //   labelOrLabelsOrKey instanceof Set
+      //     ? labelOrLabelsOrKey
+      //     : new Set(labelOrLabelsOrKey as Iterable<NodeLabel>);
+      return this.graphStore.hasNodeProperty(labelOrLabelsOrKey, propertyKey);
     }
     // Single label
     return this.graphStore.hasNodeProperty(
@@ -180,11 +180,11 @@ export abstract class GraphStoreAdapter implements GraphStore {
       return this.graphStore.relationshipPropertyKeys();
     }
     if (isArray(relTypesOrType)) {
-      const set =
-        relTypesOrType instanceof Set
-          ? relTypesOrType
-          : new Set(relTypesOrType as Iterable<RelationshipType>);
-      return this.graphStore.relationshipPropertyKeys(set);
+      // const set =
+      //   relTypesOrType instanceof Set
+      //     ? relTypesOrType
+      //     : new Set(relTypesOrType as Iterable<RelationshipType>);
+      return this.graphStore.relationshipPropertyKeys(relTypesOrType);
     }
     return this.graphStore.relationshipPropertyKeys(
       relTypesOrType as RelationshipType
@@ -263,7 +263,7 @@ export abstract class GraphStoreAdapter implements GraphStore {
   }
 }
 
-// Helper to check if something is a collection (Set, Array, or Iterable but not string)
+// Helper to check if something is a Array (Set, Array, or Iterable but not string)
 function isArray<T>(obj: any): obj is Array<T> {
   return (
     (Array.isArray(obj) && typeof obj !== "string") ||
