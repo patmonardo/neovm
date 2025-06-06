@@ -1,0 +1,5 @@
+:ID,name:string,industry:string,employees:int,revenue:double,founded:int
+comp_001,TechCorp,Software,1500,75000000.50,2010
+comp_002,DataSystems,Analytics,800,45000000.25,2015
+comp_003,CloudInc,Infrastructure,2200,120000000.75,2008
+comp_004,StartupXYZ,AI,50,5000000.00,2020

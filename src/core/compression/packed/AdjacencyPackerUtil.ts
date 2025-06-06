@@ -16,8 +16,8 @@
  * for direct memory manipulation during compression/decompression.
  */
 
-import { BitUtil } from '../../mem/BitUtil';
-import { UnsafeUtil } from '../../internal/unsafe/UnsafeUtil';
+import { BitUtil } from '@/mem';
+import { UnsafeUtil } from '@/utils';
 import { AdjacencyPacking } from './AdjacencyPacking';
 
 export class AdjacencyPackerUtil {
@@ -31,7 +31,7 @@ export class AdjacencyPackerUtil {
    * **Platform Specific**: Different JVM implementations may have different offsets
    * **Critical**: Required for direct memory access during compression
    */
-  static readonly BYTE_ARRAY_BASE_OFFSET = UnsafeUtil.arrayBaseOffset(Uint8Array);
+  static readonly BYTE_ARRAY_BASE_OFFSET = 0 ; //(UnsafeUtil as any).arrayBaseOffset(Uint8Array);
 
   // ============================================================================
   // BIT ANALYSIS FUNCTIONS
@@ -106,10 +106,10 @@ export class AdjacencyPackerUtil {
    *
    * @param bits Number of bits per value (1-64)
    * @returns Bytes needed to store a full block
-   */
-  static bytesNeeded(bits: number): number {
-    return BitUtil.ceilDiv(AdjacencyPacking.BLOCK_SIZE * bits, 8);
-  }
+  //  */
+  // static bytesNeeded(bits: number): number {
+  //   return BitUtil.ceilDiv(AdjacencyPacking.BLOCK_SIZE * bits, 8);
+  // }
 
   /**
    * Calculate bytes needed for a variable-length block.

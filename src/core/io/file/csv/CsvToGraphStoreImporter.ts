@@ -5,12 +5,12 @@
  * Extends FileToGraphStoreImporter with CSV-specific file input.
  */
 
-import { Concurrency } from '@/concurrency';
-import { FileInput } from '@/core/io/file';
-import { FileToGraphStoreImporter } from '@/core/io/file';
-import { TaskRegistryFactory } from '@/core/utils/progress';
-import { Log } from '@/utils';
-import { CsvFileInput } from './CsvFileInput';
+import { Log } from "@/utils";
+import { Concurrency } from "@/concurrency";
+import { FileInput } from "@/core/io/file";
+import { FileToGraphStoreImporter } from "@/core/io/file";
+import { TaskRegistryFactory } from "@/core/utils/progress";
+import { CsvFileInput } from "./CsvFileInput";
 
 export class CsvToGraphStoreImporter extends FileToGraphStoreImporter {
   constructor(

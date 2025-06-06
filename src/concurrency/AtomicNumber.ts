@@ -5,7 +5,7 @@
  * Handles both integer and floating-point operations.
  */
 export class AtomicNumber {
-  private static readonly BYTES_PER_NUMBER = 8;
+  // private static readonly BYTES_PER_NUMBER = 8;
 
   private readonly buffer: SharedArrayBuffer | null;
   private readonly view: Float64Array | null;
@@ -22,26 +22,28 @@ export class AtomicNumber {
    * @param initialValue the initial value
    */
   constructor(initialValue: number);
-
   constructor(initialValue: number = 0) {
     // Try to use SharedArrayBuffer for true atomic operations
-    if (typeof SharedArrayBuffer !== 'undefined') {
-      try {
-        this.buffer = new SharedArrayBuffer(AtomicNumber.BYTES_PER_NUMBER);
-        this.view = new Float64Array(this.buffer);
-        this.view[0] = initialValue;
-      } catch {
-        // Fall back to simple field if SharedArrayBuffer fails
-        this.buffer = null;
-        this.view = null;
-        this._value = initialValue;
-      }
-    } else {
-      // No SharedArrayBuffer support
-      this.buffer = null;
-      this.view = null;
-      this._value = initialValue;
-    }
+    // if (false &&typeof SharedArrayBuffer !== "undefined") {
+    //   try {
+    //     this.buffer = new SharedArrayBuffer(AtomicNumber.BYTES_PER_NUMBER);
+    //     this.view = new Float64Array(this.buffer);
+    //     this.view[0] = initialValue;
+    //   } catch {
+    //     // Fall back to simple field if SharedArrayBuffer fails
+    //     this.buffer = null;
+    //     this.view = null;
+    //     this._value = initialValue;
+    //   }
+    // } else {
+    //   // No SharedArrayBuffer support
+    //   this.buffer = null;
+    //   this.view = null;
+    //   this._value = initialValue;
+    // }
+    this.buffer = null;
+    this.view = null;
+    this._value = initialValue;
   }
 
   /**
@@ -210,12 +212,15 @@ export class AtomicNumber {
       const int32View = new Int32Array(this.buffer);
       const currentLowBits = int32View[0];
       const currentHighBits = int32View[1];
-      const expectedLowBits = Number(expectedBits & 0xFFFFFFFFn);
+      const expectedLowBits = Number(expectedBits & 0xffffffffn);
       const expectedHighBits = Number(expectedBits >> 32n);
 
       // Compare and set both parts atomically
-      if (currentLowBits === expectedLowBits && currentHighBits === expectedHighBits) {
-        const newLowBits = Number(newBits & 0xFFFFFFFFn);
+      if (
+        currentLowBits === expectedLowBits &&
+        currentHighBits === expectedHighBits
+      ) {
+        const newLowBits = Number(newBits & 0xffffffffn);
         const newHighBits = Number(newBits >> 32n);
 
         int32View[0] = newLowBits;
@@ -298,13 +303,15 @@ export type AtomicInteger = AtomicNumber;
 
 // Factory functions for semantic clarity
 export const AtomicLong = {
-  create: (initialValue: number = 0) => new AtomicNumber(Math.trunc(initialValue))
+  create: (initialValue: number = 0) =>
+    new AtomicNumber(Math.trunc(initialValue)),
 };
 
 export const AtomicDouble = {
-  create: (initialValue: number = 0) => new AtomicNumber(initialValue)
+  create: (initialValue: number = 0) => new AtomicNumber(initialValue),
 };
 
 export const AtomicInteger = {
-  create: (initialValue: number = 0) => new AtomicNumber(Math.trunc(initialValue))
+  create: (initialValue: number = 0) =>
+    new AtomicNumber(Math.trunc(initialValue)),
 };

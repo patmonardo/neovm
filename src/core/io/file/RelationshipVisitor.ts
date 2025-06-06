@@ -1,8 +1,8 @@
-import { RelationshipType } from '@/api/RelationshipType';
-import { RelationshipPropertySchema } from '@/api/schema/RelationshipPropertySchema';
-import { RelationshipSchema } from '@/api/schema/RelationshipSchema';
-import { IdentifierMapper } from '@/core/io/IdentifierMapper';
-import { ElementVisitor } from './ElementVisitor';
+import { RelationshipType } from "@/projection";
+import { RelationshipPropertySchema } from "@/api/schema";
+import { RelationshipSchema } from "@/api/schema";
+import { IdentifierMapper } from "@/core/io/IdentifierMapper";
+import { ElementVisitor } from "./ElementVisitor";
 
 /**
  * Abstract base class for visiting relationships during import/export operations.
@@ -14,7 +14,7 @@ export abstract class RelationshipVisitor extends ElementVisitor<RelationshipPro
 
   private currentStartNode: number = -1;
   private currentEndNode: number = -1;
-  private relationshipType: string = "";
+  private _relationshipType: string = "";
 
   protected constructor(
     relationshipSchema: RelationshipSchema,
@@ -46,7 +46,9 @@ export abstract class RelationshipVisitor extends ElementVisitor<RelationshipPro
    * Returns the mapped identifier for the current relationship type.
    */
   public relationshipType(): string {
-    return this.relationshipTypeMapping.identifierFor(RelationshipType.of(this.relationshipType));
+    return this.relationshipTypeMapping.identifierFor(
+      RelationshipType.of(this._relationshipType)
+    );
   }
 
   // Additional listeners for relationship related data
@@ -119,7 +121,9 @@ export abstract class RelationshipVisitor extends ElementVisitor<RelationshipPro
    * Returns the property schema for the current relationship type.
    */
   protected getPropertySchema(): RelationshipPropertySchema[] {
-    return this.relationshipSchema.propertySchemasFor(RelationshipType.of(this.relationshipType));
+    return this.relationshipSchema.propertySchemasFor(
+      RelationshipType.of(this.relationshipType)
+    );
   }
 
   /**

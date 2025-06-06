@@ -20,30 +20,31 @@ export enum ValueType {
   UNKNOWN,
 }
 
-/**
- * Visitor interface for ValueType.
- */
-export interface ValueTypeVisitor<RESULT> {
-  visitLong(): RESULT;
-  visitFloat(): RESULT;
-  visitDouble(): RESULT;
-  visitBoolean(): RESULT;
-  visitString(): RESULT;
-  visitBigInt(): RESULT;
-  visitLongArray(): RESULT;
-  visitFloatArray(): RESULT;
-  visitDoubleArray(): RESULT;
-  visitBooleanArray(): RESULT;
-  visitStringArray(): RESULT;
-  visitBigIntArray(): RESULT;
-  visitUntypedArray?(): RESULT;
-  visitUnknown?(): RESULT | null;
-}
 
 /**
  * Extension methods and utilities for the ValueType enum.
  */
 export namespace ValueType {
+  /**
+   * Visitor interface for ValueType.
+   */
+  export interface Visitor<RESULT> {
+    visitLong(): RESULT;
+    visitFloat(): RESULT;
+    visitDouble(): RESULT;
+    visitBoolean(): RESULT;
+    visitString(): RESULT;
+    visitBigInt(): RESULT;
+    visitLongArray(): RESULT;
+    visitFloatArray(): RESULT;
+    visitDoubleArray(): RESULT;
+    visitBooleanArray(): RESULT;
+    visitStringArray(): RESULT;
+    visitBigIntArray(): RESULT;
+    visitUntypedArray?(): RESULT;
+    visitUnknown?(): RESULT | null;
+  }
+
   /**
    * Returns the name of the value type.
    */
@@ -175,7 +176,7 @@ export namespace ValueType {
    */
   export function accept<RESULT>(
     type: ValueType,
-    visitor: ValueTypeVisitor<RESULT>
+    visitor: Visitor<RESULT>
   ): RESULT | null {
     switch (type) {
       case ValueType.LONG:
@@ -206,7 +207,7 @@ export namespace ValueType {
         if (visitor.visitUntypedArray) {
           return visitor.visitUntypedArray();
         }
-        throw new Error("UntypedArray not supported by this visitor");
+        return null; // UNTYPED_ARRAY is optional in the visitor
       case ValueType.UNKNOWN:
         if (visitor.visitUnknown) {
           return visitor.visitUnknown();

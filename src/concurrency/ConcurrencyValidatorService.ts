@@ -9,7 +9,7 @@ export class ConcurrencyValidatorService {
   /**
    * Default concurrency limit for open source version
    */
-  static readonly DEFAULT_CONCURRENCY_LIMIT = 4; // Or whatever limit makes sense
+  static readonly DEFAULT_CONCURRENCY_LIMIT = 4;
 
   /**
    * Singleton instance of the validator

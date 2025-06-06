@@ -1,11 +1,10 @@
+import { Aggregation } from "@/core/Aggregation";
 import {
-  Aggregation,
   IndirectSort,
   longBitsToDouble,
   doubleToLongBits,
   LONG_MIN_VALUE,
-  // AscendingLongComparator is used internally by IndirectSort mock setup
-} from './adjacencyPreAggregationUtils'; // Adjust path as needed
+} from "@/core/compression"; // Adjust path as needed
 
 /**
  * Utility class for pre-aggregating adjacency lists.
@@ -83,13 +82,21 @@ export namespace AdjacencyPreAggregation {
       } else {
         // Duplicate target ID found (targetIds[currentIndex] === lastSeenTargetId)
         // Aggregate properties from 'currentIndex' into 'targetIndex'.
-        for (let propertyId = 0; propertyId < propertiesList.length; propertyId++) {
+        for (
+          let propertyId = 0;
+          propertyId < propertiesList.length;
+          propertyId++
+        ) {
           // propertiesList[propertyId] is the array for the current property.
           // propertiesList[propertyId][targetIndex] is the value for the first occurrence.
           // propertiesList[propertyId][currentIndex] is the value for the duplicate.
 
-          const runningTotalDouble = longBitsToDouble(propertiesList[propertyId][targetIndex]);
-          const valueToMergeDouble = longBitsToDouble(propertiesList[propertyId][currentIndex]);
+          const runningTotalDouble = longBitsToDouble(
+            propertiesList[propertyId][targetIndex]
+          );
+          const valueToMergeDouble = longBitsToDouble(
+            propertiesList[propertyId][currentIndex]
+          );
 
           const updatedPropertyDouble = Aggregation.merge(
             aggregations[propertyId],
@@ -97,7 +104,9 @@ export namespace AdjacencyPreAggregation {
             valueToMergeDouble
           );
 
-          propertiesList[propertyId][targetIndex] = doubleToLongBits(updatedPropertyDouble);
+          propertiesList[propertyId][targetIndex] = doubleToLongBits(
+            updatedPropertyDouble
+          );
         }
 
         // Mark the duplicate target ID to be ignored.

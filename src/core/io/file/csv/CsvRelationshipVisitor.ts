@@ -10,7 +10,7 @@ import { RelationshipSchema } from '@/api/schema';
 import { PropertySchema } from '@/api/schema';
 import { IdentifierMapper } from '@/core/io/IdentifierMapper';
 import { RelationshipVisitor } from '@/core/io/file/RelationshipVisitor';
-import { SimpleCsvWriter } from './SimpleCsvWriter';
+import { SimpleCsvWriter } from './CsvSimpleWriter';
 import * as fs from 'fs';
 import * as path from 'path';
 

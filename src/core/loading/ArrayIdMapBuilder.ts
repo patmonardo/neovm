@@ -1,11 +1,10 @@
-import { IdMap } from '@/api/graph';
-import { HugeCursor } from '@/core/collections/cursor';
-import { HugeLongArray } from '@/core/collections/ha';
-import { Concurrency } from '@/core/concurrency';
+import { IdMap } from '@/api';
+import { HugeCursor } from '@/collections';
+import { HugeLongArray } from '@/collections';
+import { Concurrency } from '@/concurrency';
 import { CloseableThreadLocal } from '@/utils';
 import { IdMapBuilder } from './IdMapBuilder';
 import { IdMapAllocator } from './IdMapAllocator';
-import { LabelInformation } from './LabelInformation';
 import { ArrayIdMapBuilderOps } from './ArrayIdMapBuilderOps';
 
 /**
@@ -24,7 +23,7 @@ import { ArrayIdMapBuilderOps } from './ArrayIdMapBuilderOps';
 export class ArrayIdMapBuilder implements IdMapBuilder {
   public static readonly ID = 'array';
 
-  private readonly array: HugeLongArray;
+  private readonly _array: HugeLongArray;
   private readonly capacity: number;
   private readonly allocationIndex: AtomicLong;
   private readonly adders: CloseableThreadLocal<BulkAdder>;
@@ -41,7 +40,7 @@ export class ArrayIdMapBuilder implements IdMapBuilder {
   }
 
   private constructor(array: HugeLongArray, capacity: number) {
-    this.array = array;
+    this._array = array;
     this.capacity = capacity;
     this.allocationIndex = new AtomicLong();
     this.adders = CloseableThreadLocal.withInitial(() => this.newBulkAdder());
@@ -69,7 +68,7 @@ export class ArrayIdMapBuilder implements IdMapBuilder {
 
     // Get final state
     const nodeCount = this.size();
-    const internalToOriginalIds = this.array();
+    const internalToOriginalIds = this._array();
 
     // Delegate to ArrayIdMapBuilderOps for final assembly
     return ArrayIdMapBuilderOps.build(
@@ -85,7 +84,7 @@ export class ArrayIdMapBuilder implements IdMapBuilder {
    * Get the underlying huge array.
    */
   array(): HugeLongArray {
-    return this.array;
+    return this._array;
   }
 
   /**
@@ -117,7 +116,7 @@ export class ArrayIdMapBuilder implements IdMapBuilder {
   }
 
   private newBulkAdder(): BulkAdder {
-    return new BulkAdder(this.array, this.array.newCursor());
+    return new BulkAdder(this._array, this._array.newCursor());
   }
 }
 
@@ -137,7 +136,7 @@ export class BulkAdder implements IdMapAllocator {
   private readonly cursor: HugeCursor<number[]>;
 
   constructor(array: HugeLongArray, cursor: HugeCursor<number[]>) {
-    this.array = array;
+    this._array = array;
     this.cursor = cursor;
   }
 
@@ -148,7 +147,7 @@ export class BulkAdder implements IdMapAllocator {
    * @param end Ending index (exclusive) in the huge array
    */
   reset(start: number, end: number): void {
-    this.array.initCursor(this.cursor, start, end);
+    this._array.initCursor(this.cursor, start, end);
     this.buffer = null;
     this.allocationSize = end - start;
     this.offset = 0;

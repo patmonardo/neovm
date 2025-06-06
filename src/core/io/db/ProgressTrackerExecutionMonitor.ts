@@ -1,8 +1,8 @@
-import { Monitor } from '@/batchimport/api/Monitor';
+import { Monitor } from '@/api/import';
 import { GraphStore } from '@/api/GraphStore';
 import { ProgressTracker } from '@/core/utils/progress/tasks/ProgressTracker';
-import { Task } from '@/core/utils/progress/tasks/Task';
-import { Tasks } from '@/core/utils/progress/tasks/Tasks';
+import { Task } from '@/core/utils/progress';
+import { Tasks } from '@/core/utils/progress';
 import { GraphStoreToDatabaseExporter } from './GraphStoreToDatabaseExporter';
 
 /**

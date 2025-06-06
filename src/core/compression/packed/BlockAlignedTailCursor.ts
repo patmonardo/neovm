@@ -20,9 +20,9 @@
  * speed matters more than the last 5% of compression ratio.
  */
 
-import { AdjacencyCursor } from '../../api/AdjacencyCursor';
-import { PageUtil } from '../../collections/PageUtil';
-import { BumpAllocator } from '../common/BumpAllocator';
+import { AdjacencyCursor } from '@/api';
+import { PageUtil } from '@/collections';
+import { BumpAllocator } from '@/core/compression';
 import { BlockAlignedTailUnpacker } from './BlockAlignedTailUnpacker';
 
 export class BlockAlignedTailCursor implements AdjacencyCursor {

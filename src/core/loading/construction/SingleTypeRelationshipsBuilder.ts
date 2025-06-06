@@ -30,13 +30,11 @@
  * - TypeScript: More comprehensive documentation for clarity
  */
 
+import { RelationshipType } from '@/projection';
 import { PartialIdMap } from '@/api';
-import { AdjacencyCompressor } from '@/api/compress';
 import { Direction } from '@/api/schema';
-import { RelationshipType } from '@/gds';
 import { Concurrency, RunWithConcurrency } from '@/concurrency';
 import {
-  AdjacencyBuffer,
   SingleTypeRelationshipImporter,
   SingleTypeRelationships
 } from '@/core/loading';

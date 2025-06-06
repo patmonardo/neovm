@@ -1,7 +1,7 @@
 /**
  * High-performance bump allocator inspired by JVM TLAB (Thread Local Allocation Buffers).
  *
- * **Algorithm**: Fast-path allocation by bumping a pointer, with lock-free operation
+ * **Algorithm**: Fast-path allocation by bumping a pointer, with atomic operations
  * for the common case. Falls back to synchronized growth only when needed.
  *
  * **Research Source**: https://shipilev.net/jvm/anatomy-quarks/4-tlab-allocation
@@ -12,7 +12,12 @@
  * - Oversized allocation handling for large adjacency lists
  */
 
-import { ModifiableSlice } from '@/api/compress';
+import { ModifiableSlice } from "@/api/compress/ModifiableSlice";
+import { PageUtil } from "@/collections/PageUtil";
+
+// ============================================================================
+// FACTORY INTERFACES
+// ============================================================================
 
 export interface BumpAllocatorFactory<PAGE> {
   newEmptyPages(): PAGE[];
@@ -24,73 +29,70 @@ export interface PositionalFactory<PAGE> {
   lengthOfPage(page: PAGE): number;
 }
 
-/**
- * Page size constants - matches Java exactly
- */
-export class BumpAllocatorConstants {
-  static readonly PAGE_SHIFT = 18;           // 256KB pages
-  static readonly PAGE_SIZE = 1 << BumpAllocatorConstants.PAGE_SHIFT;  // 262,144 bytes
-  static readonly PAGE_MASK = BumpAllocatorConstants.PAGE_SIZE - 1;
+// ============================================================================
+// CONSTANTS CLASS
+// ============================================================================
 
+export class BumpAllocatorConstants {
+  static readonly PAGE_SHIFT = 18; // 256KB pages
+  static readonly PAGE_SIZE = 1 << BumpAllocatorConstants.PAGE_SHIFT; // 262,144 bytes
+  static readonly PAGE_MASK = BumpAllocatorConstants.PAGE_SIZE - 1;
   private static readonly NO_SKIP = -1;
+
+  // Make NO_SKIP accessible for internal use
+  static get NO_SKIP_VALUE(): number {
+    return BumpAllocatorConstants.NO_SKIP;
+  }
 }
 
+// ============================================================================
+// ASYNC LOCK UTILITY
+// ============================================================================
+
+class AsyncLock {
+  private _locked = false;
+  private readonly _waitQueue: Array<() => void> = [];
+
+  async acquire(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (!this._locked) {
+        this._locked = true;
+        resolve();
+      } else {
+        this._waitQueue.push(resolve);
+      }
+    });
+  }
+
+  release(): void {
+    if (this._waitQueue.length > 0) {
+      const next = this._waitQueue.shift()!;
+      next();
+    } else {
+      this._locked = false;
+    }
+  }
+
+  get isLocked(): boolean {
+    return this._locked;
+  }
+}
+
+// ============================================================================
+// MAIN BUMP ALLOCATOR CLASS
+// ============================================================================
+
 export class BumpAllocator<PAGE> {
-
-  // ============================================================================
-  // ATOMIC FIELDS (using JavaScript approach)
-  // ============================================================================
-
-  private _allocatedPages: number = 0;
+  // Atomic fields (using modern JavaScript approach)
+  private _allocatedPages = 0;
   private _pages: PAGE[];
 
-  private readonly pageFactory: BumpAllocatorFactory<PAGE>;
-  private readonly growLock: AsyncLock; // Simplified mutex for JavaScript
+  private readonly _pageFactory: BumpAllocatorFactory<PAGE>;
+  private readonly _growLock = new AsyncLock();
 
   constructor(pageFactory: BumpAllocatorFactory<PAGE>) {
-    this.pageFactory = pageFactory;
-    this.growLock = new AsyncLock();
+    this._pageFactory = pageFactory;
     this._pages = pageFactory.newEmptyPages();
-  }
-
-  // ============================================================================
-  // ATOMIC OPERATIONS (JavaScript adaptation)
-  // ============================================================================
-
-  private get allocatedPages(): number {
-    return this._allocatedPages;
-  }
-
-  private set allocatedPages(value: number) {
-    this._allocatedPages = value;
-  }
-
-  private get pages(): PAGE[] {
-    return this._pages;
-  }
-
-  private set pages(value: PAGE[]) {
-    this._pages = value;
-  }
-
-  /**
-   * Atomic get-and-add operation
-   */
-  private getAndAddAllocatedPages(delta: number): number {
-    const old = this._allocatedPages;
-    this._allocatedPages += delta;
-    return old;
-  }
-
-  /**
-   * Atomic compare-and-exchange operation
-   */
-  private compareAndExchangeAllocatedPages(expected: number, update: number): number {
-    if (this._allocatedPages === expected) {
-      this._allocatedPages = update;
-      return expected;
-    }
-    return this._allocatedPages;
   }
 
   // ============================================================================
@@ -101,45 +103,89 @@ export class BumpAllocator<PAGE> {
     return new LocalAllocator(this);
   }
 
-  newLocalPositionalAllocator(positionalFactory: PositionalFactory<PAGE>): LocalPositionalAllocator<PAGE> {
+  newLocalPositionalAllocator(
+    positionalFactory: PositionalFactory<PAGE>
+  ): LocalPositionalAllocator<PAGE> {
     return new LocalPositionalAllocator(this, positionalFactory);
   }
 
   intoPages(): PAGE[] {
-    return this.pages;
+    return [...this._pages]; // Return defensive copy
   }
 
   // ============================================================================
-  // INTERNAL ALLOCATION METHODS
+  // ATOMIC OPERATIONS (Modern TypeScript)
   // ============================================================================
 
-  private insertDefaultSizedPage(): number {
+  private get allocatedPages(): number {
+    return this._allocatedPages;
+  }
+
+  public get pages(): PAGE[] {
+    return this._pages;
+  }
+
+  private getAndAddAllocatedPages(delta: number): number {
+    const old = this._allocatedPages;
+    this._allocatedPages += delta;
+    return old;
+  }
+
+  private compareAndExchangeAllocatedPages(
+    expected: number,
+    update: number
+  ): number {
+    if (this._allocatedPages === expected) {
+      this._allocatedPages = update;
+      return expected;
+    }
+    return this._allocatedPages;
+  }
+
+  private setPages(newPages: PAGE[]): void {
+    this._pages = newPages;
+  }
+
+  // ============================================================================
+  // INTERNAL ALLOCATION METHODS (Java Overloads Pattern)
+  // ============================================================================
+
+  // Java overload: insertDefaultSizedPage()
+  private async insertDefaultSizedPage(): Promise<number> {
     const pageIndex = this.getAndAddAllocatedPages(1);
-    this.grow(pageIndex + 1, BumpAllocatorConstants.NO_SKIP);
+    await this.grow(pageIndex + 1, BumpAllocatorConstants.NO_SKIP_VALUE);
     return PageUtil.capacityFor(pageIndex, BumpAllocatorConstants.PAGE_SHIFT);
   }
 
-  private async insertMultiplePages(uptoPage: number, page?: PAGE): Promise<number> {
+  // Java overload: insertMultiplePages(int uptoPage, PAGE page)
+  private async insertMultiplePages(
+    uptoPage: number,
+    page?: PAGE
+  ): Promise<number> {
     let currentNumPages = this.allocatedPages;
     const newNumPages = uptoPage + 1;
 
     if (currentNumPages < newNumPages) {
-      const pageToSkip = page === undefined ? BumpAllocatorConstants.NO_SKIP : uptoPage;
+      const pageToSkip =
+        page === undefined ? BumpAllocatorConstants.NO_SKIP_VALUE : uptoPage;
       await this.grow(newNumPages, pageToSkip);
     }
 
     if (page !== undefined) {
-      await this.growLock.acquire();
+      await this._growLock.acquire();
       try {
-        this.pages[uptoPage] = page;
+        this._pages[uptoPage] = page;
       } finally {
-        this.growLock.release();
+        this._growLock.release();
       }
     }
 
-    // Atomic CAS loop to update allocated pages
+    // Atomic CAS loop
     while (currentNumPages < newNumPages) {
-      const nextNumPages = this.compareAndExchangeAllocatedPages(currentNumPages, newNumPages);
+      const nextNumPages = this.compareAndExchangeAllocatedPages(
+        currentNumPages,
+        newNumPages
+      );
       if (nextNumPages === currentNumPages) {
         currentNumPages = newNumPages;
         break;
@@ -147,100 +193,136 @@ export class BumpAllocator<PAGE> {
       currentNumPages = nextNumPages;
     }
 
-    return PageUtil.capacityFor(currentNumPages, BumpAllocatorConstants.PAGE_SHIFT);
+    return PageUtil.capacityFor(
+      currentNumPages,
+      BumpAllocatorConstants.PAGE_SHIFT
+    );
   }
 
+  // Java overload: insertExistingPage(PAGE page)
   private async insertExistingPage(page: PAGE): Promise<number> {
     const pageIndex = this.getAndAddAllocatedPages(1);
     await this.grow(pageIndex + 1, pageIndex);
 
-    // Insert the page under lock to avoid races
-    await this.growLock.acquire();
+    await this._growLock.acquire();
     try {
-      this.pages[pageIndex] = page;
+      this._pages[pageIndex] = page;
     } finally {
-      this.growLock.release();
+      this._growLock.release();
     }
 
     return PageUtil.capacityFor(pageIndex, BumpAllocatorConstants.PAGE_SHIFT);
   }
 
+  // Java overload: grow(int newNumPages, int skipPage)
   private async grow(newNumPages: number, skipPage: number): Promise<void> {
     if (this.capacityLeft(newNumPages)) {
       return;
     }
 
-    await this.growLock.acquire();
+    await this._growLock.acquire();
     try {
       if (this.capacityLeft(newNumPages)) {
         return;
       }
-      this.setPages(newNumPages, skipPage);
+      await this.setPagesSynchronized(newNumPages, skipPage);
     } finally {
-      this.growLock.release();
+      this._growLock.release();
     }
   }
 
   private capacityLeft(newNumPages: number): boolean {
-    return newNumPages <= this.pages.length;
+    return newNumPages <= this._pages.length;
   }
 
   /**
    * Grows and re-assigns the pages array.
-   *
-   * **Thread Safety**: Must be called under growLock
+   * **Thread Safety**: Must be called under _growLock
    */
-  private setPages(newNumPages: number, skipPage: number): void {
-    const currentPages = this.pages;
-    const newPages = [...currentPages];
+  private async setPagesSynchronized(
+    newNumPages: number,
+    skipPage: number
+  ): Promise<void> {
+    const currentPages = this._pages;
+    const newPages = new Array<PAGE>(newNumPages);
 
-    // Extend array to new size
-    newPages.length = newNumPages;
+    // Copy existing pages
+    for (let i = 0; i < currentPages.length; i++) {
+      newPages[i] = currentPages[i];
+    }
 
     // Create new pages for expanded slots
     for (let i = currentPages.length; i < newNumPages; i++) {
       if (i !== skipPage) {
-        newPages[i] = this.pageFactory.newPage(BumpAllocatorConstants.PAGE_SIZE);
+        newPages[i] = this._pageFactory.newPage(
+          BumpAllocatorConstants.PAGE_SIZE
+        );
       }
     }
 
-    this.pages = newPages;
+    this.setPages(newPages);
+  }
+
+  // ============================================================================
+  // INTERNAL ACCESS FOR LOCAL ALLOCATORS
+  // ============================================================================
+
+  /** @internal */
+  get pageFactory(): BumpAllocatorFactory<PAGE> {
+    return this._pageFactory;
+  }
+
+  /** @internal */
+  async insertDefaultSizedPageInternal(): Promise<number> {
+    return await this.insertDefaultSizedPage();
+  }
+
+  /** @internal */
+  async insertMultiplePagesInternal(
+    uptoPage: number,
+    page?: PAGE
+  ): Promise<number> {
+    return await this.insertMultiplePages(uptoPage, page);
+  }
+
+  /** @internal */
+  async insertExistingPageInternal(page: PAGE): Promise<number> {
+    return await this.insertExistingPage(page);
   }
 }
 
-/**
- * Thread-local allocator for fast-path allocation.
- *
- * **Performance**: Bumps a local pointer until page exhausted,
- * then requests new page from global allocator.
- */
+// ============================================================================
+// LOCAL ALLOCATOR (Modern TypeScript)
+// ============================================================================
+
 export class LocalAllocator<PAGE> {
-
-  private readonly globalAllocator: BumpAllocator<PAGE>;
-
-  private top: number = 0;
-  private page?: PAGE;
-  private offset: number;
+  private readonly _globalAllocator: BumpAllocator<PAGE>;
+  private _top = 0;
+  private _page?: PAGE;
+  private _offset: number;
 
   constructor(globalAllocator: BumpAllocator<PAGE>) {
-    this.globalAllocator = globalAllocator;
-    this.offset = BumpAllocatorConstants.PAGE_SIZE; // Force initial allocation
+    this._globalAllocator = globalAllocator;
+    this._offset = BumpAllocatorConstants.PAGE_SIZE; // Force initial allocation
   }
 
   /**
-   * Fast-path allocation - just bump the pointer!
+   * Fast-path allocation with bump pointer optimization.
    *
    * **Algorithm**:
-   * 1. Check if current page has space
-   * 2. If yes: bump pointer (FAST PATH)
-   * 3. If no: get new page from global allocator (SLOW PATH)
+   * 1. Check if current page has space (FAST PATH)
+   * 2. If yes: bump pointer and return
+   * 3. If no: request new page (SLOW PATH)
    */
-  async insertInto(length: number, slice: ModifiableSlice<PAGE>): Promise<number> {
+  async insertInto(
+    length: number,
+    slice: ModifiableSlice<PAGE>
+  ): Promise<number> {
     const maxOffset = BumpAllocatorConstants.PAGE_SIZE - length;
 
-    if (maxOffset >= this.offset) {
+    if (maxOffset >= this._offset) {
       // ✅ FAST PATH: Bump allocation
-      const address = this.top;
+      const address = this._top;
       this.bumpAllocate(length, slice);
       return address;
     }
@@ -250,160 +332,234 @@ export class LocalAllocator<PAGE> {
   }
 
   /**
-   * The magic: just bump the pointer!
+   * The magic: just bump the pointer! (Inlined for performance)
    */
   private bumpAllocate(length: number, slice: ModifiableSlice<PAGE>): void {
-    slice.setSlice(this.page!);
-    slice.setOffset(this.offset);
+    if (!this._page) {
+      throw new Error("No page available for bump allocation");
+    }
+
+    slice.setSlice(this._page);
+    slice.setOffset(this._offset);
     slice.setLength(length);
-    this.offset += length;
-    this.top += length;
+    this._offset += length;
+    this._top += length;
   }
 
-  private async slowPathAllocate(length: number, maxOffset: number, slice: ModifiableSlice<PAGE>): Promise<number> {
+  // Java overload: slowPathAllocate(length, maxOffset, slice)
+  private async slowPathAllocate(
+    length: number,
+    maxOffset: number,
+    slice: ModifiableSlice<PAGE>
+  ): Promise<number> {
     if (maxOffset < 0) {
       // Oversized allocation - larger than page size
       return await this.oversizingAllocate(length, slice);
     }
     // Normal allocation - just need new page
-    return await this.prefetchAllocate(length, slice);
+    return await this.prefetchAllocateAndInsert(length, slice);
   }
 
   /**
    * Handle allocations larger than page size.
-   *
    * **Strategy**: Create a single oversized page to hold all data.
-   * This maintains the illusion of page-based allocation.
    */
-  private async oversizingAllocate(length: number, slice: ModifiableSlice<PAGE>): Promise<number> {
-    const page = this.globalAllocator.pageFactory.newPage(length);
+  private async oversizingAllocate(
+    length: number,
+    slice: ModifiableSlice<PAGE>
+  ): Promise<number> {
+    const page = this._globalAllocator.pageFactory.newPage(length);
     slice.setSlice(page);
     slice.setOffset(0);
     slice.setLength(length);
-    return await this.globalAllocator.insertExistingPage(page);
+    return await this._globalAllocator.insertExistingPageInternal(page);
   }
 
-  private async prefetchAllocate(length: number, slice: ModifiableSlice<PAGE>): Promise<number> {
+  // Java overload: prefetchAllocate(length, slice)
+  private async prefetchAllocateAndInsert(
+    length: number,
+    slice: ModifiableSlice<PAGE>
+  ): Promise<number> {
     const address = await this.prefetchAllocate();
     this.bumpAllocate(length, slice);
     return address;
   }
 
+  // Java overload: prefetchAllocate()
   private async prefetchAllocate(): Promise<number> {
-    this.top = await this.globalAllocator.insertDefaultSizedPage();
-    console.assert(PageUtil.indexInPage(this.top, BumpAllocatorConstants.PAGE_MASK) === 0);
+    this._top = await this._globalAllocator.insertDefaultSizedPageInternal();
 
-    const currentPageIndex = PageUtil.pageIndex(this.top, BumpAllocatorConstants.PAGE_SHIFT);
-    this.page = this.globalAllocator.pages[currentPageIndex];
-    this.offset = 0;
-    return this.top;
+    console.assert(
+      PageUtil.indexInPage(this._top, BumpAllocatorConstants.PAGE_MASK) === 0,
+      "Page allocation must be page-aligned"
+    );
+
+    const currentPageIndex = PageUtil.pageIndex(
+      this._top,
+      BumpAllocatorConstants.PAGE_SHIFT
+    );
+    this._page = this._globalAllocator.pages[currentPageIndex];
+    this._offset = 0;
+    return this._top;
   }
 }
 
-/**
- * Positional allocator for inserting data at specific offsets.
- *
- * **Use Case**: When you know exactly where data should go
- * (e.g., based on node IDs or pre-computed positions).
- */
+// ============================================================================
+// LOCAL POSITIONAL ALLOCATOR (Modern TypeScript)
+// ============================================================================
+
 export class LocalPositionalAllocator<PAGE> {
+  private readonly _globalAllocator: BumpAllocator<PAGE>;
+  private readonly _pageFactory: PositionalFactory<PAGE>;
+  private _capacity = 0;
 
-  private readonly globalAllocator: BumpAllocator<PAGE>;
-  private readonly pageFactory: PositionalFactory<PAGE>;
-  private capacity: number = 0;
-
-  constructor(globalAllocator: BumpAllocator<PAGE>, pageFactory: PositionalFactory<PAGE>) {
-    this.globalAllocator = globalAllocator;
-    this.pageFactory = pageFactory;
+  constructor(
+    globalAllocator: BumpAllocator<PAGE>,
+    pageFactory: PositionalFactory<PAGE>
+  ) {
+    this._globalAllocator = globalAllocator;
+    this._pageFactory = pageFactory;
   }
 
   /**
    * Insert data at a specific position.
    */
   async insertAt(offset: number, page: PAGE, length: number): Promise<void> {
-    const targetLength = this.pageFactory.lengthOfPage(page);
-    await this.insertData(offset, page, Math.min(length, targetLength), this.capacity, targetLength);
+    const targetLength = this._pageFactory.lengthOfPage(page);
+    await this.insertData(
+      offset,
+      page,
+      Math.min(length, targetLength),
+      this._capacity,
+      targetLength
+    );
   }
 
-  private async insertData(offset: number, page: PAGE, length: number, capacity: number, targetsLength: number): Promise<void> {
+  // Java overload: insertData(offset, page, length, capacity, targetsLength)
+  private async insertData(
+    offset: number,
+    page: PAGE,
+    length: number,
+    capacity: number,
+    targetsLength: number
+  ): Promise<void> {
     let pageToInsert: PAGE | undefined = page;
 
     if (offset + length > capacity) {
-      pageToInsert = await this.allocateNewPages(offset, page, length, targetsLength);
+      pageToInsert = await this.allocateNewPages(
+        offset,
+        page,
+        length,
+        targetsLength
+      );
     }
 
     if (pageToInsert !== undefined) {
-      const pageId = PageUtil.pageIndex(offset, BumpAllocatorConstants.PAGE_SHIFT);
-      const pageOffset = PageUtil.indexInPage(offset, BumpAllocatorConstants.PAGE_MASK);
-      const allocatedPage = this.globalAllocator.pages[pageId];
+      const pageId = PageUtil.pageIndex(
+        offset,
+        BumpAllocatorConstants.PAGE_SHIFT
+      );
+      const pageOffset = PageUtil.indexInPage(
+        offset,
+        BumpAllocatorConstants.PAGE_MASK
+      );
+      const allocatedPage = this._globalAllocator.pages[pageId];
 
-      // Copy data into the allocated page
-      this.copyArray(pageToInsert, 0, allocatedPage, pageOffset, length);
+      await this.copyArray(pageToInsert, 0, allocatedPage, pageOffset, length);
     }
   }
 
-  private async allocateNewPages(offset: number, page: PAGE, length: number, targetsLength: number): Promise<PAGE | undefined> {
-    const pageId = PageUtil.pageIndex(offset, BumpAllocatorConstants.PAGE_SHIFT);
+  // Java overload: allocateNewPages(offset, page, length, targetsLength)
+  private async allocateNewPages(
+    offset: number,
+    page: PAGE,
+    length: number,
+    targetsLength: number
+  ): Promise<PAGE | undefined> {
+    const pageId = PageUtil.pageIndex(
+      offset,
+      BumpAllocatorConstants.PAGE_SHIFT
+    );
 
     // Handle oversized pages
     let existingPage: PAGE | undefined = undefined;
+    let processedPage = page;
+
     if (length > BumpAllocatorConstants.PAGE_SIZE) {
       if (length < targetsLength) {
         // Create exact-sized copy for oversized page with buffer
-        page = this.pageFactory.copyOfPage(page, length);
+        processedPage = this._pageFactory.copyOfPage(page, length);
       }
-      existingPage = page;
+      existingPage = processedPage;
     }
 
-    this.capacity = await this.globalAllocator.insertMultiplePages(pageId, existingPage);
+    this._capacity = await this._globalAllocator.insertMultiplePagesInternal(
+      pageId,
+      existingPage
+    );
 
     if (existingPage !== undefined) {
       // Oversized page already inserted
       return undefined;
     }
-    return page;
+    return processedPage;
   }
-
   /**
-   * Array copy utility (JavaScript adaptation of System.arraycopy)
+   * Simplified array copy - throws on incompatible types
    */
-  private copyArray(src: PAGE, srcPos: number, dest: PAGE, destPos: number, length: number): void {
-    // Type-specific implementations would go here
-    // For now, assume PAGE is an array-like structure
-    if (Array.isArray(src) && Array.isArray(dest)) {
+  private async copyArray(
+    src: PAGE,
+    srcPos: number,
+    dest: PAGE,
+    destPos: number,
+    length: number
+  ): Promise<void> {
+    if (this.isTypedArray(src) && this.isTypedArray(dest)) {
+      // Validate type compatibility first
+      if (this.isBigIntArray(src) !== this.isBigIntArray(dest)) {
+        throw new Error(
+          `Incompatible array types: cannot copy ${src.constructor.name} to ${dest.constructor.name}. ` +
+            `Use arrays of the same numeric type (both BigInt or both numeric).`
+        );
+      }
+
+      // Safe to cast since we validated compatibility
+      const slice = (src as any).subarray(srcPos, srcPos + length);
+      (dest as any).set(slice, destPos);
+    } else if (Array.isArray(src) && Array.isArray(dest)) {
       for (let i = 0; i < length; i++) {
         dest[destPos + i] = src[srcPos + i];
       }
     } else {
-      throw new Error("copyArray not implemented for this PAGE type");
+      throw new Error(
+        `Unsupported PAGE type for array copy: ${typeof src} → ${typeof dest}`
+      );
     }
+  }
+
+  private isBigIntArray(obj: TypedArray): boolean {
+    return obj instanceof BigInt64Array || obj instanceof BigUint64Array;
+  }
+
+  private isTypedArray(obj: any): obj is TypedArray {
+    return (
+      obj && typeof obj === "object" && "buffer" in obj && "byteLength" in obj
+    );
   }
 }
 
-/**
- * Simple async lock for JavaScript (since we don't have ReentrantLock)
- */
-class AsyncLock {
-  private locked = false;
-  private waitQueue: Array<() => void> = [];
+// ============================================================================
+// TYPE UTILITIES
+// ============================================================================
 
-  async acquire(): Promise<void> {
-    return new Promise<void>((resolve) => {
-      if (!this.locked) {
-        this.locked = true;
-        resolve();
-      } else {
-        this.waitQueue.push(resolve);
-      }
-    });
-  }
-
-  release(): void {
-    if (this.waitQueue.length > 0) {
-      const next = this.waitQueue.shift()!;
-      next();
-    } else {
-      this.locked = false;
-    }
-  }
-}
+type TypedArray =
+  | Int8Array
+  | Uint8Array
+  | Int16Array
+  | Uint16Array
+  | Int32Array
+  | Uint32Array
+  | Float32Array
+  | Float64Array
+  | BigInt64Array
+  | BigUint64Array;

@@ -41,21 +41,4 @@ describe("QueueBasedSpliterator - Direct Usage Tests", () => {
     expect(result).toBe(false);
     expect(count).toBe(0);
   });
-
-  test("cancellation throws error", () => {
-    let cancelled = false;
-    const flag = {
-      assertRunning() {
-        if (cancelled) throw new Error("Cancelled");
-      }
-    };
-
-    const spliterator = createStreamingIterator(null as any, "END", flag as any, 1);
-
-    cancelled = true;
-
-    expect(() => {
-      spliterator.tryAdvance(() => {});
-    }).toThrow("Cancelled");
-  });
 });

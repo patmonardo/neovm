@@ -15,7 +15,7 @@ import { Concurrency } from "@/concurrency";
 import { Partition } from "@/core/utils/partition/Partition";
 import { PartitionUtils } from "@/core/utils/partition/PartitionUtils";
 import { RunWithConcurrency } from "@/concurrency/RunWithConcurrency";
-import { CloseableThreadLocal } from "@/core/utils/CloseableThreadLocal";
+import { CloseableThreadLocal } from "@/utils";
 import { FilteredNodePropertyValues } from "./FilteredNodePropertyValues";
 
 const NO_DEGREE = -1;

@@ -1,11 +1,9 @@
-import { IdMap } from '@/api/graph';
-import { HugeLongArray } from '@/core/collections/ha';
-import { HugeSparseLongArray } from '@/core/collections/hsa';
-import { HugeCursor } from '@/core/collections/cursor';
-import { Concurrency, DefaultPool, ParallelUtil } from '@/core/concurrency';
+import { IdMap } from '@/api';
+import { HugeLongArray } from '@/collections';
+import { HugeSparseLongArray } from '@/collections';
+import { Concurrency, DefaultPool, ParallelUtil } from '@/concurrency';
 import { ArrayIdMap } from './ArrayIdMap';
-import { LabelInformation } from './LabelInformation';
-import { NodesBuilder } from './construction/NodesBuilder';
+import { NodesBuilder } from './construction';
 
 /**
  * Final assembly operations for ArrayIdMap construction.

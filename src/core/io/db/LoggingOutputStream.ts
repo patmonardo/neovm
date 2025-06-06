@@ -1,5 +1,5 @@
-import { Log } from '@/logging/Log';
-import { Writable } from 'stream';
+import { Log } from "@/utils";
+import { Writable } from "stream";
 
 /**
  * A writable stream that redirects output to a logger.
@@ -12,12 +12,12 @@ export class LoggingOutputStream extends Writable {
   private readonly log: Log;
   private readonly lineSeparator: string;
   private readonly lineSeparatorLength: number;
-  private buffer: string = '';
+  private buffer: string = "";
 
   constructor(log: Log) {
     super();
     this.log = log;
-    this.lineSeparator = require('os').EOL; // Platform-specific line separator
+    this.lineSeparator = require("os").EOL; // Platform-specific line separator
     this.lineSeparatorLength = this.lineSeparator.length;
   }
 
@@ -29,10 +29,15 @@ export class LoggingOutputStream extends Writable {
    * @param encoding The character encoding (ignored for string input)
    * @param callback Called when the write operation completes
    */
-  _write(chunk: any, encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+  _write(
+    chunk: any,
+    encoding: BufferEncoding,
+    callback: (error?: Error | null) => void
+  ): void {
     try {
       // Convert chunk to string if it's a Buffer
-      const data = chunk instanceof Buffer ? chunk.toString(encoding) : chunk.toString();
+      const data =
+        chunk instanceof Buffer ? chunk.toString(encoding) : chunk.toString();
 
       this.buffer += data;
 
@@ -43,13 +48,15 @@ export class LoggingOutputStream extends Writable {
         const lineToLog = this.buffer.substring(0, lineSeparatorIndex);
 
         // Keep any remaining data after the last line separator
-        this.buffer = this.buffer.substring(lineSeparatorIndex + this.lineSeparatorLength);
+        this.buffer = this.buffer.substring(
+          lineSeparatorIndex + this.lineSeparatorLength
+        );
 
         // Log the complete line(s)
         if (lineToLog.length > 0) {
           // Split multiple lines if present and log each separately
           const lines = lineToLog.split(this.lineSeparator);
-          lines.forEach(line => {
+          lines.forEach((line) => {
             if (line.length > 0) {
               this.log.debug(line);
             }
@@ -91,7 +98,7 @@ export class LoggingOutputStream extends Writable {
   private flushBuffer(): void {
     if (this.buffer.length > 0) {
       this.log.debug(this.buffer);
-      this.buffer = '';
+      this.buffer = "";
     }
   }
 

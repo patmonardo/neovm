@@ -2,7 +2,7 @@ import { NodeLabel } from '@/projection';
 import { GraphStore } from '@/api';
 import { IdMap } from '@/api';
 import { NodePropertyValues } from '@/api/properties/nodes';
-import { HugeIntArray } from '@/collections/ha/HugeIntArray';
+import { HugeIntArray } from '@/collections';
 import { IdentifierMapper } from './IdentifierMapper';
 
 /**

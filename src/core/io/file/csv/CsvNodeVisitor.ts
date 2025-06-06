@@ -5,14 +5,14 @@
  * Creates separate header and data files for each unique label set.
  */
 
-import { NodeLabel } from '@/projection';
-import { NodeSchema } from '@/api/schema';
-import { PropertySchema } from '@/api/schema';
-import { IdentifierMapper } from '@/core/io/IdentifierMapper';
-import { NodeVisitor } from '@/core/io/file/NodeVisitor';
-import { SimpleCsvWriter } from './SimpleCsvWriter';
-import * as fs from 'fs';
-import * as path from 'path';
+import { NodeLabel } from "@/projection";
+import { NodeSchema } from "@/api/schema";
+import { PropertySchema } from "@/api/schema";
+import { IdentifierMapper } from "@/core/io/IdentifierMapper";
+import { NodeVisitor } from "@/core/io/file/NodeVisitor";
+import { CsvSimpleWriter } from "./CsvSimpleWriter";
+import * as fs from "fs";
+import * as path from "path";
 
 export class CsvNodeVisitor extends NodeVisitor {
   static readonly ID_COLUMN_NAME = ":ID";
@@ -21,7 +21,7 @@ export class CsvNodeVisitor extends NodeVisitor {
   private readonly headerFiles: Set<string>;
   private readonly visitorId: number;
   private readonly nodeLabelMapping: IdentifierMapper<NodeLabel>;
-  private readonly csvWriters: Map<string, SimpleCsvWriter>;
+  private readonly csvWriters: Map<string, CsvSimpleWriter>;
 
   constructor(
     fileLocation: string,
@@ -35,7 +35,7 @@ export class CsvNodeVisitor extends NodeVisitor {
     this.headerFiles = headerFiles;
     this.visitorId = visitorId;
     this.nodeLabelMapping = nodeLabelMapping;
-    this.csvWriters = new Map<string, SimpleCsvWriter>();
+    this.csvWriters = new Map<string, CsvSimpleWriter>();
   }
 
   /**
@@ -46,7 +46,13 @@ export class CsvNodeVisitor extends NodeVisitor {
     nodeSchema: NodeSchema,
     nodeLabelMapping: IdentifierMapper<NodeLabel>
   ): CsvNodeVisitor {
-    return new CsvNodeVisitor(fileLocation, nodeSchema, new Set<string>(), 0, nodeLabelMapping);
+    return new CsvNodeVisitor(
+      fileLocation,
+      nodeSchema,
+      new Set<string>(),
+      0,
+      nodeLabelMapping
+    );
   }
 
   protected exportElement(): void {
@@ -73,7 +79,9 @@ export class CsvNodeVisitor extends NodeVisitor {
         writer.flush();
         writer.close();
       } catch (error) {
-        throw new Error(`Failed to close CSV writer: ${(error as Error).message}`);
+        throw new Error(
+          `Failed to close CSV writer: ${(error as Error).message}`
+        );
       }
     }
   }
@@ -84,14 +92,14 @@ export class CsvNodeVisitor extends NodeVisitor {
     }
   }
 
-  private getWriter(): SimpleCsvWriter {
+  private getWriter(): CsvSimpleWriter {
     const labelsString = this.elementIdentifier();
 
     return this.csvWriters.get(labelsString) || this.createWriter(labelsString);
   }
 
-  private createWriter(labelsString: string): SimpleCsvWriter {
-    const fileName = labelsString === '' ? 'nodes' : `nodes_${labelsString}`;
+  private createWriter(labelsString: string): CsvSimpleWriter {
+    const fileName = labelsString === "" ? "nodes" : `nodes_${labelsString}`;
     const headerFileName = `${fileName}_header.csv`;
     const dataFileName = `${fileName}_${this.visitorId}.csv`;
 
@@ -102,7 +110,7 @@ export class CsvNodeVisitor extends NodeVisitor {
 
     // Create data file writer
     const dataFilePath = path.join(this.fileLocation, dataFileName);
-    const writer = new SimpleCsvWriter(dataFilePath);
+    const writer = new CsvSimpleWriter(dataFilePath);
 
     this.csvWriters.set(labelsString, writer);
     return writer;
@@ -123,20 +131,29 @@ export class CsvNodeVisitor extends NodeVisitor {
 
     // Write header file
     try {
-      const csvContent = headerRow.join(',');
-      fs.writeFileSync(headerFilePath, csvContent, 'utf-8');
+      const csvContent = headerRow.join(",");
+      fs.writeFileSync(headerFilePath, csvContent, "utf-8");
     } catch (error) {
-      throw new Error(`Could not write header file: ${(error as Error).message}`);
+      throw new Error(
+        `Could not write header file: ${(error as Error).message}`
+      );
     }
   }
 
   protected getPropertySchema(): PropertySchema[] {
-    const nodeLabelList = this.currentLabels().length === 0
-      ? this.EMPTY_LABELS_LABEL
-      : new Set(this.currentLabels().map(label => this.nodeLabelMapping.forIdentifier(label)));
+    const nodeLabelList =
+      this.currentLabels().length === 0
+        ? this.EMPTY_LABELS_LABEL
+        : new Set(
+            this.currentLabels().map((label) =>
+              this.nodeLabelMapping.forIdentifier(label)
+            )
+          );
 
     const propertySchemaForLabels = this.nodeSchema().filter(nodeLabelList);
-    const properties = Array.from(propertySchemaForLabels.unionProperties().values());
+    const properties = Array.from(
+      propertySchemaForLabels.unionProperties().values()
+    );
 
     // Sort by key for consistent ordering
     properties.sort((a, b) => a.key().localeCompare(b.key()));
@@ -146,13 +163,13 @@ export class CsvNodeVisitor extends NodeVisitor {
 
   private formatCsvValue(value: any): string {
     if (value === null || value === undefined) {
-      return '';
+      return "";
     }
 
     const str = value.toString();
 
     // Escape CSV special characters
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
       return `"${str.replace(/"/g, '""')}"`;
     }
 

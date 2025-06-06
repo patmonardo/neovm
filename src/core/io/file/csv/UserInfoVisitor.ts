@@ -1,19 +1,22 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { SingleRowVisitor } from '@/core/io';
+import * as fs from "fs";
+import * as path from "path";
+import { SingleRowVisitor } from "@/core/io/file";
 
 /**
  * Visitor for writing user information to CSV files.
  * Implements SingleRowVisitor to write a single user info string to a file.
  */
 export class UserInfoVisitor implements SingleRowVisitor<string> {
-  public static readonly USER_INFO_FILE_NAME = '.userinfo';
+  public static readonly USER_INFO_FILE_NAME = ".userinfo";
 
   private readonly writer: fs.WriteStream;
   private readonly filePath: string;
 
   constructor(fileLocation: string) {
-    this.filePath = path.join(fileLocation, UserInfoVisitor.USER_INFO_FILE_NAME);
+    this.filePath = path.join(
+      fileLocation,
+      UserInfoVisitor.USER_INFO_FILE_NAME
+    );
 
     try {
       // Create directory if it doesn't exist
@@ -23,11 +26,13 @@ export class UserInfoVisitor implements SingleRowVisitor<string> {
       }
 
       this.writer = fs.createWriteStream(this.filePath, {
-        encoding: 'utf8',
-        flags: 'w' // Write mode (overwrite if exists)
+        encoding: "utf8",
+        flags: "w", // Write mode (overwrite if exists)
       });
     } catch (error) {
-      throw new Error(`Failed to create user info writer at ${this.filePath}: ${error}`);
+      throw new Error(
+        `Failed to create user info writer at ${this.filePath}: ${error}`
+      );
     }
   }
 

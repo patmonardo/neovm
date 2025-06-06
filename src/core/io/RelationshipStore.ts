@@ -1,7 +1,7 @@
 import { RelationshipType } from "@/projection";
-import { CompositeRelationshipIterator } from "@/api";
 import { GraphStore } from "@/api";
 import { IdMap } from "@/api";
+import { CompositeRelationshipIterator } from "@/api";
 import { IdentifierMapper } from "./IdentifierMapper";
 
 /**

@@ -1,17 +1,17 @@
 /**
  * Huge Object Array - Generic Object Storage with Massive Scale Support
- * 
+ *
  * **The Pattern**: Long-indexable generic object array exceeding JavaScript limits
  * **Implementation**: Pages of 4096 elements each with automatic size optimization
  * **Memory Management**: Explicit release() with memory tracking
  * **Type Safety**: Full TypeScript generic support with proper inheritance
- * 
+ *
  * **Perfect For**: Graph nodes, edges, algorithm state, complex data structures
  */
 
 import { HugeArrays } from '@/mem/HugeArrays';
 import { Estimate } from '@/mem/Estimate';
-import { HugeCursor, SinglePageCursor, PagedCursor } from '@/collections/cursor';
+import { HugeCursor, SinglePageCursor, PagedCursor } from '@/collections';
 import { HugeArray } from './HugeArray';
 
 /**
@@ -90,10 +90,10 @@ export abstract class HugeObjectArray<T> extends HugeArray<(T | null)[], T | nul
 
   /**
    * Estimates the memory required for a HugeObjectArray of the specified size.
-   * 
-   * **Accurate Memory Forecasting**: Considers both array structure overhead 
+   *
+   * **Accurate Memory Forecasting**: Considers both array structure overhead
    * and estimated memory usage of stored objects for capacity planning.
-   * 
+   *
    * @param arraySize Number of elements in the array
    * @param objectSize Estimated memory per object in bytes
    * @returns Estimated total memory usage in bytes
@@ -105,13 +105,13 @@ export abstract class HugeObjectArray<T> extends HugeArray<(T | null)[], T | nul
 
     const numPages = HugeArrays.numberOfPages(arraySize);
     const outArrayMemoryUsage = Estimate.sizeOfObjectArray(numPages);
-    
-    const memoryUsagePerPage = Estimate.sizeOfObjectArray(HugeArrays.PAGE_SIZE) + 
+
+    const memoryUsagePerPage = Estimate.sizeOfObjectArray(HugeArrays.PAGE_SIZE) +
                               (HugeArrays.PAGE_SIZE * objectSize);
     const pageMemoryUsage = (numPages - 1) * memoryUsagePerPage;
-    
+
     const lastPageSize = HugeArrays.exclusiveIndexOfPage(arraySize);
-    const lastPageMemoryUsage = Estimate.sizeOfObjectArray(lastPageSize) + 
+    const lastPageMemoryUsage = Estimate.sizeOfObjectArray(lastPageSize) +
                                (lastPageSize * objectSize);
 
     return sizeOfInstance + outArrayMemoryUsage + pageMemoryUsage + lastPageMemoryUsage;
@@ -124,7 +124,7 @@ export abstract class HugeObjectArray<T> extends HugeArray<(T | null)[], T | nul
   /**
    * Creates a new array of the given size for the specified element type.
    *
-   * **Primary Factory Method**: Automatically chooses optimal implementation 
+   * **Primary Factory Method**: Automatically chooses optimal implementation
    * (Single vs Paged) based on size for best performance.
    *
    * @param elementClass Constructor function for the element type
@@ -197,7 +197,7 @@ export abstract class HugeObjectArray<T> extends HugeArray<(T | null)[], T | nul
   /**
    * Atomically sets the value at the given index if it is currently null.
    *
-   * **Lazy Initialization Pattern**: Enables thread-safe lazy loading of 
+   * **Lazy Initialization Pattern**: Enables thread-safe lazy loading of
    * expensive objects without double-initialization risks.
    *
    * **Use Cases:**
@@ -229,8 +229,8 @@ export abstract class HugeObjectArray<T> extends HugeArray<(T | null)[], T | nul
   /**
    * Assigns the specified object reference to each element in the array.
    *
-   * **Shared Reference Warning**: All array positions will reference the 
-   * same object instance. Modifications to the object will be visible 
+   * **Shared Reference Warning**: All array positions will reference the
+   * same object instance. Modifications to the object will be visible
    * across all array positions.
    *
    * @param value The object reference to assign to every element (or null to clear all)
@@ -244,7 +244,7 @@ export abstract class HugeObjectArray<T> extends HugeArray<(T | null)[], T | nul
   /**
    * Copies the content of this array into the target array.
    *
-   * **Reference Copying**: This method copies object references (not object contents) 
+   * **Reference Copying**: This method copies object references (not object contents)
    * from this array to the destination array. Both arrays will reference the same object instances.
    *
    * @param dest Target array to copy data into
@@ -341,7 +341,7 @@ export abstract class HugeObjectArray<T> extends HugeArray<(T | null)[], T | nul
  * a single underlying array with no page management overhead.
  */
 class SingleHugeObjectArray<T> extends HugeObjectArray<T> {
-  private size: number;
+  private _size: number;
   private page: (T | null)[] | null;
   private elementClassRef: new (...args: any[]) => T;
 
@@ -355,7 +355,7 @@ class SingleHugeObjectArray<T> extends HugeObjectArray<T> {
 
   constructor(size: number, page: (T | null)[], elementClass: new (...args: any[]) => T) {
     super();
-    this.size = size;
+    this._size = size;
     this.page = page;
     this.elementClassRef = elementClass;
   }
@@ -388,7 +388,7 @@ class SingleHugeObjectArray<T> extends HugeObjectArray<T> {
   }
 
   public setAll(gen: (index: number) => T | null): void {
-    for (let i = 0; i < this.size; i++) {
+    for (let i = 0; i < this._size; i++) {
       this.page![i] = gen(i);
     }
   }
@@ -398,14 +398,14 @@ class SingleHugeObjectArray<T> extends HugeObjectArray<T> {
   }
 
   public copyTo(dest: HugeObjectArray<T>, length: number): void {
-    length = Math.min(length, this.size, dest.size());
+    length = Math.min(length, this._size, dest.size());
 
     if (dest instanceof SingleHugeObjectArray) {
       // Copy to single array
       const dst = dest as SingleHugeObjectArray<T>;
       this.arrayCopy(this.page!, 0, dst.page!, 0, length);
       // Fill remaining positions with null
-      dst.page!.fill(null, length, dst.size);
+      dst.page!.fill(null, length, dst.size());
     } else if (dest instanceof PagedHugeObjectArray) {
       // Copy to paged array
       const dst = dest as PagedHugeObjectArray<T>;
@@ -435,11 +435,11 @@ class SingleHugeObjectArray<T> extends HugeObjectArray<T> {
   }
 
   public size(): number {
-    return this.size;
+    return this._size;
   }
 
   public sizeOf(): number {
-    return Estimate.sizeOfObjectArray(this.size);
+    return Estimate.sizeOfObjectArray(this._size);
   }
 
   public elementClass(): new (...args: any[]) => T {
@@ -449,7 +449,7 @@ class SingleHugeObjectArray<T> extends HugeObjectArray<T> {
   public release(): number {
     if (this.page !== null) {
       this.page = null;
-      return Estimate.sizeOfObjectArray(this.size);
+      return Estimate.sizeOfObjectArray(this._size);
     }
     return 0;
   }
@@ -467,8 +467,8 @@ class SingleHugeObjectArray<T> extends HugeObjectArray<T> {
   }
 
   private checkBounds(index: number): void {
-    if (index < 0 || index >= this.size) {
-      throw new Error(`Index ${index} out of bounds for array size ${this.size}`);
+    if (index < 0 || index >= this._size) {
+      throw new Error(`Index ${index} out of bounds for array size ${this._size}`);
     }
   }
 }
@@ -484,7 +484,7 @@ class SingleHugeObjectArray<T> extends HugeObjectArray<T> {
  * appearance of a single large object array while working within JavaScript's constraints.
  */
 class PagedHugeObjectArray<T> extends HugeObjectArray<T> {
-  private size: number;
+  private _size: number;
   private pages: ((T | null)[])[] | null;
   private memoryUsed: number;
   private elementClassRef: new (...args: any[]) => T;
@@ -511,13 +511,13 @@ class PagedHugeObjectArray<T> extends HugeObjectArray<T> {
   }
 
   constructor(
-    size: number, 
-    pages: ((T | null)[])[], 
+    size: number,
+    pages: ((T | null)[])[],
     memoryUsed: number,
     elementClass: new (...args: any[]) => T
   ) {
     super();
-    this.size = size;
+    this._size = size;
     this.pages = pages;
     this.memoryUsed = memoryUsed;
     this.elementClassRef = elementClass;
@@ -575,7 +575,7 @@ class PagedHugeObjectArray<T> extends HugeObjectArray<T> {
   }
 
   public copyTo(dest: HugeObjectArray<T>, length: number): void {
-    length = Math.min(length, this.size, dest.size());
+    length = Math.min(length, this._size, dest.size());
 
     if (dest instanceof SingleHugeObjectArray) {
       // Copy to single array
@@ -588,11 +588,11 @@ class PagedHugeObjectArray<T> extends HugeObjectArray<T> {
         if (toCopy === 0) break;
 
         this.arrayCopy(page, 0, dst.page!, start, toCopy);
-        start += toCopy;
+        start += toCopy;7`3`
         remaining -= toCopy;
       }
       // Fill remaining positions with null
-      dst.page!.fill(null, start, dst.size);
+      dst.page!.fill(null, start, dst.size());
     } else if (dest instanceof PagedHugeObjectArray) {
       // Copy to another paged array
       const dst = dest as PagedHugeObjectArray<T>;
@@ -630,7 +630,7 @@ class PagedHugeObjectArray<T> extends HugeObjectArray<T> {
   }
 
   public size(): number {
-    return this.size;
+    return this._size;
   }
 
   public sizeOf(): number {
@@ -650,11 +650,11 @@ class PagedHugeObjectArray<T> extends HugeObjectArray<T> {
   }
 
   public newCursor(): HugeCursor<(T | null)[]> {
-    return new PagedCursor<(T | null)[]>(this.size, this.pages!);
+    return new PagedCursor<(T | null)[]>(this._size, this.pages!);
   }
 
   public toArray(): (T | null)[] {
-    const result: (T | null)[] = new Array(this.size);
+    const result: (T | null)[] = new Array(this._size);
     let index = 0;
 
     for (const page of this.pages!) {
@@ -667,8 +667,8 @@ class PagedHugeObjectArray<T> extends HugeObjectArray<T> {
   }
 
   private checkBounds(index: number): void {
-    if (index < 0 || index >= this.size) {
-      throw new Error(`Index ${index} out of bounds for array size ${this.size}`);
+    if (index < 0 || index >= this._size) {
+      throw new Error(`Index ${index} out of bounds for array size ${this._size}`);
     }
   }
 }

@@ -5,8 +5,8 @@
  * Handles primitives, arrays, and default values without Jackson dependencies.
  */
 
-import { ValueType } from '@/api';
-import { DefaultValue } from '@/api';
+import { ValueType } from "@/api";
+import { DefaultValue } from "@/api";
 
 export class CsvImportParsingUtil {
   private constructor() {} // Static utility class
@@ -17,29 +17,72 @@ export class CsvImportParsingUtil {
     valueType: ValueType,
     defaultValue: DefaultValue
   ): any {
-    return valueType.accept(PARSING_VISITOR).parse(value, defaultValue);
+    // Get the parsing function using the visitor pattern
+    const parsingFunction = ValueType.accept(valueType, PARSING_VISITOR);
+
+    // Handle possible null return from accept
+    if (!parsingFunction) {
+      throw new Error(
+        `No parser available for ValueType: ${ValueType.name(valueType)}`
+      );
+    }
+
+    // Use the parsing function to parse the value
+    return parsingFunction.parse(value, defaultValue);
   }
 
-  static parseId(value: string): number {
-    return parseInt(value, 10);
+  static parseId(value: string): number | string {
+    if (this.isBlank(value)) {
+      throw new Error("ID cannot be blank");
+    }
+
+    const trimmed = value.trim();
+
+    // Try numeric first
+    if (/^\d+$/.test(trimmed)) {
+      return parseInt(trimmed, 10);
+    }
+
+    // Return string ID
+    return trimmed;
   }
 
   // PARSING FUNCTIONS
-  private static parseLongValue(value: string, defaultValue: DefaultValue): number {
+
+  private static parseLongValue(
+    value: string,
+    defaultValue: DefaultValue
+  ): number {
     if (this.isBlank(value)) {
       return defaultValue.longValue();
     }
-    return this.parseId(value);
+
+    const parsed = parseInt(value.trim(), 10);
+    if (isNaN(parsed)) {
+      throw new Error(`Invalid long value: ${value}`);
+    }
+    return parsed;
   }
 
-  private static parseDoubleValue(value: string, defaultValue: DefaultValue): number {
+  private static parseDoubleValue(
+    value: string,
+    defaultValue: DefaultValue
+  ): number {
     if (this.isBlank(value)) {
       return defaultValue.doubleValue();
     }
-    return parseFloat(value);
+
+    const parsed = parseFloat(value.trim());
+    if (isNaN(parsed)) {
+      throw new Error(`Invalid double value: ${value}`);
+    }
+    return parsed;
   }
 
-  private static parseFloatArray(value: string, defaultValue: DefaultValue): Float32Array | null {
+  private static parseFloatArray(
+    value: string,
+    defaultValue: DefaultValue
+  ): Float32Array | null {
     if (this.isBlank(value)) {
       return defaultValue.floatArrayValue();
     }
@@ -59,7 +102,10 @@ export class CsvImportParsingUtil {
     }
   }
 
-  private static parseDoubleArray(value: string, defaultValue: DefaultValue): Float64Array | null {
+  private static parseDoubleArray(
+    value: string,
+    defaultValue: DefaultValue
+  ): Float64Array | null {
     if (this.isBlank(value)) {
       return defaultValue.doubleArrayValue();
     }
@@ -79,7 +125,10 @@ export class CsvImportParsingUtil {
     }
   }
 
-  private static parseLongArray(value: string, defaultValue: DefaultValue): number[] | null {
+  private static parseLongArray(
+    value: string,
+    defaultValue: DefaultValue
+  ): number[] | null {
     if (this.isBlank(value)) {
       return defaultValue.longArrayValue();
     }
@@ -90,7 +139,7 @@ export class CsvImportParsingUtil {
       const parsedArray = new Array(stringArray.length);
 
       for (let i = 0; i < stringArray.length; i++) {
-        parsedArray[i] = BigInt(this.parseLongValue(stringArray[i], defaultValue));
+        parsedArray[i] = this.parseLongValue(stringArray[i], defaultValue);
       }
 
       return parsedArray;
@@ -105,12 +154,12 @@ export class CsvImportParsingUtil {
       // Handle JSON array format: ["a", "b", "c"] or [1, 2, 3]
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) {
-        return parsed.map(item => String(item));
+        return parsed.map((item) => String(item));
       }
-      throw new Error('Not an array');
+      throw new Error("Not an array");
     } catch (error) {
       // Fallback: try semicolon-separated format: "a;b;c"
-      return value.split(';').map(item => item.trim());
+      return value.split(";").map((item) => item.trim());
     }
   }
 
@@ -123,45 +172,165 @@ export class CsvImportParsingUtil {
 interface CsvParsingFunction {
   parse(value: string, defaultValue: DefaultValue): any;
 }
-
-// VISITOR IMPLEMENTATION
+// Complete PARSING_VISITOR with all required methods
 const PARSING_VISITOR: ValueType.Visitor<CsvParsingFunction> = {
   visitLong(): CsvParsingFunction {
     return {
       parse: (value: string, defaultValue: DefaultValue) =>
-        CsvImportParsingUtil['parseLongValue'](value, defaultValue)
+        CsvImportParsingUtil["parseLongValue"](value, defaultValue),
+    };
+  },
+
+  visitFloat(): CsvParsingFunction {
+    return {
+      parse: (value: string, defaultValue: DefaultValue) =>
+        CsvImportParsingUtil["parseDoubleValue"](value, defaultValue), // Reuse double parsing
     };
   },
 
   visitDouble(): CsvParsingFunction {
     return {
       parse: (value: string, defaultValue: DefaultValue) =>
-        CsvImportParsingUtil['parseDoubleValue'](value, defaultValue)
+        CsvImportParsingUtil["parseDoubleValue"](value, defaultValue),
+    };
+  },
+
+  visitBoolean(): CsvParsingFunction {
+    return {
+      parse: (value: string, defaultValue: DefaultValue) => {
+        if (CsvImportParsingUtil["isBlank"](value)) {
+          return defaultValue.booleanValue();
+        }
+        const lower = value.toLowerCase().trim();
+        if (lower === "true") return true;
+        if (lower === "false") return false;
+        throw new Error(
+          `Invalid boolean value: ${value}. Expected 'true' or 'false'`
+        );
+      },
     };
   },
 
   visitString(): CsvParsingFunction {
-    throw new Error('String value parsing is not supported');
+    return {
+      parse: (value: string, defaultValue: DefaultValue) => {
+        if (CsvImportParsingUtil["isBlank"](value)) {
+          return defaultValue.stringValue();
+        }
+        return value;
+      },
+    };
+  },
+
+  visitBigInt(): CsvParsingFunction {
+    return {
+      parse: (value: string, defaultValue: DefaultValue) => {
+        if (CsvImportParsingUtil["isBlank"](value)) {
+          return defaultValue.longValue(); // or appropriate bigint default
+        }
+        try {
+          return BigInt(value);
+        } catch (error) {
+          throw new Error(`Invalid bigint value: ${value}`);
+        }
+      },
+    };
   },
 
   visitLongArray(): CsvParsingFunction {
     return {
       parse: (value: string, defaultValue: DefaultValue) =>
-        CsvImportParsingUtil['parseLongArray'](value, defaultValue)
-    };
-  },
-
-  visitDoubleArray(): CsvParsingFunction {
-    return {
-      parse: (value: string, defaultValue: DefaultValue) =>
-        CsvImportParsingUtil['parseDoubleArray'](value, defaultValue)
+        CsvImportParsingUtil["parseLongArray"](value, defaultValue),
     };
   },
 
   visitFloatArray(): CsvParsingFunction {
     return {
       parse: (value: string, defaultValue: DefaultValue) =>
-        CsvImportParsingUtil['parseFloatArray'](value, defaultValue)
+        CsvImportParsingUtil["parseFloatArray"](value, defaultValue),
     };
-  }
+  },
+
+  visitDoubleArray(): CsvParsingFunction {
+    return {
+      parse: (value: string, defaultValue: DefaultValue) =>
+        CsvImportParsingUtil["parseDoubleArray"](value, defaultValue),
+    };
+  },
+
+  visitBooleanArray(): CsvParsingFunction {
+    return {
+      parse: (value: string, defaultValue: DefaultValue) => {
+        if (CsvImportParsingUtil["isBlank"](value)) {
+          return []; // or defaultValue.booleanArrayValue() if available
+        }
+        try {
+          const stringArray = CsvImportParsingUtil["parseJsonArray"](value);
+          return stringArray.map((item) => {
+            const lower = item.toLowerCase().trim();
+            if (lower === "true") return true;
+            if (lower === "false") return false;
+            throw new Error(`Invalid boolean array element: ${item}`);
+          });
+        } catch (error) {
+          return [];
+        }
+      },
+    };
+  },
+
+  visitStringArray(): CsvParsingFunction {
+    return {
+      parse: (value: string, defaultValue: DefaultValue) => {
+        if (CsvImportParsingUtil["isBlank"](value)) {
+          return []; // or defaultValue.stringArrayValue() if available
+        }
+        try {
+          return CsvImportParsingUtil["parseJsonArray"](value);
+        } catch (error) {
+          return [];
+        }
+      },
+    };
+  },
+
+  visitBigIntArray(): CsvParsingFunction {
+    return {
+      parse: (value: string, defaultValue: DefaultValue) => {
+        if (CsvImportParsingUtil["isBlank"](value)) {
+          return [];
+        }
+        try {
+          const stringArray = CsvImportParsingUtil["parseJsonArray"](value);
+          return stringArray.map((item) => BigInt(item.trim()));
+        } catch (error) {
+          return [];
+        }
+      },
+    };
+  },
+
+  // Optional methods - handle gracefully
+  visitUntypedArray(): CsvParsingFunction {
+    return {
+      parse: (value: string, defaultValue: DefaultValue) => {
+        if (CsvImportParsingUtil["isBlank"](value)) {
+          return [];
+        }
+        try {
+          return CsvImportParsingUtil["parseJsonArray"](value);
+        } catch (error) {
+          return [];
+        }
+      },
+    };
+  },
+
+  visitUnknown(): CsvParsingFunction {
+    return {
+      parse: (value: string, defaultValue: DefaultValue) => {
+        throw new Error(`Cannot parse unknown value type: ${value}`);
+      },
+    };
+  },
 };

@@ -58,28 +58,21 @@ import {
   MutableNodeSchema,
   MutableRelationshipSchema,
   NodeSchema,
-  Direction
 } from '@/api/schema';
 import { PropertyState, DefaultValue } from '@/api';
 import { NodePropertyValues } from '@/api/properties/nodes';
-import { HugeGraph, HugeGraphBuilder } from '@/core/graph';
-import { RelationshipType, Orientation } from '@/gds';
+import { HugeGraph, HugeGraphBuilder } from '@/core/huge';
+import { RelationshipType, Orientation } from '@/projection';
 import { Aggregation } from '@/core';
-import { Concurrency, DefaultPool } from '@/core/concurrency';
+import { Concurrency } from '@/concurrency';
 import {
   HighLimitIdMap,
   IdMapBuilder,
-  ImportSizing,
-  RecordsBatchBuffer,
-  SingleTypeRelationshipImporter,
-  SingleTypeRelationshipImporterBuilder,
   SingleTypeRelationships
 } from '@/core/loading';
 import { IdMapBehaviorServiceProvider } from '@/core';
-import { NodesBuilder, NodesBuilderContext } from './NodesBuilder';
-import { RelationshipsBuilder } from './RelationshipsBuilder';
-import { LocalRelationshipsBuilderProvider } from './LocalRelationshipsBuilderProvider';
-import { SingleTypeRelationshipsBuilder } from './SingleTypeRelationshipsBuilder';
+import { NodesBuilder, NodesBuilderContext } from '@/core/loading/construction';
+import { RelationshipsBuilder } from '@/core/loading/construction';
 
 /**
  * Main factory for graph construction with high-level, user-friendly APIs.

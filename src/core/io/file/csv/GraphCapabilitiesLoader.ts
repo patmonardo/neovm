@@ -5,9 +5,9 @@
  * Uses simplified CapabilitiesDTO instead of complex Jackson mapping.
  */
 
-import { Capabilities } from "@/core/loading";
-import { StaticCapabilities } from "@/core/loading";
-import { WriteMode } from "@/core/loading";
+import { WriteMode } from "@/core/loading/Capabilities";
+import { Capabilities } from "@/core/loading/Capabilities";
+import { StaticCapabilities } from "@/core/loading/StaticCapabilities";
 import { CapabilitiesDTO } from "./CapabilitiesDTO";
 import { CsvGraphCapabilitiesWriter } from "./CsvGraphCapabilitiesWriter";
 import * as fs from "fs";

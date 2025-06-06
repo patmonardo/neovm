@@ -14,7 +14,7 @@
  * despite 80-90% compression ratios!
  */
 
-import { AdjacencyCursor } from '../../api/AdjacencyCursor';
+import { AdjacencyCursor } from '@/api';
 import { VarLongDecoding, MutableLong } from '../common/VarLongDecoding';
 import { MutableIntValue } from '../../loading/MutableIntValue';
 

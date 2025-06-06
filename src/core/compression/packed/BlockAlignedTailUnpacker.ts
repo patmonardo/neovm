@@ -19,10 +19,9 @@
  * naturally filtered out during iteration (degree bounds prevent reading them).
  */
 
-import { ByteArrayBuffer } from '../../api/compress/ByteArrayBuffer';
-import { AdjacencyCompression } from '../common/AdjacencyCompression';
-import { BitUtil } from '../../mem/BitUtil';
-import { UnsafeUtil } from '../../internal/unsafe/UnsafeUtil';
+import { ByteArrayBuffer } from '@/api/compress';
+import { BitUtil } from '@/mem';
+import { UnsafeUtil } from '@/mem';
 import { AdjacencyPacking } from './AdjacencyPacking';
 import { AdjacencyUnpacking } from './AdjacencyUnpacking';
 import { AdjacencyPackerUtil } from './AdjacencyPackerUtil';

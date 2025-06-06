@@ -37,7 +37,7 @@ export class HeaderProperty {
     return new HeaderProperty(
       position,
       propertyArgs[0],
-      ValueTypefromCsvName(propertyArgs[1])
+      ValueType.fromCsvName(propertyArgs[1])
     );
   }
 

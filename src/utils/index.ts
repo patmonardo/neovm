@@ -1,7 +1,5 @@
 export * from "./Optional";
 export * from "./GdsFeatureToggles";
-export * from "./GdsNeo4jValueConversion";
-export * from "./Neo4jValueConversion";
 export * from "./Log";
 export * from "./StringFormatting";
 export * from "./StringJoining";
@@ -12,4 +10,3 @@ export * from "./CheckedConsumer";
 export * from "./CheckedFunction";
 export * from "./CheckedRunnable";
 export * from "./CheckedSupplier";
-export * from "./PriorityServiceLoader";

@@ -22,7 +22,6 @@
  * });
  * ```
  */
-@FunctionalInterface
 export interface LongDoubleArrayConsumer {
   /**
    * Consume an (index, array) pair from a sparse double array list.

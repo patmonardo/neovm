@@ -1,5 +1,5 @@
-import { RelationshipType } from '@/projection';
 import { NodeLabel } from '@/projection';
+import { RelationshipType } from '@/projection';
 
 /**
  * Base configuration interfaces that other configs extend.

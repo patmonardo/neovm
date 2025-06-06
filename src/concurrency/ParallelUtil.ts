@@ -1,12 +1,12 @@
+import { Log } from "@/utils/Log";
+import { TerminationFlag } from "@/termination";
 import { Concurrency } from "./Concurrency";
 import { BiLongConsumer } from "./BiLongConsumer";
-import { TerminationFlag } from "@/termination/TerminationFlag";
 import { Future } from "./Future";
 import { Runnable } from "./Runnable";
 import { WorkerPool } from "./WorkerPool";
 import { NamedThreadFactory } from "./NamedThreadFactory";
 import { PoolSizes } from "./PoolSizes";
-import { Log } from "@/utils/Log";
 
 /**
  * Utility class for running tasks in parallel.
@@ -21,11 +21,12 @@ export class ParallelUtil {
 
   /**
    * Executes a function in parallel on the given data using a ForkJoin pool.
+   * TypeScript equivalent of Java's parallelStream with BaseStream<?, T>.
    */
   public static async parallelStream<T, R>(
-    data: T[],
+    data: T, // ✅ Fixed: Single data source, not array
     concurrency: Concurrency,
-    fn: (data: T[]) => R
+    fn: (data: T) => R
   ): Promise<R> {
     const pool = new WorkerPool(
       PoolSizes.fixed(concurrency.value()),
@@ -35,7 +36,7 @@ export class ParallelUtil {
 
     try {
       const future = pool.submit({
-        run: () => fn(data),
+        run: () => fn(data), // ✅ Process the single data source
       });
       return await future.get();
     } finally {
@@ -45,12 +46,13 @@ export class ParallelUtil {
 
   /**
    * Executes a stream consumer in parallel with termination support.
+   * TypeScript equivalent of Java's parallelStreamConsume.
    */
   public static async parallelStreamConsume<T>(
-    data: T[],
+    data: T, // ✅ Fixed: Single data source, not array
     concurrency: Concurrency,
     terminationFlag: TerminationFlag,
-    consumer: (data: T[]) => void
+    consumer: (data: T) => void
   ): Promise<void> {
     await this.parallelStream(data, concurrency, (d) => {
       terminationFlag.assertRunning?.();
@@ -61,28 +63,37 @@ export class ParallelUtil {
 
   /**
    * Process node IDs in parallel with termination support.
+   * TypeScript equivalent of Java's parallelForEachNode.
+   *
+   * Java signature:
+   * parallelForEachNode(long nodeCount, Concurrency concurrency, TerminationFlag terminationFlag, LongConsumer consumer)
    */
   public static async parallelForEachNode(
     nodeCount: number,
     concurrency: Concurrency,
     terminationFlag: TerminationFlag,
-    consumer: (nodeId: number) => void
+    consumer: (nodeId: number) => void // ✅ This type is actually CORRECT (LongConsumer equivalent)
   ): Promise<void> {
-    // Create ranges for parallel processing
-    const ranges: number[][] = [];
-    const batchSize = Math.ceil(nodeCount / concurrency.value());
+    // Create a range stream equivalent to Java's LongStream.range(0, nodeCount)
+    const nodeRange = {
+      *[Symbol.iterator]() {
+        for (let i = 0; i < nodeCount; i++) {
+          yield i;
+        }
+      },
+      forEach(fn: (nodeId: number) => void) {
+        for (let i = 0; i < nodeCount; i++) {
+          fn(i);
+        }
+      },
+    };
 
-    for (let start = 0; start < nodeCount; start += batchSize) {
-      const end = Math.min(nodeCount, start + batchSize);
-      const range = Array.from({ length: end - start }, (_, i) => start + i);
-      ranges.push(range);
-    }
-
+    // Equivalent to Java's: stream -> stream.forEach(consumer)
     await this.parallelStreamConsume(
-      ranges,
+      nodeRange,
       concurrency,
       terminationFlag,
-      (range) => range.forEach(consumer)
+      (stream) => stream.forEach(consumer)
     );
   }
 
@@ -225,24 +236,16 @@ export class ParallelUtil {
   }
 
   /**
-   * Run collection of tasks in parallel.
-   */
-  public static async run(
-    tasks: Runnable<void>[],
-    executor: WorkerPool
-  ): Promise<void> {
-    await this.run(tasks, executor, null);
-  }
-
-  /**
-   * Run collection of tasks with futures collection.
+   * Run collection of tasks in parallel with optional futures collection.
    */
   public static async run(
     tasks: Runnable<void>[],
     executor: WorkerPool,
-    futures: Future<void>[] | null
+    futures?: Future<void>[] | null
   ): Promise<void> {
-    await this.awaitTermination(this.submitAll(tasks, true, executor, futures));
+    await this.awaitTermination(
+      this.submitAll(tasks, true, executor, futures || null)
+    );
   }
 
   /**
@@ -282,10 +285,18 @@ export class ParallelUtil {
 
   /**
    * Run tasks with advanced concurrency control.
+   * This should match the RunWithConcurrency interface expectations.
    */
-  public static async runWithConcurrency(
-    params: RunWithConcurrencyParams
-  ): Promise<void> {
+  public static async runWithConcurrency(params: {
+    concurrency: Concurrency;
+    tasks: Iterator<Runnable<void>>;
+    forceUsageOfExecutor?: boolean;
+    waitMillis?: number;
+    maxWaitRetries?: number;
+    mayInterruptIfRunning?: boolean;
+    terminationFlag: TerminationFlag;
+    executor: WorkerPool | null;
+  }): Promise<void> {
     const {
       concurrency,
       tasks,
@@ -297,19 +308,18 @@ export class ParallelUtil {
       executor,
     } = params;
 
-    // Convert to iterator if needed
-    const taskIterator = Array.isArray(tasks)
-      ? new ArrayIterator(tasks)
-      : tasks;
+    // Convert iterator to enhanced iterator with hasNext support
+    const taskIterator = new EnhancedIterator(tasks);
 
     // Check for sequential execution
     if (
       !this.canRunInParallel(executor) ||
       (concurrency.value() === 1 && !forceUsageOfExecutor)
     ) {
+      // Sequential execution
       while (taskIterator.hasNext()) {
-        const task = taskIterator.next();
         terminationFlag.assertRunning?.();
+        const task = taskIterator.next();
         task.run();
       }
       return;
@@ -384,6 +394,7 @@ export class ParallelUtil {
       }
     }
   }
+  7;
 
   /**
    * Wait for all futures to complete.
@@ -439,19 +450,6 @@ export class ParallelUtil {
   }
 }
 
-// Supporting interfaces and classes
-
-export interface RunWithConcurrencyParams {
-  concurrency: Concurrency;
-  tasks: Iterator<Runnable<void>> | Runnable<void>[];
-  forceUsageOfExecutor?: boolean;
-  waitMillis?: number;
-  maxWaitRetries?: number;
-  mayInterruptIfRunning?: boolean;
-  terminationFlag: TerminationFlag;
-  executor: WorkerPool | null;
-}
-
 /**
  * Completion service for managing task execution.
  */
@@ -459,7 +457,6 @@ class CompletionService {
   private static readonly AWAIT_TIMEOUT_MILLIS = 100;
 
   private readonly executor: WorkerPool;
-  private readonly availableConcurrency: number;
   private readonly running: Set<Future<void>> = new Set();
   private readonly completionQueue: Future<void>[] = [];
 
@@ -469,7 +466,6 @@ class CompletionService {
     }
 
     this.executor = executor;
-    this.availableConcurrency = executor.getCorePoolSize();
   }
 
   trySubmit(tasks: PushbackIterator<Runnable<void>>): boolean {
@@ -539,7 +535,40 @@ class CompletionService {
   }
 
   private canSubmit(): boolean {
-    return this.executor.getActiveCount() < this.availableConcurrency;
+    return this.executor.canAcceptWork();
+  }
+}
+
+/**
+ * Enhanced iterator that adds hasNext() method to standard Iterator<T>
+ */
+class EnhancedIterator<T> {
+  private readonly delegate: Iterator<T>;
+  private nextResult: IteratorResult<T> | null = null;
+
+  constructor(delegate: Iterator<T>) {
+    this.delegate = delegate;
+  }
+
+  hasNext(): boolean {
+    if (this.nextResult === null) {
+      this.nextResult = this.delegate.next();
+    }
+    return !this.nextResult.done;
+  }
+
+  next(): T {
+    if (this.nextResult === null) {
+      this.nextResult = this.delegate.next();
+    }
+
+    if (this.nextResult.done) {
+      throw new Error("No more elements");
+    }
+
+    const value = this.nextResult.value;
+    this.nextResult = null;
+    return value;
   }
 }
 
@@ -547,15 +576,15 @@ class CompletionService {
  * Iterator with pushback capability.
  */
 class PushbackIterator<T> {
-  private readonly delegate: Iterator<T>;
+  private readonly delegate: EnhancedIterator<T>;
   private pushedElement: T | null = null;
 
-  constructor(delegate: Iterator<T>) {
+  constructor(delegate: EnhancedIterator<T>) {
     this.delegate = delegate;
   }
 
   hasNext(): boolean {
-    return this.pushedElement !== null || !this.delegate.next().done;
+    return this.pushedElement !== null || this.delegate.hasNext();
   }
 
   next(): T {
@@ -565,11 +594,7 @@ class PushbackIterator<T> {
       return el;
     }
 
-    const result = this.delegate.next();
-    if (result.done) {
-      throw new Error("No more elements");
-    }
-    return result.value;
+    return this.delegate.next();
   }
 
   pushBack(element: T): void {
@@ -577,31 +602,5 @@ class PushbackIterator<T> {
       throw new Error("Cannot push back twice");
     }
     this.pushedElement = element;
-  }
-}
-
-/**
- * Array iterator implementation.
- */
-class ArrayIterator<T> implements Iterator<T> {
-  private readonly array: T[];
-  private index = 0;
-
-  constructor(array: T[]) {
-    this.array = array;
-  }
-
-  next(): IteratorResult<T> {
-    if (this.index < this.array.length) {
-      return {
-        value: this.array[this.index++],
-        done: false,
-      };
-    }
-    return { value: undefined as any, done: true };
-  }
-
-  hasNext(): boolean {
-    return this.index < this.array.length;
   }
 }

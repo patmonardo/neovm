@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import * as csvWriter from 'csv-writer';
 import { Capabilities } from '@/core/loading/Capabilities';
@@ -50,9 +49,4 @@ export class CsvGraphCapabilitiesWriter {
  */
 export interface SimpleWriter<T> {
   write(item: T): Promise<void>;
-}
-
-// Make CsvGraphCapabilitiesWriter implement the interface
-export class CsvGraphCapabilitiesWriter implements SimpleWriter<Capabilities> {
-  // ... implementation above ...
 }

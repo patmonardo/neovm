@@ -42,9 +42,8 @@
  * - Streaming construction handles datasets larger than memory
  */
 
+import { join } from "@/utils";
 import { PartialIdMap, IdMap } from "@/api";
-import { AdjacencyCompressor } from "@/api/compress";
-import { StringJoining } from "@/utils";
 import { SingleTypeRelationships } from "@/core/loading";
 import { SingleTypeRelationshipsBuilder } from "./SingleTypeRelationshipsBuilder";
 import { LocalRelationshipsBuilderProvider } from "./LocalRelationshipsBuilderProvider";
@@ -380,7 +379,7 @@ export class RelationshipsBuilder {
       unmappedIds.push(originalTargetId.toString());
     }
 
-    const message = `The following node ids are not present in the node id space: ${StringJoining.join(
+    const message = `The following node ids are not present in the node id space: ${join(
       unmappedIds
     )}`;
     throw new Error(message);

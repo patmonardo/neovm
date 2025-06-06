@@ -1,12 +1,12 @@
-import { DefaultValue } from '@/api';
-import { ValueType } from '@/api';
+import { DefaultValue } from "@/api";
+import { ValueType } from "@/api";
 
 /**
  * Helper class for serializing and deserializing DefaultValue objects to/from CSV format.
  * Uses JSON serialization with a specific template format: "DefaultValue(<json>)".
  */
 export class DefaultValueIOHelper {
-  private static readonly DEFAULT_VALUE_TEMPLATE = 'DefaultValue(%s)';
+  private static readonly DEFAULT_VALUE_TEMPLATE = "DefaultValue(%s)";
 
   private constructor() {
     // Utility class - no instantiation
@@ -45,9 +45,9 @@ export class DefaultValueIOHelper {
       }
 
       // Remove DefaultValue wrapper and handle null/NaN/empty parentheses
-      let value = serializedValue.replace(/DefaultValue\(|null|NaN|\)/g, '');
+      let value = serializedValue.replace(/DefaultValue\(|null|NaN|\)/g, "");
 
-      if (value.trim() === '') {
+      if (value.trim() === "") {
         return ValueType.fallbackValue(valueType);
       }
 
@@ -56,14 +56,14 @@ export class DefaultValueIOHelper {
       switch (valueType) {
         case ValueType.DOUBLE:
           parseValue = JSON.parse(value) as number;
-          if (typeof parseValue !== 'number') {
+          if (typeof parseValue !== "number") {
             throw new Error(`Expected number, got ${typeof parseValue}`);
           }
           break;
 
         case ValueType.LONG:
           parseValue = JSON.parse(value) as number;
-          if (typeof parseValue !== 'number') {
+          if (typeof parseValue !== "number") {
             throw new Error(`Expected number, got ${typeof parseValue}`);
           }
           // Ensure it's an integer
@@ -75,7 +75,7 @@ export class DefaultValueIOHelper {
           if (!Array.isArray(longArray)) {
             throw new Error(`Expected array, got ${typeof longArray}`);
           }
-          parseValue = longArray.map(x => Math.floor(x));
+          parseValue = longArray.map((x) => Math.floor(x));
           break;
 
         case ValueType.FLOAT_ARRAY:
@@ -95,7 +95,9 @@ export class DefaultValueIOHelper {
           break;
 
         default:
-          throw new Error(`Cannot deserialize type '${valueType}' to DefaultValue`);
+          throw new Error(
+            `Cannot deserialize type '${valueType}' to DefaultValue`
+          );
       }
 
       return DefaultValue.of(parseValue, valueType, isUserDefined);
@@ -110,7 +112,7 @@ export class DefaultValueIOHelper {
   private static formatWithLocale(template: string, ...args: string[]): string {
     let result = template;
     for (const arg of args) {
-      result = result.replace('%s', arg);
+      result = result.replace("%s", arg);
     }
     return result;
   }

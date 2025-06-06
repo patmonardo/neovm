@@ -52,46 +52,53 @@ export namespace RelationshipFileHeader {
       throw new Error(`Second column of header must be ${CSV_END_ID_COLUMN}.`);
     }
 
-    // Parse property columns (skip first two ID columns)
+    // Parse property columns (skip first two ID columns AND filter out :TYPE)
     const propertyMappings: HeaderProperty[] = [];
     for (let i = 2; i < csvColumns.length; i++) {
-      propertyMappings.push(HeaderProperty.parse(i, csvColumns[i]));
+      const column = csvColumns[i];
+
+      // ✅ Skip GDS special columns that don't have property format
+      if (column === ":TYPE" || column.startsWith(":")) {
+        continue; // Skip this column
+      }
+
+      propertyMappings.push(HeaderProperty.parse(i, column));
     }
 
     return new RelationshipFileHeaderImpl(propertyMappings, relationshipType);
   }
-}
 
-/**
- * CSV relationship column name constants.
- * Must be the first two columns in every relationship CSV file.
- */
-export const CSV_START_ID_COLUMN = ":START_ID";
-export const CSV_END_ID_COLUMN = ":END_ID";
+  /**
+   * CSV relationship column name constants.
+   * Must be the first two columns in every relationship CSV file.
+   */
+  export const CSV_START_ID_COLUMN = ":START_ID";
+  export const CSV_END_ID_COLUMN = ":END_ID";
 
-/**
- * Implementation of RelationshipFileHeader interface.
- */
-class RelationshipFileHeaderImpl implements RelationshipFileHeader {
-  constructor(
-    private readonly _propertyMappings: HeaderProperty[],
-    private readonly _relationshipType: string
-  ) {}
+  /**
+   * Implementation of RelationshipFileHeader interface.
+   */
+  class RelationshipFileHeaderImpl implements RelationshipFileHeader {
+    constructor(
+      private readonly _propertyMappings: HeaderProperty[],
+      private readonly _relationshipType: string
+    ) {}
 
-  relationshipType(): string {
-    return this._relationshipType;
-  }
+    relationshipType(): string {
+      return this._relationshipType;
+    }
 
-  propertyMappings(): HeaderProperty[] {
-    return [...this._propertyMappings]; // Return copy to prevent mutation
-  }
+    propertyMappings(): HeaderProperty[] {
+      return [...this._propertyMappings]; // Return copy to prevent mutation
+    }
 
-  schemaForIdentifier(
-    schema: MutableRelationshipSchema
-  ): Map<string, RelationshipPropertySchema> {
-    // Filter schema by this relationship type and get its properties
-    const relType = RelationshipType.of(this._relationshipType);
-    const relationshipTypes = new Set([relType]);
-    return schema.filter(relationshipTypes).unionProperties();
+    schemaForIdentifier(
+      schema: MutableRelationshipSchema
+    ): Map<string, RelationshipPropertySchema> {
+      // Filter schema by this relationship type and get its properties
+      const relType = RelationshipType.of(this._relationshipType);
+      const relationshipTypes = new Set([relType]);
+      return schema.filter(relationshipTypes).unionProperties();
+    }
   }
 }

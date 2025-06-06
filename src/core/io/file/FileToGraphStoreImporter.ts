@@ -1,19 +1,19 @@
-import { Validator } from '@/common/Validator';
-import { RelationshipType } from '@/api/RelationshipType';
-import { GraphStore } from '@/api/GraphStore';
-import { IdMap } from '@/api/IdMap';
-import { Topology } from '@/api/Topology';
-import { RelationshipPropertyStore } from '@/api/properties/relationships/RelationshipPropertyStore';
-import { ImmutableMutableGraphSchema } from '@/api/schema/ImmutableMutableGraphSchema';
-import { MutableNodeSchema } from '@/api/schema/MutableNodeSchema';
-import { Concurrency } from '@/core/concurrency/Concurrency';
-import { DefaultPool } from '@/core/concurrency/DefaultPool';
-import { ParallelUtil } from '@/core/concurrency/ParallelUtil';
+//import { Validator } from '@/common/Validator';
+import { RelationshipType } from '@/projection';
+import { GraphStore } from '@/api';
+import { IdMap } from '@/api';
+import { Topology } from '@/api';
+import { RelationshipPropertyStore } from '@/api/properties/relationships';
+import { MutableGraphSchema } from '@/api/schema';
+import { MutableNodeSchema } from '@/api/schema';
+import { Concurrency } from '@/concurrency';
+import { DefaultPool } from '@/concurrency';
+import { ParallelUtil } from '@/concurrency/';
 import { GraphStoreGraphPropertyVisitor } from '@/core/io/GraphStoreGraphPropertyVisitor';
 import { GraphStoreRelationshipVisitor } from '@/core/io/GraphStoreRelationshipVisitor';
 import { WriteMode } from '@/core/loading/Capabilities';
-import { GraphStoreBuilder } from '@/core/loading/GraphStoreBuilder';
-import { ImmutableStaticCapabilities } from '@/core/loading/ImmutableStaticCapabilities';
+import { GraphStoreBuilder } from '@/core/loading';
+import { ImmutableStaticCapabilities } from '@/core/loading';
 import { Nodes } from '@/core/loading/Nodes';
 import { RelationshipImportResult } from '@/core/loading/RelationshipImportResult';
 import { GraphFactory } from '@/core/loading/construction/GraphFactory';
@@ -24,13 +24,12 @@ import { ProgressTracker } from '@/core/utils/progress/tasks/ProgressTracker';
 import { Task } from '@/core/utils/progress/tasks/Task';
 import { TaskProgressTracker } from '@/core/utils/progress/tasks/TaskProgressTracker';
 import { Tasks } from '@/core/utils/progress/tasks/Tasks';
-import { Log } from '@/logging/Log';
+import { Log } from '@/utils';
 import { GraphStoreNodeVisitor } from './GraphStoreNodeVisitor';
 import { ElementImportRunner } from './ElementImportRunner';
 import { FileInput } from './FileInput';
 import { GraphPropertyStoreFromVisitorHelper } from './GraphPropertyStoreFromVisitorHelper';
 import * as fs from 'fs';
-import * as path from 'path';
 
 /**
  * Result record containing user name and the imported graph store.

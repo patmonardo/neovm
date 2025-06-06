@@ -1,0 +1,5 @@
+relationshipType,direction,propertyKey,valueType,defaultValue,aggregation,state
+NETWORK,DIRECTED,bandwidth,LONG,DefaultValue(100),MIN,PERSISTENT
+SOCIAL,DIRECTED,strength,DOUBLE,DefaultValue(1.0),MAX,PERSISTENT
+TAGS,DIRECTED,labels,LONG_ARRAY,DefaultValue([1,2,3]),NONE,PERSISTENT
+SCORES,DIRECTED,values,DOUBLE_ARRAY,DefaultValue([1.1,2.2]),SUM,PERSISTENT

@@ -24,7 +24,7 @@ import { FileHeader } from "@/core/io/file";
 import { NodeFileHeader } from "@/core/io/file";
 import { RelationshipFileHeader } from "@/core/io/file";
 import { GraphPropertyFileHeader } from "@/core/io/file";
-import { Capabilities } from "@/core/loading";
+import { Capabilities } from "@/core/loading/Capabilities";
 import { MappedListIterator } from "@/core/io/file";
 
 // Import all our CSV loaders
@@ -51,7 +51,7 @@ export class CsvFileInput implements FileInput {
   private readonly _userName: string;
   private readonly _graphInfo: GraphInfo;
   private readonly _nodeSchema: MutableNodeSchema;
-  private readonly _labelMapping: Map<string, string> | null;
+  private readonly _labelMapping: Map<string, string> | undefined;
   private readonly _relationshipSchema: MutableRelationshipSchema;
   private readonly _typeMapping: Map<string, string> | null;
   private readonly _graphPropertySchema: Map<string, PropertySchema>;
@@ -500,7 +500,7 @@ class RelationshipLineChunk extends LineChunk<
       if (propertySchema) {
         const value = CsvImportParsingUtil.parseProperty(
           stringProperty,
-          headerProperty.valueType(),
+          headerProperty.valueType,
           propertySchema.defaultValue()
         );
         visitor.property(propertyKey, value);

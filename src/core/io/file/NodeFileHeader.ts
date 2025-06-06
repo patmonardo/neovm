@@ -47,55 +47,64 @@ export namespace NodeFileHeader {
       throw new Error(`First column of header must be ${CSV_NODE_ID_COLUMN}.`);
     }
 
-    // Parse property columns (skip first ID column)
+    // Parse property columns (skip first ID column AND filter out :LABEL)
     const propertyMappings: HeaderProperty[] = [];
     for (let i = 1; i < csvColumns.length; i++) {
-      propertyMappings.push(HeaderProperty.parse(i, csvColumns[i]));
+      const column = csvColumns[i];
+
+      // ✅ Skip GDS special columns that don't have property format
+      if (column === ":LABEL" || column.startsWith(":")) {
+        continue; // Skip this column
+      }
+
+      propertyMappings.push(HeaderProperty.parse(i, column));
     }
 
-    return new NodeFileHeaderImpl(propertyMappings, nodeLabels);
-  }
-}
-
-/**
- * CSV node ID column name constant.
- * Must be the first column in every node CSV file.
- */
-export const CSV_NODE_ID_COLUMN = ":ID";
-
-/**
- * Implementation of NodeFileHeader interface.
- */
-class NodeFileHeaderImpl implements NodeFileHeader {
-  constructor(
-    private readonly _propertyMappings: HeaderProperty[],
-    private readonly _nodeLabels: string[]
-  ) {}
-
-  nodeLabels(): string[] {
-    return [...this._nodeLabels]; // Return copy to prevent mutation
+    return new DefNodeFileHeader(propertyMappings, nodeLabels);
   }
 
-  propertyMappings(): HeaderProperty[] {
-    return [...this._propertyMappings]; // Return copy to prevent mutation
-  }
+  /**
+   * CSV node ID column name constant.
+   * Must be the first column in every node CSV file.
+   */
+  export const CSV_NODE_ID_COLUMN = ":ID";
 
-  schemaForIdentifier(schema: MutableNodeSchema): Map<string, PropertySchema> {
-    // Convert string labels to NodeLabel objects
-    let labelStream: NodeLabel[];
+  /**
+   * Implementation of NodeFileHeader interface.
+   */
+  class DefNodeFileHeader implements NodeFileHeader {
+    constructor(
+      private readonly _propertyMappings: HeaderProperty[],
+      private readonly _nodeLabels: string[]
+    ) {}
 
-    if (this._nodeLabels.length === 0) {
-      // No specific labels means ALL_NODES
-      labelStream = [NodeLabel.ALL_NODES];
-    } else {
-      // Convert string labels to NodeLabel instances
-      labelStream = this._nodeLabels.map((labelName) =>
-        NodeLabel.of(labelName)
-      );
+    nodeLabels(): string[] {
+      return [...this._nodeLabels];
     }
 
-    // Filter schema by these labels and get union of all properties
-    const nodeLabels = new Set(labelStream);
-    return schema.filter(nodeLabels).unionProperties();
+    propertyMappings(): HeaderProperty[] {
+      return [...this._propertyMappings];
+    }
+
+    schemaForIdentifier(
+      schema: MutableNodeSchema
+    ): Map<string, PropertySchema> {
+      // Convert string labels to NodeLabel objects
+      let labelStream: NodeLabel[];
+
+      if (this._nodeLabels.length === 0) {
+        // No specific labels means ALL_NODES
+        labelStream = [NodeLabel.ALL_NODES];
+      } else {
+        // Convert string labels to NodeLabel instances
+        labelStream = this._nodeLabels.map((labelName) =>
+          NodeLabel.of(labelName)
+        );
+      }
+
+      // Filter schema by these labels and get union of all properties
+      const nodeLabels = new Set(labelStream);
+      return schema.filter(nodeLabels).unionProperties();
+    }
   }
 }

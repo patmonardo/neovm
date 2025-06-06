@@ -1,13 +1,13 @@
 import { ArrayUtil } from '@/collections/ArrayUtil';
 import { DrainingIterator } from '@/collections/DrainingIterator';
-import { HugeSparseCollections } from '@/collections/hsa/HugeSparseCollections';
+import { HugeSparseCollections } from '@/collections';
 import { HugeSparseByteArrayList } from '@/collections/hsl/HugeSparseByteArrayList';
 import { HugeSparseIntList } from '@/collections/hsl/HugeSparseIntList';
 import { HugeSparseLongArrayList } from '@/collections/hsl/HugeSparseLongArrayList';
 import { HugeSparseLongList } from '@/collections/hsl/HugeSparseLongList';
 import { VarLongEncoding } from '@/core/compression/common/VarLongEncoding';
 import { AdjacencyPreAggregation } from '@/core/loading/AdjacencyPreAggregation';
-import { MemoryEstimation, MemoryEstimations } from '@/mem/MemoryEstimations';
+import { MemoryEstimation, MemoryEstimations } from '@/mem';
 import { MemoryRange } from '@/mem/MemoryRange';
 import { BitUtil } from '@/mem/BitUtil';
 import { Estimate } from '@/mem/Estimate';
@@ -186,7 +186,7 @@ export class ChunkedAdjacencyLists {
      * @param end End index in targets and properties arrays
      * @param targetsToAdd Number of targets to actually add
      */
-    public add(
+    public add2(
         index: number,
         targets: bigint[],
         allProperties: bigint[][],

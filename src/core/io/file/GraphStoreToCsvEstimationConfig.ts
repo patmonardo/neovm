@@ -1,12 +1,10 @@
 import { CypherMapWrapper } from '@/core/CypherMapWrapper';
 import { GraphStoreToFileExporterConfig } from './GraphStoreToFileExporterConfig';
-import { Configuration } from '@/annotations';
 
 /**
  * Configuration interface for CSV export estimation operations.
  * Extends the base file exporter configuration with sampling-specific options.
  */
-@Configuration
 export interface GraphStoreToCsvEstimationConfig extends GraphStoreToFileExporterConfig {
   /**
    * The sampling factor for estimation (between 0.0 and 1.0).

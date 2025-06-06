@@ -7,7 +7,7 @@
 
 import { PropertySchema } from "@/api/schema/";
 import { GraphPropertyVisitor } from "@/core/io/file";
-import { SimpleCsvWriter } from "./SimpleCsvWriter";
+import { SimpleCsvWriter } from "./CsvSimpleWriter";
 import * as fs from "fs";
 import * as path from "path";
 

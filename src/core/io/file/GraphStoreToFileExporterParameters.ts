@@ -1,19 +1,17 @@
-import { RelationshipType } from '@/api/RelationshipType';
-import { Concurrency } from '@/core/concurrency/Concurrency';
-import { Parameters } from '@/annotations/Parameters';
+import { RelationshipType } from '@/projection';
+import { Concurrency } from '@/concurrency';
 
 /**
  * Parameters record for GraphStoreToFileExporter operations.
  * Contains all the essential configuration values needed for file export.
  */
-@Parameters
 export class GraphStoreToFileExporterParameters {
   constructor(
-    public readonly exportName: string,
-    public readonly username: string,
-    public readonly defaultRelationshipType: RelationshipType,
-    public readonly concurrency: Concurrency,
-    public readonly batchSize: number
+    public readonly _exportName: string,
+    public readonly _username: string,
+    public readonly _defaultRelationshipType: RelationshipType,
+    public readonly _concurrency: Concurrency,
+    public readonly _batchSize: number
   ) {}
 
   /**
@@ -39,35 +37,35 @@ export class GraphStoreToFileExporterParameters {
    * Returns the export name.
    */
   exportName(): string {
-    return this.exportName;
+    return this._exportName;
   }
 
   /**
    * Returns the username.
    */
   username(): string {
-    return this.username;
+    return this._username;
   }
 
   /**
    * Returns the default relationship type.
    */
   defaultRelationshipType(): RelationshipType {
-    return this.defaultRelationshipType;
+    return this._defaultRelationshipType;
   }
 
   /**
    * Returns the concurrency setting.
    */
   concurrency(): Concurrency {
-    return this.concurrency;
+    return this._concurrency;
   }
 
   /**
    * Returns the batch size.
    */
   batchSize(): number {
-    return this.batchSize;
+    return this._batchSize;
   }
 
   /**
@@ -99,11 +97,11 @@ export class GraphStoreToFileExporterParameters {
    */
   hashCode(): number {
     let hash = 17;
-    hash = hash * 31 + this.exportName.length;
-    hash = hash * 31 + this.username.length;
-    hash = hash * 31 + (this.defaultRelationshipType.hashCode?.() || 0);
-    hash = hash * 31 + this.concurrency.valueOf();
-    hash = hash * 31 + this.batchSize;
+    hash = hash * 31 + this._exportName.length;
+    hash = hash * 31 + this._username.length;
+    hash = hash * 31 + (this._defaultRelationshipType.hashCode?.() || 0);
+    hash = hash * 31 + this._concurrency.value();
+    hash = hash * 31 + this._batchSize;
     return hash;
   }
 }

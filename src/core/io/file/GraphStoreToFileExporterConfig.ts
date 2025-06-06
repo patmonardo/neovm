@@ -1,13 +1,11 @@
 import { CypherMapWrapper } from '@/core/CypherMapWrapper';
 import { Username } from '@/core/Username';
-import { GraphStoreExporterBaseConfig } from '@/core/io/GraphStoreExporterBaseConfig';
-import { Configuration } from '@/annotations/Configuration';
+import { GraphStoreExporterBaseConfig } from '@/core/io';
 
 /**
  * Configuration interface for GraphStoreToFileExporter operations.
  * Extends the base exporter configuration with file-specific options.
  */
-@Configuration
 export interface GraphStoreToFileExporterConfig extends GraphStoreExporterBaseConfig {
   /**
    * Whether to include metadata in the export.

@@ -22,7 +22,6 @@
  * });
  * ```
  */
-@FunctionalInterface
 export interface LongDoubleConsumer {
   /**
    * Consume an (index, value) pair from a sparse double list.

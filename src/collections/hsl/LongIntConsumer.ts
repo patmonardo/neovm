@@ -22,7 +22,6 @@
  * });
  * ```
  */
-@FunctionalInterface
 export interface LongIntConsumer {
   /**
    * Consume an (index, value) pair from a sparse int list.

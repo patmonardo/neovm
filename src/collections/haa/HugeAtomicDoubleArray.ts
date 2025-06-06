@@ -7,24 +7,7 @@ import {
   HugeCursorSupport,
 } from "@/collections";
 import { DoublePageCreator } from "./PageCreator";
-
-/**
- * Function type for double-to-double transformations in atomic operations.
- *
- * Used in atomic update operations to transform values atomically. The function
- * should be **side-effect-free** and **idempotent** since it may be called multiple
- * times during CAS retry loops in concurrent scenarios.
- *
- * **Common Use Cases:**
- * - Mathematical transformations: `x => x * 2`, `x => Math.sqrt(x)`
- * - Clamping operations: `x => Math.max(0, Math.min(1, x))`
- * - Accumulation patterns: `x => x + delta`
- * - Normalization: `x => x / totalSum`
- *
- * @param currentValue The current value to transform
- * @returns The new value to atomically store
- */
-export type DoubleToDoubleFunction = (currentValue: number) => number;
+import { DoubleToDoubleFunction } from "./ValueTransformers";
 
 /**
  * A huge atomic array for double-precision floating-point values supporting massive datasets.

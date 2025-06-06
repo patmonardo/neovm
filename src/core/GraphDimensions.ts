@@ -254,14 +254,14 @@ export abstract class GraphDimensions {
   /**
    * Create simple GraphDimensions with just node count.
    */
-  static of(nodeCount: number): GraphDimensions {
-    return GraphDimensions.of(nodeCount, 0);
-  }
+  // static of(nodeCount: number): GraphDimensions {
+  //   return GraphDimensions.of(nodeCount, 0);
+  // }
 
   /**
    * Create simple GraphDimensions with node and relationship counts.
    */
-  static of(nodeCount: number, relationshipCount: number): GraphDimensions {
+  static of(nodeCount: number, relationshipCount: number = 0): GraphDimensions {
     return new GraphDimensionsBuilder()
       .nodeCount(nodeCount)
       .relationshipCounts(new Map([[RelationshipType.ALL_RELATIONSHIPS, relationshipCount]]))

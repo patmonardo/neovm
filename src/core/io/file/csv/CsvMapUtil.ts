@@ -5,14 +5,16 @@
  * Used for relationship counts in graph info CSV.
  */
 
-import { RelationshipType } from '@/projection/RelationshipType';
+import { RelationshipType } from "@/projection/RelationshipType";
 
 export class CsvMapUtil {
-  private static readonly LIST_DELIMITER = ';';
+  private static readonly LIST_DELIMITER = ";";
 
   private constructor() {} // Static utility class
 
-  static relationshipCountsToString(map: Map<RelationshipType, number>): string {
+  static relationshipCountsToString(
+    map: Map<RelationshipType, number>
+  ): string {
     return this.toString(
       map,
       (key) => key.name(),
@@ -25,7 +27,7 @@ export class CsvMapUtil {
     keyParser: (str: string) => K,
     valueParser: (str: string) => V
   ): Map<K, V> {
-    if (mapString === '') {
+    if (mapString === "") {
       return new Map<K, V>();
     }
 

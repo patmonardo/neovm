@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { Task } from '@/core/utils/progress/tasks/Task';
-import { Status } from '@/core/utils/progress/tasks/Status';
-import { Progress } from '@/core/utils/progress/tasks/Progress';
-import { TaskVisitor } from '@/core/utils/progress/tasks/TaskVisitor';
 import { MemoryRange } from '@/mem';
 import { Concurrency } from '@/concurrency';
+import { Progress } from '@/core/utils/progress';
+import { Status } from '@/core/utils/progress';
+import { Task } from '@/core/utils/progress';
+import { TaskVisitor } from '@/core/utils/progress';
 
 describe('Task - Core Implementation', () => {
   let task: Task;
