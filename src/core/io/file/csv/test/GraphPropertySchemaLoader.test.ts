@@ -17,10 +17,10 @@ describe('GraphPropertySchemaLoader - CSV Property Schema Parser', () => {
     }
 
     const schemaCsv = `propertyKey,valueType,defaultValue,state
-name,STRING,"",PERSISTENT
+name,STRING,,PERSISTENT
 age,LONG,0,PERSISTENT
 email,STRING,null,TRANSIENT
-isActive,BOOLEAN,true,PERSISTENT`;
+isActive,BOOLEAN,,PERSISTENT`;
 
     const schemaPath = path.join(testDataDir, CsvGraphPropertySchemaVisitor.GRAPH_PROPERTY_SCHEMA_FILE_NAME);
     fs.writeFileSync(schemaPath, schemaCsv);
@@ -66,13 +66,13 @@ isActive,BOOLEAN,true,PERSISTENT`;
     console.log('\n🔢 === VALUE TYPE VARIATIONS ===');
 
     const typesSchemaCsv = `propertyKey,valueType,defaultValue,state
-text,STRING,"default",PERSISTENT
+text,STRING,,PERSISTENT
 count,LONG,42,PERSISTENT
 price,DOUBLE,9.99,PERSISTENT
-active,BOOLEAN,false,PERSISTENT
-tags,STRING_ARRAY,"[]",PERSISTENT
-scores,LONG_ARRAY,"[1,2,3]",PERSISTENT
-prices,DOUBLE_ARRAY,"[1.1,2.2]",PERSISTENT`;
+active,BOOLEAN,,PERSISTENT
+tags,STRING_ARRAY,,PERSISTENT
+scores,LONG_ARRAY,[1,2,3],PERSISTENT
+prices,DOUBLE_ARRAY,[1.1,2.2],PERSISTENT`;
 
     const schemaPath = path.join(testDataDir, CsvGraphPropertySchemaVisitor.GRAPH_PROPERTY_SCHEMA_FILE_NAME);
     fs.writeFileSync(schemaPath, typesSchemaCsv);
@@ -107,9 +107,9 @@ prices,DOUBLE_ARRAY,"[1.1,2.2]",PERSISTENT`;
 
     const statesSchemaCsv = `propertyKey,valueType,defaultValue,state
 id,LONG,0,PERSISTENT
-sessionToken,STRING,"",TRANSIENT
+sessionToken,STRING,,TRANSIENT
 cached_score,DOUBLE,0.0,TRANSIENT
-permanent_name,STRING,"unknown",PERSISTENT`;
+permanent_name,STRING,,PERSISTENT`;
 
     const schemaPath = path.join(testDataDir, CsvGraphPropertySchemaVisitor.GRAPH_PROPERTY_SCHEMA_FILE_NAME);
     fs.writeFileSync(schemaPath, statesSchemaCsv);

@@ -41,7 +41,7 @@ export abstract class GraphAdapter implements Graph {
     return this.graph.asNodeFilteredGraph();
   }
 
-  batchIterables(batchSize: number): Set<PrimitiveLongIterable> {
+  batchIterables(batchSize: number): Array<PrimitiveLongIterable> {
     return this.graph.batchIterables(batchSize);
   }
 
@@ -98,8 +98,8 @@ export abstract class GraphAdapter implements Graph {
   }
 
   nodeIterator(): PrimitiveIterator.OfLong;
-  nodeIterator(labels: Set<NodeLabel>): PrimitiveIterator.OfLong;
-  nodeIterator(labels?: Set<NodeLabel>): PrimitiveIterator.OfLong {
+  //nodeIterator(labels: Array<NodeLabel>): PrimitiveIterator.OfLong;
+  nodeIterator(labels?: Array<NodeLabel>): PrimitiveIterator.OfLong {
     return labels !== undefined
       ? this.graph.nodeIterator(labels)
       : this.graph.nodeIterator();
@@ -124,7 +124,7 @@ export abstract class GraphAdapter implements Graph {
     this.graph.forEachNodeLabel(mappedNodeId, consumer);
   }
 
-  availableNodeLabels(): Set<NodeLabel> {
+  availableNodeLabels(): Array<NodeLabel> {
     return this.graph.availableNodeLabels();
   }
 
@@ -133,7 +133,7 @@ export abstract class GraphAdapter implements Graph {
   }
 
   withFilteredLabels(
-    nodeLabels: Set<NodeLabel>,
+    nodeLabels: Array<NodeLabel>,
     concurrency: Concurrency
   ): FilteredIdMap | undefined {
     return this.graph.withFilteredLabels(nodeLabels, concurrency);
@@ -143,7 +143,7 @@ export abstract class GraphAdapter implements Graph {
     return this.graph.nodeProperties(propertyKey);
   }
 
-  availableNodeProperties(): Set<string> {
+  availableNodeProperties(): Array<string> {
     return this.graph.availableNodeProperties();
   }
 
@@ -218,7 +218,7 @@ export abstract class GraphAdapter implements Graph {
   }
 
   relationshipTypeFilteredGraph(
-    relationshipTypes: Set<RelationshipType>
+    relationshipTypes: Array<RelationshipType>
   ): Graph {
     return this.graph.relationshipTypeFilteredGraph(relationshipTypes);
   }

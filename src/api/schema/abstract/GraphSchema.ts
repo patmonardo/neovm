@@ -31,7 +31,7 @@ export abstract class GraphSchema {
    * @param labelsToKeep Set of node labels to include
    * @returns A new schema containing only the specified node labels
    */
-  abstract filterNodeLabels(labelsToKeep: Set<NodeLabel>): GraphSchema;
+  abstract filterNodeLabels(labelsToKeep: Array<NodeLabel>): GraphSchema;
 
   /**
    * Creates a filtered version of this schema containing only the specified relationship types.
@@ -40,7 +40,7 @@ export abstract class GraphSchema {
    * @returns A new schema containing only the specified relationship types
    */
   abstract filterRelationshipTypes(
-    relationshipTypesToKeep: Set<RelationshipType>
+    relationshipTypesToKeep: Array<RelationshipType>
   ): GraphSchema;
 
   /**

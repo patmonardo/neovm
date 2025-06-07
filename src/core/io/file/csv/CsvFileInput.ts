@@ -44,14 +44,13 @@ import * as fs from "fs";
 export class CsvFileInput implements FileInput {
   // CSV PARSING CONSTANTS
   private static readonly COLUMN_SEPARATOR = ",";
-  private static readonly ARRAY_ELEMENT_SEPARATOR = ";";
 
   // LOADED DATA - All schemas and metadata loaded from CSV files
   private readonly _importPath: string;
   private readonly _userName: string;
   private readonly _graphInfo: GraphInfo;
   private readonly _nodeSchema: MutableNodeSchema;
-  private readonly _labelMapping: Map<string, string> | undefined;
+  private readonly _labelMapping: Map<string, string> | null;
   private readonly _relationshipSchema: MutableRelationshipSchema;
   private readonly _typeMapping: Map<string, string> | null;
   private readonly _graphPropertySchema: Map<string, PropertySchema>;
@@ -191,7 +190,7 @@ export class CsvFileInput implements FileInput {
   }
 
   capabilities(): Capabilities {
-    return this._capabilties;
+    return this._capabilities;
   }
 }
 

@@ -9,9 +9,9 @@ import { MutableRelationshipSchema } from './MutableRelationshipSchema';
  * A mutable implementation of GraphSchema that supports building and modifying graph schemas.
  */
 export class MutableGraphSchema extends GraphSchema {
+  private readonly _graphProperties: Map<string, PropertySchema>;
   private readonly _nodeSchema: MutableNodeSchema;
   private readonly _relationshipSchema: MutableRelationshipSchema;
-  private readonly _graphProperties: Map<string, PropertySchema>;
 
   /**
    * Creates a new MutableGraphSchema.
@@ -106,7 +106,7 @@ export class MutableGraphSchema extends GraphSchema {
    * @param labelsToKeep Set of node labels to include
    * @returns A new schema containing only the specified node labels
    */
-  public filterNodeLabels(labelsToKeep: Set<NodeLabel>): MutableGraphSchema {
+  public filterNodeLabels(labelsToKeep: Array<NodeLabel>): MutableGraphSchema {
     return new MutableGraphSchema(
       this.nodeSchema().filter(labelsToKeep) as MutableNodeSchema,
       this.relationshipSchema(),
@@ -121,7 +121,7 @@ export class MutableGraphSchema extends GraphSchema {
    * @returns A new schema containing only the specified relationship types
    */
   public filterRelationshipTypes(
-    relationshipTypesToKeep: Set<RelationshipType>
+    relationshipTypesToKeep: Array<RelationshipType>
   ): MutableGraphSchema {
     return new MutableGraphSchema(
       this.nodeSchema(),

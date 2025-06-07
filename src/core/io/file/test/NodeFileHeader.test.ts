@@ -1,15 +1,17 @@
-import { NodeFileHeader, CSV_NODE_ID_COLUMN } from '../../NodeFileHeader';
-import { NodeLabel } from '@/projection';
-import { MutableNodeSchema } from '@/api/schema';
-import { PropertySchema } from '@/api/schema';
+import { NodeFileHeader } from "../NodeFileHeader";
 
 describe("NodeFileHeader - CSV Node Import Brain", () => {
-
   it("🧠 Understanding NodeFileHeader Basics", () => {
     console.log("🧠 === UNDERSTANDING NODEFILEHEADER BASICS ===");
 
     // This is what a typical CSV node file header looks like
-    const csvHeaders = [":ID", "name:string", "age:int", "salary:double", ":LABEL"];
+    const csvHeaders = [
+      ":ID",
+      "name:string",
+      "age:long",
+      "salary:double",
+      ":LABEL",
+    ];
     const nodeLabels = ["Person", "Employee"];
 
     console.log("📊 Raw CSV headers:", csvHeaders);
@@ -20,12 +22,15 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
 
     console.log("\n🔍 Parsed NodeFileHeader:");
     console.log("  Node labels:", nodeFileHeader.nodeLabels());
-    console.log("  Property mappings count:", nodeFileHeader.propertyMappings().length);
+    console.log(
+      "  Property mappings count:",
+      nodeFileHeader.propertyMappings().length
+    );
 
     // Show each property mapping
     nodeFileHeader.propertyMappings().forEach((prop, index) => {
       console.log(`  Property ${index + 1}:`, {
-        columnIndex: prop.columnIndex(),
+        columnIndex: prop.position(),
         propertyKey: prop.propertyKey(),
         // Note: These methods might not exist, showing conceptually
         // sourceColumn: prop.sourceColumn,
@@ -44,29 +49,39 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
       {
         name: "Simple Person File",
         headers: [":ID", "name:string", "age:int", ":LABEL"],
-        labels: ["Person"]
+        labels: ["Person"],
       },
       {
         name: "Multi-Property Company File",
-        headers: [":ID", "companyName:string", "founded:int", "revenue:double", "public:boolean", ":LABEL"],
-        labels: ["Company", "Organization"]
+        headers: [
+          ":ID",
+          "companyName:string",
+          "founded:int",
+          "revenue:double",
+          "public:boolean",
+          ":LABEL",
+        ],
+        labels: ["Company", "Organization"],
       },
       {
         name: "Minimal Node File",
         headers: [":ID", ":LABEL"],
-        labels: ["MinimalNode"]
+        labels: ["MinimalNode"],
       },
       {
         name: "Unlabeled Nodes",
         headers: [":ID", "data:string"],
-        labels: [] // Empty = ALL_NODES
-      }
+        labels: [], // Empty = ALL_NODES
+      },
     ];
 
     examples.forEach((example, index) => {
       console.log(`\n📋 Example ${index + 1}: ${example.name}`);
       console.log("  Headers:", example.headers);
-      console.log("  Labels:", example.labels.length > 0 ? example.labels : ["ALL_NODES (unlabeled)"]);
+      console.log(
+        "  Labels:",
+        example.labels.length > 0 ? example.labels : ["ALL_NODES (unlabeled)"]
+      );
 
       try {
         const header = NodeFileHeader.of(example.headers, example.labels);
@@ -89,20 +104,20 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
         name: "Missing ID Column",
         headers: ["name:string", "age:int"],
         labels: ["Person"],
-        expectedError: "First column of header must be :ID"
+        expectedError: "First column of header must be :ID",
       },
       {
         name: "Wrong ID Column Position",
         headers: ["name:string", ":ID", "age:int"],
         labels: ["Person"],
-        expectedError: "First column of header must be :ID"
+        expectedError: "First column of header must be :ID",
       },
       {
         name: "Empty Headers",
         headers: [],
         labels: ["Person"],
-        expectedError: "First column of header must be :ID"
-      }
+        expectedError: "First column of header must be :ID",
+      },
     ];
 
     errorCases.forEach((testCase, index) => {
@@ -129,25 +144,31 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
       ":ID",
       "firstName:string",
       "lastName:string",
-      "age:int",
+      "age:long",
       "salary:double",
       "isActive:boolean",
       "joinDate:string",
-      ":LABEL"
+      ":LABEL",
     ];
 
-    const nodeFileHeader = NodeFileHeader.of(complexHeaders, ["Employee", "Person"]);
+    const nodeFileHeader = NodeFileHeader.of(complexHeaders, [
+      "Employee",
+      "Person",
+    ]);
 
     console.log("📊 Complex CSV structure:");
     console.log("  Total columns:", complexHeaders.length);
-    console.log("  Property columns:", nodeFileHeader.propertyMappings().length);
+    console.log(
+      "  Property columns:",
+      nodeFileHeader.propertyMappings().length
+    );
 
     console.log("\n🔍 Property mappings breakdown:");
     nodeFileHeader.propertyMappings().forEach((prop, index) => {
       console.log(`  Mapping ${index + 1}:`);
-      console.log(`    Column index: ${prop.columnIndex()}`);
+      console.log(`    Column index: ${prop.position()}`);
       console.log(`    Property key: ${prop.propertyKey()}`);
-      console.log(`    Source column: ${complexHeaders[prop.columnIndex()]}`);
+      console.log(`    Source column: ${complexHeaders[prop.position()]}`);
     });
 
     // Show the ID column is NOT in property mappings
@@ -167,22 +188,22 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
     const scenarios = [
       {
         name: "Single Label",
-        headers: [":ID", "name:string", "age:int"],
+        headers: [":ID", "name:string", "age:long"],
         labels: ["Person"],
-        description: "Simple single-labeled nodes"
+        description: "Simple single-labeled nodes",
       },
       {
         name: "Multiple Labels",
         headers: [":ID", "name:string", "salary:double"],
         labels: ["Person", "Employee", "Manager"],
-        description: "Nodes with multiple labels"
+        description: "Nodes with multiple labels",
       },
       {
         name: "No Labels (ALL_NODES)",
         headers: [":ID", "data:string"],
         labels: [],
-        description: "Unlabeled nodes - uses ALL_NODES"
-      }
+        description: "Unlabeled nodes - uses ALL_NODES",
+      },
     ];
 
     scenarios.forEach((scenario, index) => {
@@ -214,22 +235,40 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
     const realWorldExamples = [
       {
         filename: "users.csv",
-        headers: [":ID", "username:string", "email:string", "joinDate:string", "isVerified:boolean"],
+        headers: [
+          ":ID",
+          "username:string",
+          "email:string",
+          "joinDate:string",
+          "isVerified:boolean",
+        ],
         labels: ["User"],
-        sampleRow: ["user_001", "john_doe", "john@example.com", "2024-01-15", "true"]
+        sampleRow: [
+          "user_001",
+          "john_doe",
+          "john@example.com",
+          "2024-01-15",
+          "true",
+        ],
       },
       {
         filename: "companies.csv",
-        headers: [":ID", "name:string", "industry:string", "employees:int", "revenue:double"],
+        headers: [
+          ":ID",
+          "name:string",
+          "industry:string",
+          "employees:long",
+          "revenue:double",
+        ],
         labels: ["Company", "Organization"],
-        sampleRow: ["comp_001", "TechCorp", "Software", "1500", "50000000.00"]
+        sampleRow: ["comp_001", "TechCorp", "Software", "1500", "50000000.00"],
       },
       {
         filename: "products.csv",
         headers: [":ID", "title:string", "price:double", "inStock:boolean"],
         labels: ["Product"],
-        sampleRow: ["prod_001", "Laptop Pro", "1299.99", "true"]
-      }
+        sampleRow: ["prod_001", "Laptop Pro", "1299.99", "true"],
+      },
     ];
 
     realWorldExamples.forEach((example, index) => {
@@ -240,15 +279,15 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
       const header = NodeFileHeader.of(example.headers, example.labels);
 
       console.log("  Analysis:");
-      console.log(`    Node labels: ${header.nodeLabels().join(', ')}`);
+      console.log(`    Node labels: ${header.nodeLabels().join(", ")}`);
       console.log(`    Properties: ${header.propertyMappings().length}`);
 
       // Show property types inferred from headers
       console.log("    Property types:");
-      header.propertyMappings().forEach(prop => {
-        const columnHeader = example.headers[prop.columnIndex()];
-        const [propName, propType] = columnHeader.split(':');
-        console.log(`      ${propName} → ${propType || 'string'}`);
+      header.propertyMappings().forEach((prop) => {
+        const columnHeader = example.headers[prop.position()];
+        const [propName, propType] = columnHeader.split(":");
+        console.log(`      ${propName} → ${propType || "string"}`);
       });
     });
 
@@ -261,7 +300,7 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
     // Test with various header sizes
     const sizes = [5, 20, 50, 100];
 
-    sizes.forEach(size => {
+    sizes.forEach((size) => {
       console.log(`\n📊 Testing header with ${size} properties:`);
 
       // Generate large header
@@ -277,15 +316,23 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
 
       console.log(`  Parse time: ${parseTime.toFixed(3)}ms`);
       console.log(`  Properties parsed: ${header.propertyMappings().length}`);
-      console.log(`  Memory efficiency: ${(header.propertyMappings().length / parseTime * 1000).toFixed(0)} props/sec`);
+      console.log(
+        `  Memory efficiency: ${(
+          (header.propertyMappings().length / parseTime) *
+          1000
+        ).toFixed(0)} props/sec`
+      );
 
       // Test label copying (immutability)
       const labels1 = header.nodeLabels();
       const labels2 = header.nodeLabels();
-      console.log(`  Label immutability: ${labels1 !== labels2 ? '✅ Safe copies' : '⚠️ Same reference'}`);
+      console.log(
+        `  Label immutability: ${
+          labels1 !== labels2 ? "✅ Safe copies" : "⚠️ Same reference"
+        }`
+      );
     });
 
     // ▶️ CLICK -> Analyze performance characteristics!
   });
-
 });

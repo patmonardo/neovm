@@ -20,10 +20,10 @@ export abstract class ElementSchema<
   /**
    * Creates a filtered version of this schema containing only the specified elements.
    *
-   * @param elementIdentifiersToKeep Set of element identifiers to include
+   * @param elementIdentifiersToKeep Array of element identifiers to include
    * @returns A new schema containing only the specified elements
    */
-  abstract filter(elementIdentifiersToKeep: Set<ELEMENT_IDENTIFIER>): SELF;
+  abstract filter(elementIdentifiersToKeep: Array<ELEMENT_IDENTIFIER>): SELF;
 
   /**
    * Combines this schema with another schema.

@@ -1,3 +1,9 @@
+import { RelationshipType } from "@/projection";
+import { MutableRelationshipSchema } from "@/api/schema";
+import { RelationshipPropertySchema } from "@/api/schema";
+import { FileHeader } from "./FileHeader";
+import { HeaderProperty } from "./HeaderProperty";
+
 /**
  * RELATIONSHIP FILE HEADER - CSV RELATIONSHIP FILE STRUCTURE
  *
@@ -7,12 +13,6 @@
  * CSV Format: :START_ID | :END_ID | property1:type | property2:type | ...
  * Example: ":START_ID,:END_ID,weight:double,timestamp:long"
  */
-
-import { RelationshipType } from "@/projection";
-import { MutableRelationshipSchema } from "@/api/schema";
-import { RelationshipPropertySchema } from "@/api/schema";
-import { FileHeader } from "./FileHeader";
-import { HeaderProperty } from "./HeaderProperty";
 
 export interface RelationshipFileHeader
   extends FileHeader<MutableRelationshipSchema, RelationshipPropertySchema> {
@@ -65,7 +65,7 @@ export namespace RelationshipFileHeader {
       propertyMappings.push(HeaderProperty.parse(i, column));
     }
 
-    return new RelationshipFileHeaderImpl(propertyMappings, relationshipType);
+    return new DefRelationshipFileHeader(propertyMappings, relationshipType);
   }
 
   /**
@@ -78,7 +78,7 @@ export namespace RelationshipFileHeader {
   /**
    * Implementation of RelationshipFileHeader interface.
    */
-  class RelationshipFileHeaderImpl implements RelationshipFileHeader {
+  class DefRelationshipFileHeader implements RelationshipFileHeader {
     constructor(
       private readonly _propertyMappings: HeaderProperty[],
       private readonly _relationshipType: string
@@ -97,7 +97,7 @@ export namespace RelationshipFileHeader {
     ): Map<string, RelationshipPropertySchema> {
       // Filter schema by this relationship type and get its properties
       const relType = RelationshipType.of(this._relationshipType);
-      const relationshipTypes = new Set([relType]);
+      const relationshipTypes = [relType];
       return schema.filter(relationshipTypes).unionProperties();
     }
   }

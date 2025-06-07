@@ -16,9 +16,9 @@ export interface NodePropertyContainer {
   /**
    * Returns the set of all available node property keys.
    *
-   * @returns Set of available property keys
+   * @returns Array of available property keys
    */
-  availableNodeProperties(): Set<string>;
+  availableNodeProperties(): Array<string>;
 }
 
 /**
@@ -36,8 +36,8 @@ export namespace NodePropertyContainer {
         throw new Error(`No node properties available`);
       },
 
-      availableNodeProperties(): Set<string> {
-        return new Set<string>();
+      availableNodeProperties(): Array<string> {
+        return new Array<string>();
       }
     };
   }

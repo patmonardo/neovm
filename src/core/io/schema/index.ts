@@ -7,4 +7,3 @@ export * from "./NodeSchemaBuilderVisitor";
 export * from "./NodeSchemaVisitor";
 export * from "./RelationshipSchemaBuilderVisitor";
 export * from "./RelationshipSchemaVisitor";
-export * from "./SimpleVisitor";

@@ -1,6 +1,6 @@
-import { ValueType } from '@/api/ValueType';
-import { PropertyState } from '@/api/PropertyState';
 import { RelationshipType } from '@/projection';
+import { ValueType } from '@/api';
+import { PropertyState } from '@/api';
 import { Direction } from '../Direction';
 import { RelationshipSchema } from '../abstract/RelationshipSchema';
 import { RelationshipSchemaEntry } from '../abstract/RelationshipSchemaEntry';
@@ -46,8 +46,8 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   /**
    * Returns all available relationship types in this schema.
    */
-  availableTypes(): Set<RelationshipType> {
-    return new Set(this._entries.keys());
+  availableTypes(): Array<RelationshipType> {
+    return Array.from(this._entries.keys());
   }
 
   /**
@@ -99,14 +99,14 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   /**
    * Creates a filtered version of this schema.
    */
-  filter(relationshipTypesToKeep: Set<RelationshipType>): RelationshipSchema {
+  filter(relationshipTypesToKeep: Array<RelationshipType>): RelationshipSchema {
     const filteredEntries = new Map<
       RelationshipType,
       MutableRelationshipSchemaEntry
     >();
 
     this._entries.forEach((entry, type) => {
-      if (relationshipTypesToKeep.has(type)) {
+      if (relationshipTypesToKeep.includes(type)) {
         filteredEntries.set(type, MutableRelationshipSchemaEntry.from(entry));
       }
     });
@@ -200,6 +200,9 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   /**
    * Adds a property to a relationship type.
    */
+  /**
+   * Adds a property to a relationship type.
+   */
   public addProperty(
     relationshipType: RelationshipType,
     direction: Direction,
@@ -209,22 +212,22 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   ): MutableRelationshipSchema {
     const entry = this.getOrCreateRelationshipType(relationshipType, direction);
 
-    if (typeof valueTypeOrSchema === "number") {
+    // ✅ PROPER TYPE DETECTION:
+    if (valueTypeOrSchema instanceof RelationshipPropertySchema) {
+      // It's a RelationshipPropertySchema
+      entry.addProperty(propertyKey, valueTypeOrSchema);
+    } else {
       // It's a ValueType
-      const valueType = valueTypeOrSchema;
+      const valueType = valueTypeOrSchema as ValueType;
       if (propertyState !== undefined) {
         entry.addProperty(propertyKey, valueType, propertyState);
       } else {
         entry.addProperty(propertyKey, valueType);
       }
-    } else {
-      // It's a RelationshipPropertySchema
-      entry.addProperty(propertyKey, valueTypeOrSchema);
     }
 
     return this;
   }
-
   /**
    * Checks if this schema equals another object.
    */

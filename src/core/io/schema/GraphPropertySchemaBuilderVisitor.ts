@@ -1,5 +1,5 @@
-import { PropertySchema } from '@/api/schema';
-import { ElementSchemaVisitor } from './ElementSchemaVisitor';
+import { PropertySchema } from "@/api/schema";
+import { ElementSchemaVisitor } from "./ElementSchemaVisitor";
 
 /**
  * Concrete visitor implementation for building graph property schemas.

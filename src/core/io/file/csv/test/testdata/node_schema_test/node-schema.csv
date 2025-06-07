@@ -1,6 +1,2 @@
-label,propertyKey,valueType,defaultValue,state
-TestNode,longProp,LONG,DefaultValue(42),PERSISTENT
-TestNode,doubleProp,DOUBLE,DefaultValue(3.14),PERSISTENT
-TestNode,booleanProp,BOOLEAN,DefaultValue(true),PERSISTENT
-TestNode,longArrayProp,LONG_ARRAY,DefaultValue([1,2,3]),PERSISTENT
-TestNode,doubleArrayProp,DOUBLE_ARRAY,DefaultValue([1.1,2.2]),PERSISTENT
+label,propertyKey,valueType,state
+TestLabel,testProp,STRING,PERSISTENT

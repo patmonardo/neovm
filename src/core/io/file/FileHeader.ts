@@ -13,7 +13,7 @@ export interface FileHeader<SCHEMA, PROPERTY_SCHEMA extends PropertySchema> {
    * Returns the set of property mappings defined in this file header.
    * These mappings describe how properties are stored and accessed in the file.
    *
-   * @returns Set of HeaderProperty objects describing property mappings
+   * @returns Array of HeaderProperty objects describing property mappings
    */
   propertyMappings(): Array<HeaderProperty>;
 

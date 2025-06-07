@@ -11,7 +11,7 @@ describe("MutableNodeSchema", () => {
     schema.addProperty(label, "age", ValueType.LONG);
 
     // Check label exists
-    expect(schema.availableLabels().has(label)).toBe(true);
+    expect(schema.availableLabels().includes(label)).toBe(true);
 
     // Check property exists
     const entry = schema.get(label);
@@ -27,9 +27,9 @@ describe("MutableNodeSchema", () => {
     schema.addLabel(label1);
     schema.addLabel(label2);
 
-    const filtered = schema.filter(new Set([label1]));
-    expect(filtered.availableLabels().has(label1)).toBe(true);
-    expect(filtered.availableLabels().has(label2)).toBe(false);
+    const filtered = schema.filter([label1]);
+    expect(filtered.availableLabels().includes(label1)).toBe(true);
+    expect(filtered.availableLabels().includes(label2)).toBe(false);
   });
 
   it("can union two schemas", () => {
@@ -47,6 +47,7 @@ describe("MutableNodeSchema", () => {
     expect(entry!.properties()).toHaveProperty("age");
     expect(entry!.properties()).toHaveProperty("name");
   });
+
   it("can serialize a larger schema to map", () => {
     const schema = MutableNodeSchema.empty();
 

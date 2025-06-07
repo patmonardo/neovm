@@ -1,7 +1,7 @@
 import { NodeLabel } from "@/projection";
 import { PrimitiveIterator } from "@/collections";
 import { PrimitiveLongIterable } from "@/collections";
-import { LabelInformation } from "@/core/loading";
+import { LabelInformation } from "@/core/loading/LabelInformation";
 import { BatchNodeIterable } from "./BatchNodeIterable";
 import { IdMap } from "./IdMap";
 
@@ -48,7 +48,7 @@ export abstract class LabeledIdMap implements IdMap {
   abstract containsOriginalId(originalNodeId: number): boolean;
   abstract highestOriginalId(): number;
   abstract withFilteredLabels(
-    nodeLabels: Set<NodeLabel>,
+    nodeLabels: Array<NodeLabel>,
     concurrency: any
   ): any;
 
@@ -129,7 +129,7 @@ export abstract class LabeledIdMap implements IdMap {
   /**
    * Returns the available node labels.
    */
-  availableNodeLabels(): Set<NodeLabel> {
+  availableNodeLabels(): Array<NodeLabel> {
     return this.labelInformation.availableNodeLabels();
   }
 

@@ -5,6 +5,10 @@ import { ValueType } from '@/api';
  * Contains the position, key, and value type of a property as stored in the file.
  */
 export class HeaderProperty {
+  private readonly _position: number;
+  private readonly _propertyKey: string;
+  private readonly _valueType: ValueType;
+
   /**
    * Creates a new HeaderProperty.
    *
@@ -12,11 +16,32 @@ export class HeaderProperty {
    * @param propertyKey The name/key of the property
    * @param valueType The type of values this property contains
    */
-  constructor(
-    public readonly position: number,
-    public readonly propertyKey: string,
-    public readonly valueType: ValueType
-  ) {}
+  constructor(position: number, propertyKey: string, valueType: ValueType) {
+    this._position = position;
+    this._propertyKey = propertyKey;
+    this._valueType = valueType;
+  }
+
+  /**
+   * Gets the column position of this property in the file.
+   */
+  position(): number {
+    return this._position;
+  }
+
+  /**
+   * Gets the name/key of the property.
+   */
+  propertyKey(): string {
+    return this._propertyKey;
+  }
+
+  /**
+   * Gets the type of values this property contains.
+   */
+  valueType(): ValueType {
+    return this._valueType;
+  }
 
   /**
    * Parses a property string from a file header into a HeaderProperty.
@@ -57,24 +82,24 @@ export class HeaderProperty {
    * Returns a string representation of this HeaderProperty.
    */
   toString(): string {
-    return `HeaderProperty(position=${this.position}, propertyKey="${this.propertyKey}", valueType=${this.valueType})`;
+    return `HeaderProperty(position=${this._position}, propertyKey="${this._propertyKey}", valueType=${this._valueType})`;
   }
 
   /**
    * Checks equality with another HeaderProperty.
    */
   equals(other: HeaderProperty): boolean {
-    return this.position === other.position &&
-           this.propertyKey === other.propertyKey &&
-           this.valueType === other.valueType;
+    return this._position === other.position() &&
+           this._propertyKey === other.propertyKey() &&
+           this._valueType === other.valueType();
   }
 
   /**
    * Returns a hash code for this HeaderProperty.
    */
   hashCode(): number {
-    return this.position * 31 +
-           this.propertyKey.length * 17 +
-           this.valueType.valueOf();
+    return this._position * 31 +
+           this._propertyKey.length * 17 +
+           this._valueType.valueOf();
   }
 }

@@ -9,9 +9,7 @@ import { ElementVisitor } from "./ElementVisitor";
  */
 export abstract class NodeVisitor extends ElementVisitor<PropertySchema> {
   private static readonly EMPTY_LABELS: string[] = [];
-  protected static readonly EMPTY_LABELS_LABEL: Set<NodeLabel> = new Set([
-    NodeLabel.ALL_NODES,
-  ]);
+  protected static readonly DEFAULT_LABELS: NodeLabel[] = [NodeLabel.ALL_NODES];
 
   protected readonly nodeSchema: NodeSchema;
   private currentId: number = -1;
@@ -111,12 +109,12 @@ export abstract class NodeVisitor extends ElementVisitor<PropertySchema> {
    * Returns the property schema for the current node labels.
    */
   protected getPropertySchema(): PropertySchema[] {
-    const nodeLabelSet =
+    const nodeLabels =
       this.currentLabels.length === 0
-        ? NodeVisitor.EMPTY_LABELS_LABEL
-        : new Set(this.currentLabels.map((label) => NodeLabel.of(label)));
+        ? NodeVisitor.DEFAULT_LABELS // Default to ALL_NODES for unlabeled nodes
+        : this.currentLabels.map((label) => NodeLabel.of(label));
 
-    const propertySchemaForLabels = this.nodeSchema.filter(nodeLabelSet);
+    const propertySchemaForLabels = this.nodeSchema.filter(nodeLabels);
     return Array.from(propertySchemaForLabels.unionProperties().values());
   }
 

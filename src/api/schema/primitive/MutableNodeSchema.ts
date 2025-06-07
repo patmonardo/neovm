@@ -1,5 +1,5 @@
 import { NodeLabel } from "@/projection";
-import { ValueType } from "@/api/ValueType";
+import { ValueType } from "@/api";
 import { NodeSchema } from "../abstract/NodeSchema";
 import { PropertySchema } from "../abstract/PropertySchema";
 import { NodeSchemaEntry } from "../abstract/NodeSchemaEntry";
@@ -61,23 +61,25 @@ export class MutableNodeSchema extends NodeSchema {
   /**
    * Returns all available node labels in this schema.
    *
-   * @returns Set of all node labels
+   * @returns Array of all node labels
    */
-  public availableLabels(): Set<NodeLabel> {
-    return new Set(this._labelEntries.keys());
+  public availableLabels(): NodeLabel[] {
+    return Array.from(this._labelEntries.keys());
   }
 
   /**
    * Creates a filtered version of this schema containing only the specified labels.
    *
-   * @param labelsToKeep Set of node labels to include
+   * @param labelsToKeep Array of node labels to include
    * @returns A new filtered node schema
    */
-  public filter(labelsToKeep: Set<NodeLabel>): NodeSchema {
+  public filter(labelsToKeep: NodeLabel[]): NodeSchema {
     const filteredEntries = new Map<NodeLabel, MutableNodeSchemaEntry>();
 
+    // ✅ ARRAY-BASED FILTERING - NO HASH CODES NEEDED!
     this._labelEntries.forEach((entry, label) => {
-      if (labelsToKeep.has(label)) {
+      // Use includes() with proper equals() method
+      if (labelsToKeep.some((keepLabel) => keepLabel.equals(label))) {
         filteredEntries.set(label, MutableNodeSchemaEntry.from(entry));
       }
     });

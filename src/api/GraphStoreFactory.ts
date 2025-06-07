@@ -1,7 +1,7 @@
 import { MemoryEstimation } from "@/mem/MemoryEstimation";
 import { GraphProjectConfig } from "@/config";
 import { GraphDimensions } from "@/core";
-import { Capabilities } from "@/core/loading";
+import { Capabilities } from "@/core/loading/Capabilities";
 import { GraphLoaderContext } from "./GraphLoaderContext";
 import { GraphStore } from "./GraphStore";
 

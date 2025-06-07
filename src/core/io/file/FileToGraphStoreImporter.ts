@@ -4,27 +4,27 @@ import { GraphStore } from '@/api';
 import { IdMap } from '@/api';
 import { Topology } from '@/api';
 import { RelationshipPropertyStore } from '@/api/properties/relationships';
-import { MutableGraphSchema } from '@/api/schema';
 import { MutableNodeSchema } from '@/api/schema';
 import { Concurrency } from '@/concurrency';
 import { DefaultPool } from '@/concurrency';
 import { ParallelUtil } from '@/concurrency/';
 import { GraphStoreGraphPropertyVisitor } from '@/core/io/GraphStoreGraphPropertyVisitor';
 import { GraphStoreRelationshipVisitor } from '@/core/io/GraphStoreRelationshipVisitor';
+
 import { WriteMode } from '@/core/loading/Capabilities';
-import { GraphStoreBuilder } from '@/core/loading';
 import { ImmutableStaticCapabilities } from '@/core/loading';
-import { Nodes } from '@/core/loading/Nodes';
-import { RelationshipImportResult } from '@/core/loading/RelationshipImportResult';
-import { GraphFactory } from '@/core/loading/construction/GraphFactory';
-import { NodesBuilder } from '@/core/loading/construction/NodesBuilder';
-import { RelationshipsBuilder } from '@/core/loading/construction/RelationshipsBuilder';
-import { TaskRegistryFactory } from '@/core/utils/progress/TaskRegistryFactory';
-import { ProgressTracker } from '@/core/utils/progress/tasks/ProgressTracker';
-import { Task } from '@/core/utils/progress/tasks/Task';
-import { TaskProgressTracker } from '@/core/utils/progress/tasks/TaskProgressTracker';
-import { Tasks } from '@/core/utils/progress/tasks/Tasks';
+import { GraphStoreBuilder } from '@/core/loading';
+import { Nodes } from '@/core/loading';
+import { RelationshipImportResult } from '@/core/loading';
+import { GraphFactory } from '@/core/loading';
+import { RelationshipsBuilder } from '@/core/loading';
+
+import { ProgressTracker } from '@/core/utils/progress';
 import { Log } from '@/utils';
+import { Tasks } from '@/core/utils/progress';
+import { Task } from '@/core/utils/progress';
+import { TaskProgressTracker } from '@/core/utils/progress';
+import { TaskRegistryFactory } from '@/core/utils/progress';
 import { GraphStoreNodeVisitor } from './GraphStoreNodeVisitor';
 import { ElementImportRunner } from './ElementImportRunner';
 import { FileInput } from './FileInput';
@@ -320,11 +320,4 @@ export abstract class FileToGraphStoreImporter {
       throw new Error(`Directory '${value}' not readable`);
     }
   };
-}
-
-/**
- * Interface matching Java's Runnable.
- */
-export interface Runnable {
-  run(): void;
 }

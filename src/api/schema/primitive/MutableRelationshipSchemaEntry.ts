@@ -1,7 +1,8 @@
-import { ValueType } from "@/api/ValueType";
-import { PropertyState } from "@/api/PropertyState";
-import { Aggregation } from "@/core/Aggregation";
 import { RelationshipType } from "@/projection";
+import { ValueType } from "@/api";
+import { DefaultValue } from "@/api";
+import { PropertyState } from "@/api";
+import { Aggregation } from "@/core";
 import { Direction } from "../Direction";
 import { RelationshipPropertySchema } from "../abstract/RelationshipPropertySchema";
 import { RelationshipSchemaEntry } from "../abstract/RelationshipSchemaEntry";
@@ -272,21 +273,37 @@ export class MutableRelationshipSchemaEntry extends RelationshipSchemaEntry {
     propertySchemaOrValueType: ValueType | RelationshipPropertySchema,
     propertyState?: PropertyState
   ): MutableRelationshipSchemaEntry {
-    if (typeof propertySchemaOrValueType === "number") {
-      // It's a ValueType
-      const valueType = propertySchemaOrValueType;
-
-      this._properties.set(
-        propertyKey,
-        RelationshipPropertySchema.of(propertyKey, valueType)
-      );
-    } else {
-      // It's a RelationshipPropertySchema
+    // ✅ CORRECT TYPE DETECTION:
+    if (propertySchemaOrValueType instanceof RelationshipPropertySchema) {
+      // It's a RelationshipPropertySchema - use it directly
       this._properties.set(propertyKey, propertySchemaOrValueType);
+    } else {
+      // It's a ValueType - create schema with optional state
+      const valueType = propertySchemaOrValueType as ValueType;
+
+      if (propertyState !== undefined) {
+        // ✅ USE THE PROPERTY STATE:
+        this._properties.set(
+          propertyKey,
+          RelationshipPropertySchema.of(
+            propertyKey,
+            valueType,
+            DefaultValue.of(null, true),
+            propertyState,
+            Aggregation.NONE
+          )
+        );
+      } else {
+        // Default case
+        this._properties.set(
+          propertyKey,
+          RelationshipPropertySchema.of(propertyKey, valueType)
+        );
+      }
     }
+
     return this;
   }
-
   /**
    * Removes a property from this entry.
    *

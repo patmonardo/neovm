@@ -1,20 +1,23 @@
-/**
- * CSV NODE LABEL MAPPING VISITOR - EXPORTS LABEL INDEX MAPPINGS
- *
- * SimpleVisitor that exports node label to index mappings to CSV file.
- * Used for memory-efficient label storage using indices instead of strings.
- */
-
 import { NodeLabel } from "@/projection";
-import { SimpleVisitor } from "@/core/io/schema";
 import * as fs from "fs";
 import * as path from "path";
 
-export class CsvNodeLabelMappingVisitor
-  implements SimpleVisitor<Map.Entry<NodeLabel, string>>
-{
-  private static readonly LABEL_MAPPING = "index";
-  private static readonly LABEL_COLUMN_NAME = "label";
+/**
+ * CSV NODE LABEL MAPPING VISITOR - EXPORTS LABEL INDEX MAPPINGS
+ *
+ * Visitor that exports node label to index mappings to CSV file.
+ * Used for memory-efficient label storage using indices instead of strings.
+ */
+
+// 🎯 Simple TypeScript interface instead of Map.Entry
+interface LabelMapping {
+  label: NodeLabel;
+  index: string;
+}
+
+export class CsvNodeLabelMappingVisitor {
+  private static readonly INDEX_HEADER = "index";
+  private static readonly LABEL_HEADER = "label";
   static readonly LABEL_MAPPING_FILE_NAME = "label-mappings.csv";
 
   private readonly csvFilePath: string;
@@ -28,12 +31,19 @@ export class CsvNodeLabelMappingVisitor
     this.writeHeader();
   }
 
-  export(nodeLabelMapping: Map.Entry<NodeLabel, string>): void {
+  // 🍫 Simple export method - no confusing generics
+  export(mapping: LabelMapping): void {
     const row = [
-      nodeLabelMapping.getValue(), // index
-      nodeLabelMapping.getKey().name(), // label name
+      mapping.index,           // index value
+      mapping.label.name(),    // label name
     ];
 
+    this.csvRows.push(this.formatCsvRow(row));
+  }
+
+  // 🍫 Alternative: export individual values
+  exportMapping(label: NodeLabel, index: string): void {
+    const row = [index, label.name()];
     this.csvRows.push(this.formatCsvRow(row));
   }
 
@@ -50,21 +60,23 @@ export class CsvNodeLabelMappingVisitor
   private writeHeader(): void {
     this.csvRows.push(
       this.formatCsvRow([
-        CsvNodeLabelMappingVisitor.LABEL_MAPPING,
-        CsvNodeLabelMappingVisitor.LABEL_COLUMN_NAME,
+        CsvNodeLabelMappingVisitor.INDEX_HEADER,
+        CsvNodeLabelMappingVisitor.LABEL_HEADER,
       ])
     );
   }
 
   private formatCsvRow(values: string[]): string {
-    // Simple CSV formatting - escape quotes and wrap in quotes if needed
+    // Proper CSV formatting with quote escaping
     return values
       .map((value) => {
         if (
           value.includes(",") ||
           value.includes('"') ||
-          value.includes("\n")
+          value.includes("\n") ||
+          value.includes("\r")
         ) {
+          // Escape quotes by doubling them, then wrap in quotes
           return `"${value.replace(/"/g, '""')}"`;
         }
         return value;

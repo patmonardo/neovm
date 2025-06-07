@@ -54,11 +54,11 @@ export interface Graph
   /**
    * Returns a filtered view of this graph containing only the specified relationship types.
    *
-   * @param relationshipTypes Set of relationship types to include
+   * @param relationshipTypes Array of relationship types to include
    * @returns A filtered graph
    */
   relationshipTypeFilteredGraph(
-    relationshipTypes: Set<RelationshipType>
+    relationshipTypes: Array<RelationshipType>
   ): Graph;
 
   /**

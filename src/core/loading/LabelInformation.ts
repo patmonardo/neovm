@@ -153,7 +153,7 @@ export class SimpleLabelInformation implements LabelInformation {
 
   private createBitSet(nodeIds: Set<number>, size?: number): BitSet {
     // TODO: Use real BitSet when available
-    return new BitSet.(nodeIds, size);
+    return new new BitSet(size);
   }
 }
 

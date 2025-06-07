@@ -18,7 +18,7 @@ export abstract class NodeSchema extends ElementSchema<
    *
    * @returns Set of all node labels
    */
-  abstract availableLabels(): Set<NodeLabel>;
+  abstract availableLabels(): Array<NodeLabel>;
 
   /**
    * Checks if this schema contains only the special "ALL" nodes label.
@@ -27,7 +27,7 @@ export abstract class NodeSchema extends ElementSchema<
    */
   containsOnlyAllNodesLabel(): boolean {
     const labels = this.availableLabels();
-    return labels.size === 1 && labels.has(NodeLabel.ALL_NODES);
+    return labels.length === 1 && labels.includes(NodeLabel.ALL_NODES);
   }
 
   /**
@@ -37,7 +37,7 @@ export abstract class NodeSchema extends ElementSchema<
    * @param labelsToKeep Set of node labels to include
    * @returns A new filtered node schema
    */
-  abstract filter(labelsToKeep: Set<NodeLabel>): NodeSchema;
+  abstract filter(labelsToKeep: Array<NodeLabel>): NodeSchema;
 }
 
 /**

@@ -2,7 +2,7 @@ import { InputIterable } from '@/api/import';
 import { MutableNodeSchema } from '@/api/schema';
 import { MutableRelationshipSchema } from '@/api/schema';
 import { PropertySchema } from '@/api/schema';
-import { Capabilities } from '@/core/loading';
+import { Capabilities } from '@/core/loading/Capabilities';
 import { GraphInfo } from './GraphInfo';
 
 /**
@@ -65,7 +65,7 @@ export interface FileInput {
    *
    * @returns Optional Map of label mappings, or undefined if no mapping exists
    */
-  labelMapping(): Map<string, string> | undefined;
+  labelMapping(): Map<string, string> | null;
 
   /**
    * Returns the mutable relationship schema defining relationship types and their properties.

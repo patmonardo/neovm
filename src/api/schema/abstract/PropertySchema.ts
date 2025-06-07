@@ -29,27 +29,27 @@ export abstract class PropertySchema {
   /**
    * Creates a property schema with the given key and value type.
    */
-  static of(propertyKey: string, valueType: ValueType): PropertySchema;
+  static of(key: string, valueType: ValueType): PropertySchema;
   static of(
-    propertyKey: string,
+    key: string,
     valueType: ValueType,
     defaultValue: DefaultValue,
-    propertyState: PropertyState
+    state: PropertyState
   ): PropertySchema;
   static of(
-    propertyKey: string,
+    key: string,
     valueType: ValueType,
     defaultValue?: DefaultValue,
-    propertyState?: PropertyState
+    state?: PropertyState
   ): PropertySchema {
     // Use proper factory method to get DefaultValue
     const finalDefaultValue = defaultValue ?? DefaultValue.of(valueType);
 
     return new ImmutablePropertySchema(
-      propertyKey,
+      key,
       valueType,
       finalDefaultValue,
-      propertyState ?? PropertyState.PERSISTENT
+      state ?? PropertyState.PERSISTENT
     );
   }
 }

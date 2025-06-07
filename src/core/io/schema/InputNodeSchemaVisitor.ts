@@ -18,29 +18,30 @@ export interface InputNodeSchemaVisitor extends InputSchemaVisitor {
 }
 
 /**
- * Abstract adapter class that provides default implementations for InputNodeSchemaVisitor.
- * Extends ElementSchemaVisitor to inherit property schema building capabilities
- * while adding node-specific label handling.
- */
-export abstract class InputNodeSchemaVisitorAdapter extends ElementSchemaVisitor implements InputNodeSchemaVisitor {
-  /**
-   * Default implementation that accepts all node labels.
-   * Subclasses can override to provide custom label handling logic.
-   *
-   * @param nodeLabel The node label being processed
-   * @returns true to continue processing
-   */
-  nodeLabel(nodeLabel: NodeLabel): boolean {
-    return true;
-  }
-}
-
-/**
  * Namespace for organizing InputNodeSchemaVisitor-related functionality.
  */
 export namespace InputNodeSchemaVisitor {
   /**
    * Adapter class alias for convenience.
    */
-  export const Adapter = InputNodeSchemaVisitorAdapter;
+  /**
+   * Abstract adapter class that provides default implementations for InputNodeSchemaVisitor.
+   * Extends ElementSchemaVisitor to inherit property schema building capabilities
+   * while adding node-specific label handling.
+   */
+  export abstract class Adapter
+    extends ElementSchemaVisitor
+    implements InputNodeSchemaVisitor
+  {
+    /**
+     * Default implementation that accepts all node labels.
+     * Subclasses can override to provide custom label handling logic.
+     *
+     * @param nodeLabel The node label being processed
+     * @returns true to continue processing
+     */
+    nodeLabel(nodeLabel: NodeLabel): boolean {
+      return true;
+    }
+  }
 }

@@ -18,7 +18,18 @@ export class DefaultValueIOHelper {
    */
   static serialize(defaultValue: DefaultValue): string {
     try {
-      const serializedValue = JSON.stringify(defaultValue.getObject());
+      const obj = defaultValue.getObject();
+
+      let serializedValue: string;
+
+      // ✅ GENERIC TYPEDARRAY CHECK:
+      if (ArrayBuffer.isView(obj) && !(obj instanceof DataView)) {
+        // This catches ALL typed arrays (Float32Array, Int32Array, etc.)
+        serializedValue = JSON.stringify(Array.from(obj as any));
+      } else {
+        serializedValue = JSON.stringify(obj);
+      }
+
       return DefaultValueIOHelper.formatWithLocale(
         DefaultValueIOHelper.DEFAULT_VALUE_TEMPLATE,
         serializedValue
@@ -27,7 +38,6 @@ export class DefaultValueIOHelper {
       throw new Error(`Failed to serialize DefaultValue: ${error}`);
     }
   }
-
   /**
    * Deserialize a DefaultValue from string format.
    * @param serializedValue The serialized string (e.g., "DefaultValue([1,2,3])")

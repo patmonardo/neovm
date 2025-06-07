@@ -1,107 +1,83 @@
-import { RelationshipType } from '@/projection';
-import { Concurrency } from '@/concurrency';
+import { GdsValue } from '@/values';
+import { PrimitiveValues } from '@/values';
+import { NodeSchema } from '@/api/schema';
+import { NodesBuilder } from '@/core/loading';
+import { NodeLabelTokens } from '@/core/loading';
+import { NodeVisitor, NodeVisitorBuilder } from './NodeVisitor';
 
 /**
- * Parameters record for GraphStoreToFileExporter operations.
- * Contains all the essential configuration values needed for file export.
+ * Concrete implementation of NodeVisitor that builds nodes into a GraphStore.
+ * This visitor takes node data and adds it to a NodesBuilder for constructing
+ * the in-memory graph representation.
  */
-export class GraphStoreToFileExporterParameters {
-  constructor(
-    public readonly _exportName: string,
-    public readonly _username: string,
-    public readonly _defaultRelationshipType: RelationshipType,
-    public readonly _concurrency: Concurrency,
-    public readonly _batchSize: number
-  ) {}
+export class GraphStoreNodeVisitor extends NodeVisitor {
+  private readonly nodesBuilder: NodesBuilder;
 
-  /**
-   * Creates a new instance with all parameters.
-   */
-  static of(
-    exportName: string,
-    username: string,
-    defaultRelationshipType: RelationshipType,
-    concurrency: Concurrency,
-    batchSize: number
-  ): GraphStoreToFileExporterParameters {
-    return new GraphStoreToFileExporterParameters(
-      exportName,
-      username,
-      defaultRelationshipType,
-      concurrency,
-      batchSize
-    );
+  constructor(nodeSchema: NodeSchema, nodesBuilder: NodesBuilder) {
+    super(nodeSchema);
+    this.nodesBuilder = nodesBuilder;
   }
 
   /**
-   * Returns the export name.
+   * Exports the current node element to the NodesBuilder.
+   * Collects all properties and creates the node with its labels.
    */
-  exportName(): string {
-    return this._exportName;
-  }
+  protected exportElement(): void {
+    const props = new Map<string, GdsValue>();
 
-  /**
-   * Returns the username.
-   */
-  username(): string {
-    return this._username;
-  }
+    this.forEachProperty((key: string, value: any) => {
+      props.set(key, PrimitiveValues.create(value));
+    });
 
-  /**
-   * Returns the default relationship type.
-   */
-  defaultRelationshipType(): RelationshipType {
-    return this._defaultRelationshipType;
+    const nodeLabels = NodeLabelTokens.of(this.labels());
+    this.nodesBuilder.addNode(this.id(), props, nodeLabels);
   }
+}
 
+/**
+ * Clean namespace for GraphStoreNodeVisitor components
+ */
+export namespace GraphStoreNodeVisitor {
   /**
-   * Returns the concurrency setting.
+   * Builder class for creating GraphStoreNodeVisitor instances.
+   * Follows the clean namespace pattern established in the codebase.
    */
-  concurrency(): Concurrency {
-    return this._concurrency;
-  }
+  export class Builder extends NodeVisitorBuilder<Builder, GraphStoreNodeVisitor> {
+    private nodesBuilder?: NodesBuilder;
 
-  /**
-   * Returns the batch size.
-   */
-  batchSize(): number {
-    return this._batchSize;
-  }
+    /**
+     * Sets the NodesBuilder for this visitor.
+     *
+     * @param nodesBuilder The NodesBuilder to use
+     * @returns This builder instance
+     */
+    withNodesBuilder(nodesBuilder: NodesBuilder): Builder {
+      this.nodesBuilder = nodesBuilder;
+      return this;
+    }
 
-  /**
-   * Returns a string representation of this parameters object.
-   */
-  toString(): string {
-    return `GraphStoreToFileExporterParameters{` +
-      `exportName='${this.exportName}', ` +
-      `username='${this.username}', ` +
-      `defaultRelationshipType=${this.defaultRelationshipType}, ` +
-      `concurrency=${this.concurrency}, ` +
-      `batchSize=${this.batchSize}` +
-      `}`;
-  }
+    /**
+     * Returns this builder instance with proper typing.
+     */
+    protected me(): Builder {
+      return this;
+    }
 
-  /**
-   * Checks equality with another parameters object.
-   */
-  equals(other: GraphStoreToFileExporterParameters): boolean {
-    return this.exportName === other.exportName &&
-           this.username === other.username &&
-           this.defaultRelationshipType.equals?.(other.defaultRelationshipType) &&
-           this.concurrency === other.concurrency &&
-           this.batchSize === other.batchSize;
-  }
+    /**
+     * Builds the GraphStoreNodeVisitor instance.
+     *
+     * @returns A new GraphStoreNodeVisitor
+     * @throws Error if required fields are missing
+     */
+    build(): GraphStoreNodeVisitor {
+      if (!this.nodeSchema) {
+        throw new Error('nodeSchema is required');
+      }
+      if (!this.nodesBuilder) {
+        throw new Error('nodesBuilder is required');
+      }
 
-  /**
-   * Returns a hash code for this parameters object.
-   */
-  hashCode(): number {
-    let hash = 17;
-    hash = hash * 31 + this._exportName.length;
-    hash = hash * 31 + this._username.length;
-    hash = hash * 31 + (this._defaultRelationshipType.hashCode?.() || 0);
-    hash = hash * 31 + this._concurrency.value();
-    hash = hash * 31 + this._batchSize;
-    return hash;
+      return new GraphStoreNodeVisitor(this.nodeSchema, this.nodesBuilder);
+    }
   }
 }

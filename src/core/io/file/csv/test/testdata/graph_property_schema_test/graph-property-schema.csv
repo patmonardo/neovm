@@ -1,2 +1,8 @@
-propertyKey,valueType
-test_prop,STRING
+propertyKey,valueType,defaultValue,state
+text,STRING,,PERSISTENT
+count,LONG,42,PERSISTENT
+price,DOUBLE,9.99,PERSISTENT
+active,BOOLEAN,,PERSISTENT
+tags,STRING_ARRAY,,PERSISTENT
+scores,LONG_ARRAY,[1,2,3],PERSISTENT
+prices,DOUBLE_ARRAY,[1.1,2.2],PERSISTENT

@@ -103,7 +103,7 @@ export namespace NodeFileHeader {
       }
 
       // Filter schema by these labels and get union of all properties
-      const nodeLabels = new Set(labelStream);
+      const nodeLabels = labelStream;
       return schema.filter(nodeLabels).unionProperties();
     }
   }

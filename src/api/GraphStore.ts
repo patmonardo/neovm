@@ -7,7 +7,7 @@ import { NodeProperty } from "./properties/nodes";
 import { NodePropertyValues } from "./properties/nodes";
 import { RelationshipProperty } from "./properties/relationships";
 import { RelationshipPropertyStore } from "./properties/relationships";
-import { GraphSchema } from "./schema/abstract/GraphSchema";
+import { GraphSchema } from "./schema";
 import { Capabilities } from "../core/loading/Capabilities";
 import { DeletionResult } from "../core/loading/DeletionResult";
 import { SingleTypeRelationships } from "../core/loading/SingleTypeRelationships";

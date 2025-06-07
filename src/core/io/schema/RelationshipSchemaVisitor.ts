@@ -5,10 +5,10 @@
  * Uses method overloading to handle both visitor calls and getter access.
  */
 
-import { RelationshipType } from '@/projection/RelationshipType';
-import { Direction } from '@/api/schema/Direction';
-import { Aggregation } from '@/core/Aggregation';
-import { InputRelationshipSchemaVisitor } from './InputRelationshipSchemaVisitor';
+import { RelationshipType } from "@/projection";
+import { Direction } from "@/api/schema";
+import { Aggregation } from "@/core";
+import { InputRelationshipSchemaVisitor } from "./InputRelationshipSchemaVisitor";
 
 export abstract class RelationshipSchemaVisitor extends InputRelationshipSchemaVisitor.Adapter {
   private _relationshipType: RelationshipType | null = null;
@@ -18,7 +18,9 @@ export abstract class RelationshipSchemaVisitor extends InputRelationshipSchemaV
   // OVERLOADED RELATIONSHIP TYPE METHOD
   relationshipType(): RelationshipType | null;
   relationshipType(relationshipType: RelationshipType): boolean;
-  relationshipType(relationshipType?: RelationshipType): RelationshipType | null | boolean {
+  relationshipType(
+    relationshipType?: RelationshipType
+  ): RelationshipType | null | boolean {
     if (relationshipType === undefined) {
       // Getter call - return stored value
       return this._relationshipType;

@@ -1,8 +1,8 @@
 import { RelationshipType } from '@/projection';
 import { Direction } from '../Direction';
+import { RelationshipSchemaEntry } from '../abstract/RelationshipSchemaEntry';
 import { ElementSchema } from './ElementSchema';
 import { RelationshipPropertySchema } from './RelationshipPropertySchema';
-import { RelationshipSchemaEntry } from '../abstract/RelationshipSchemaEntry';
 
 /**
  * Schema definition for relationships in a graph.
@@ -27,7 +27,7 @@ export abstract class RelationshipSchema extends ElementSchema<
   /**
    * Creates a filtered version of this schema.
    */
-  abstract filter(relationshipTypesToKeep: Set<RelationshipType>): RelationshipSchema;
+  abstract filter(relationshipTypesToKeep: Array<RelationshipType>): RelationshipSchema;
 
   /**
    * Combines this schema with another schema.
@@ -37,7 +37,7 @@ export abstract class RelationshipSchema extends ElementSchema<
   /**
    * Returns all available relationship types in this schema.
    */
-  abstract availableTypes(): Set<RelationshipType>;
+  abstract availableTypes(): Array<RelationshipType>;
 
   /**
    * Checks if the relationships in this schema are undirected.

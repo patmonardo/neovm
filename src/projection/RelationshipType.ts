@@ -1,4 +1,4 @@
-import { ElementIdentifier } from './abstract/ElementIdentifier';
+import { ElementIdentifier } from "./abstract/ElementIdentifier";
 
 /**
  * Identifies a relationship type in a graph.
@@ -7,7 +7,8 @@ export class RelationshipType extends ElementIdentifier {
   /**
    * Relationship type that matches all relationships.
    */
-  public static readonly ALL_RELATIONSHIPS = RelationshipType.of("__ALL__");
+  public static readonly ALL_RELATIONSHIPS = new RelationshipType("__ALL__");
+  private static readonly _instances = new Map<string, RelationshipType>();
 
   /**
    * Creates a new RelationshipType.
@@ -34,7 +35,10 @@ export class RelationshipType extends ElementIdentifier {
    * @returns A new RelationshipType
    */
   public static of(name: string): RelationshipType {
-    return new RelationshipType(name);
+    if (!RelationshipType._instances.has(name)) {
+      RelationshipType._instances.set(name, new RelationshipType(name));
+    }
+    return RelationshipType._instances.get(name)!;
   }
 
   /**

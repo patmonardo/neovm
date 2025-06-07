@@ -49,7 +49,7 @@ export class MixedAdjacencyList implements AdjacencyList {
    * Combined memory usage statistics.
    * **The Aggregation**: Merges memory info from both storage systems
    */
-  private readonly memoryInfo: MemoryInfo;
+  private readonly _memoryInfo: MemoryInfo;
 
   constructor(
     packedAdjacencyList: AdjacencyList,
@@ -58,7 +58,7 @@ export class MixedAdjacencyList implements AdjacencyList {
   ) {
     this.packedAdjacencyList = packedAdjacencyList;
     this.vlongAdjacencyList = vlongAdjacencyList;
-    this.memoryInfo = memoryInfo;
+    this._memoryInfo = memoryInfo;
   }
 
   // ============================================================================
@@ -156,6 +156,6 @@ export class MixedAdjacencyList implements AdjacencyList {
    * we're essentially running two complete graph storage systems!
    */
   memoryInfo(): MemoryInfo {
-    return this.memoryInfo;
+    return this._memoryInfo;
   }
 }

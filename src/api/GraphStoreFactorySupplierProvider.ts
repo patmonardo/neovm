@@ -1,6 +1,5 @@
-import { GraphProjectConfig } from "@/config/GraphProjectConfig"; // Placeholder
-import { GraphStoreFactorySupplier } from "./GraphStoreFactory"; // Assuming GraphStoreFactory.ts contains GraphStoreFactorySupplier
-
+import { GraphProjectConfig } from "@/config";
+import { GraphStoreFactorySupplier } from "./GraphStoreFactory";
 /**
  * Provides a GraphStoreFactory.Supplier based on a given GraphProjectConfig.
  * The `@Service` annotation from Java indicates this is likely a component

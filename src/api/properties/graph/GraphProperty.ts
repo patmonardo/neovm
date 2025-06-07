@@ -1,7 +1,7 @@
 import { DefaultValue } from "@/api";
 import { PropertyState } from "@/api";
 import { Property } from "@/api/properties";
-import { PropertySchema } from "@/api/schema/abstract/PropertySchema";
+import { PropertySchema } from "@/api/schema/";
 import { GraphPropertyValues } from "./GraphPropertyValues";
 import { DefGraphProperty } from "./primitive/DefGraphProperty";
 
