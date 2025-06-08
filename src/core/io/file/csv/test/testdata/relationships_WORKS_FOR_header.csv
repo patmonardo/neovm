@@ -1,5 +1,0 @@
-:START_ID,:END_ID,:TYPE,position:string,startDate:string,salary:double
-user_001,comp_001,WORKS_FOR,Senior Developer,2022-01-01,95000.00
-user_002,comp_002,WORKS_FOR,Data Analyst,2021-06-15,78000.00
-user_004,comp_001,WORKS_FOR,Product Manager,2020-03-01,110000.00
-user_005,comp_003,WORKS_FOR,DevOps Engineer,2023-02-14,88000.00

@@ -1,20 +1,16 @@
-/**
- * NODE LABEL MAPPING LOADER - CSV LABEL MAPPING PARSER
- *
- * Simple loader with single load() method that reads CSV node label mapping files.
- * Maps node indices to label strings for efficient label lookup.
- */
-
 import { CsvNodeLabelMappingVisitor } from "./CsvNodeLabelMappingVisitor";
 import * as fs from "fs";
 import * as path from "path";
+import Papa from "papaparse";
 
+/**
+ * NodeLabelMappingLoader using Papa Parse for robust CSV parsing.
+ * Maps node indices to label strings for efficient label lookup.
+ */
 export class NodeLabelMappingLoader {
   private readonly labelMappingPath: string;
-  private readonly mapping: Map<string, string>;
 
   constructor(csvDirectory: string) {
-    this.mapping = new Map<string, string>();
     this.labelMappingPath = path.join(
       csvDirectory,
       CsvNodeLabelMappingVisitor.LABEL_MAPPING_FILE_NAME
@@ -22,80 +18,105 @@ export class NodeLabelMappingLoader {
   }
 
   /**
-   * Load node label mapping from CSV file.
-   * Returns empty Optional if file doesn't exist.
-   *
-   * @returns Map<string, string> of index -> label mappings, or null if file doesn't exist
-   * @throws Error if file cannot be read or parsed
+   * Load node label mapping from CSV file using Papa Parse.
+   * Returns empty Map if file doesn't exist.
    */
   load(): Map<string, string> | null {
-    // Return null if file doesn't exist (Optional.empty() equivalent)
     if (!fs.existsSync(this.labelMappingPath)) {
       return null;
     }
 
     try {
-      // Read CSV file line by line
-      const fileContent = fs.readFileSync(this.labelMappingPath, "utf-8");
-      const lines = fileContent.trim().split("\n");
+      const csvContent = fs.readFileSync(this.labelMappingPath, "utf-8");
 
-      if (lines.length === 0) {
-        return this.mapping;
+      const result = Papa.parse(csvContent, {
+        header: true,
+        skipEmptyLines: true,
+        transform: (value) => value.trim(),
+        dynamicTyping: false,
+      });
+
+      if (result.errors.length > 0) {
+        console.warn(`CSV parsing errors in ${this.labelMappingPath}:`, result.errors);
       }
 
-      // Parse header line
-      const header = lines[0].split(",").map((col) => col.trim());
-      const indexColumn = header.indexOf("index");
-      const labelColumn = header.indexOf("label");
+      const rows = result.data as NodeLabelMappingRow[];
 
-      if (indexColumn === -1) {
-        throw new Error('Missing required "index" column in label mapping');
-      }
-      if (labelColumn === -1) {
-        throw new Error('Missing required "label" column in label mapping');
+      if (rows.length === 0) {
+        return new Map<string, string>();
       }
 
-      // Process each data line
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line === "") continue;
-
-        const mappingLine = this.parseMappingLine(
-          line,
-          indexColumn,
-          labelColumn
-        );
-        this.mapping.set(mappingLine.index, mappingLine.label);
-      }
+      return this.buildMapping(rows);
     } catch (error) {
-      throw new Error(
-        `Failed to load node label mapping: ${(error as Error).message}`
-      );
+      throw new Error(`Failed to load node label mapping: ${(error as Error).message}`);
     }
-
-    return this.mapping;
   }
 
   /**
-   * Parse a single CSV line into a MappingLine object.
+   * 🧪 Simple debug method for basic file checking.
    */
-  private parseMappingLine(
-    line: string,
-    indexColumn: number,
-    labelColumn: number
-  ): MappingLine {
-    const columns = line.split(",").map((col) => col.trim());
+  debug(): void {
+    console.log("🏷️ === NodeLabelMappingLoader Debug ===");
+    console.log(`📁 File: ${this.labelMappingPath}`);
+    console.log(`📄 Exists: ${fs.existsSync(this.labelMappingPath)}`);
 
-    const index = columns[indexColumn] || "";
-    const label = columns[labelColumn] || "";
+    if (fs.existsSync(this.labelMappingPath)) {
+      try {
+        const mapping = this.load();
+        if (mapping) {
+          console.log(`✅ Loaded ${mapping.size} label mappings`);
+          // Show first few mappings
+          let count = 0;
+          for (const [index, label] of mapping.entries()) {
+            if (count < 3) {
+              console.log(`  ${index} -> ${label}`);
+            }
+            count++;
+          }
+          if (mapping.size > 3) {
+            console.log(`  ... and ${mapping.size - 3} more mappings`);
+          }
+        } else {
+          console.log("📄 File not found, returned null");
+        }
+      } catch (error) {
+        console.log(`❌ Load failed: ${(error as Error).message}`);
+      }
+    }
+    console.log("🏷️ === End Debug ===\n");
+  }
 
-    return new MappingLine(index, label);
+  /**
+   * 🏗️ Build mapping from parsed CSV rows.
+   */
+  private buildMapping(rows: NodeLabelMappingRow[]): Map<string, string> {
+    const mapping = new Map<string, string>();
+
+    for (const row of rows) {
+      this.validateRow(row);
+      mapping.set(row.index, row.label);
+    }
+
+    return mapping;
+  }
+
+  /**
+   * 🔧 Validate CSV row data.
+   */
+  private validateRow(row: NodeLabelMappingRow): void {
+    if (!row.index || row.index.trim() === "") {
+      throw new Error("Missing required field: index");
+    }
+    if (!row.label || row.label.trim() === "") {
+      throw new Error("Missing required field: label");
+    }
   }
 }
 
 /**
- * Mapping line data structure.
+ * 🧩 Interface for node label mapping CSV rows.
  */
-class MappingLine {
-  constructor(public readonly index: string, public readonly label: string) {}
+interface NodeLabelMappingRow {
+  index: string;
+  label: string;
 }

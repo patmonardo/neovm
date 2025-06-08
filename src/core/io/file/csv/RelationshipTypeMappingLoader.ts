@@ -1,92 +1,129 @@
+import { CsvRelationshipTypeMappingVisitor } from "./CsvRelationshipTypeMappingVisitor";
+import * as fs from "fs";
+import * as path from "path";
+import Papa from "papaparse";
+
 /**
- * RELATIONSHIP TYPE MAPPING LOADER - CSV TYPE MAPPING PARSER
- *
- * Simple loader with single load() method that reads CSV relationship type mapping files.
- * Maps type indices to type strings for efficient type lookup.
+ * RelationshipTypeMappingLoader using Papa Parse for robust CSV parsing.
+ * Maps relationship type indices to type strings for efficient type lookup.
  */
-
-import { CsvRelationshipTypeMappingVisitor } from './CsvRelationshipTypeMappingVisitor';
-import * as fs from 'fs';
-import * as path from 'path';
-
 export class RelationshipTypeMappingLoader {
   private readonly typeMappingPath: string;
-  private readonly mapping: Map<string, string>;
 
   constructor(csvDirectory: string) {
-    this.mapping = new Map<string, string>();
-    this.typeMappingPath = path.join(csvDirectory, CsvRelationshipTypeMappingVisitor.TYPE_MAPPING_FILE_NAME);
+    this.typeMappingPath = path.join(
+      csvDirectory,
+      CsvRelationshipTypeMappingVisitor.TYPE_MAPPING_FILE_NAME
+    );
   }
 
   /**
-   * Load relationship type mapping from CSV file.
-   * Returns empty Optional if file doesn't exist.
-   *
-   * @returns Map<string, string> of index -> type mappings, or null if file doesn't exist
-   * @throws Error if file cannot be read or parsed
+   * Load relationship type mapping from CSV file using Papa Parse.
+   * Returns empty Map if file doesn't exist.
    */
   load(): Map<string, string> | null {
-    // Return null if file doesn't exist (Optional.empty() equivalent)
     if (!fs.existsSync(this.typeMappingPath)) {
       return null;
     }
 
     try {
-      // Read CSV file line by line
-      const fileContent = fs.readFileSync(this.typeMappingPath, 'utf-8');
-      const lines = fileContent.trim().split('\n');
+      const csvContent = fs.readFileSync(this.typeMappingPath, "utf-8");
 
-      if (lines.length === 0) {
-        return this.mapping;
+      const result = Papa.parse(csvContent, {
+        header: true,
+        skipEmptyLines: true,
+        transform: (value) => value.trim(),
+        dynamicTyping: false,
+      });
+
+      if (result.errors.length > 0) {
+        console.warn(
+          `CSV parsing errors in ${this.typeMappingPath}:`,
+          result.errors
+        );
       }
 
-      // Parse header line
-      const header = lines[0].split(',').map(col => col.trim());
-      const indexColumn = header.indexOf('index');
-      const typeColumn = header.indexOf('type');
+      const rows = result.data as RelationshipTypeMappingRow[];
 
-      if (indexColumn === -1) {
-        throw new Error('Missing required "index" column in type mapping');
-      }
-      if (typeColumn === -1) {
-        throw new Error('Missing required "type" column in type mapping');
+      if (rows.length === 0) {
+        return new Map<string, string>();
       }
 
-      // Process each data line
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line === '') continue;
-
-        const mappingLine = this.parseMappingLine(line, indexColumn, typeColumn);
-        this.mapping.set(mappingLine.index, mappingLine.type);
-      }
-
+      return this.buildMapping(rows);
     } catch (error) {
-      throw new Error(`Failed to load relationship type mapping: ${(error as Error).message}`);
+      throw new Error(
+        `Failed to load relationship type mapping: ${(error as Error).message}`
+      );
     }
-
-    return this.mapping;
   }
 
   /**
-   * Parse a single CSV line into a MappingLine object.
+   * 🧪 Simple debug method for basic file checking.
    */
-  private parseMappingLine(line: string, indexColumn: number, typeColumn: number): MappingLine {
-    const columns = line.split(',').map(col => col.trim());
+  debug(): void {
+    console.log("🔗 === RelationshipTypeMappingLoader Debug ===");
+    console.log(`📁 File: ${this.typeMappingPath}`);
+    console.log(`📄 Exists: ${fs.existsSync(this.typeMappingPath)}`);
 
-    const index = columns[indexColumn] || '';
-    const type = columns[typeColumn] || '';
+    if (fs.existsSync(this.typeMappingPath)) {
+      try {
+        const mapping = this.load();
+        if (mapping) {
+          console.log(`✅ Loaded ${mapping.size} type mappings`);
+          // Show first few mappings
+          let count = 0;
+          for (const [index, type] of mapping.entries()) {
+            if (count < 3) {
+              console.log(`  ${index} -> ${type}`);
+            }
+            count++;
+          }
+          if (mapping.size > 3) {
+            console.log(`  ... and ${mapping.size - 3} more mappings`);
+          }
+        } else {
+          console.log("📄 File not found, returned null");
+        }
+      } catch (error) {
+        console.log(`❌ Load failed: ${(error as Error).message}`);
+      }
+    }
+    console.log("🔗 === End Debug ===\n");
+  }
 
-    return new MappingLine(index, type);
+  /**
+   * 🏗️ Build mapping from parsed CSV rows.
+   */
+  private buildMapping(
+    rows: RelationshipTypeMappingRow[]
+  ): Map<string, string> {
+    const mapping = new Map<string, string>();
+
+    for (const row of rows) {
+      this.validateRow(row);
+      mapping.set(row.index, row.type);
+    }
+
+    return mapping;
+  }
+
+  /**
+   * 🔧 Validate CSV row data.
+   */
+  private validateRow(row: RelationshipTypeMappingRow): void {
+    if (!row.index || row.index.trim() === "") {
+      throw new Error("Missing required field: index");
+    }
+    if (!row.type || row.type.trim() === "") {
+      throw new Error("Missing required field: type");
+    }
   }
 }
 
 /**
- * Mapping line data structure.
+ * 🧩 Interface for relationship type mapping CSV rows.
  */
-class MappingLine {
-  constructor(
-    public readonly index: string,
-    public readonly type: string
-  ) {}
+interface RelationshipTypeMappingRow {
+  index: string;
+  type: string;
 }

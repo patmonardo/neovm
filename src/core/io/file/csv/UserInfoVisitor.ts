@@ -7,7 +7,7 @@ import { SingleRowVisitor } from "@/core/io/file";
  * Implements SingleRowVisitor to write a single user info string to a file.
  */
 export class UserInfoVisitor implements SingleRowVisitor<string> {
-  public static readonly USER_INFO_FILE_NAME = ".userinfo";
+  public static readonly USER_INFO_FILE_NAME = "user-info.csv";
 
   private readonly writer: fs.WriteStream;
   private readonly filePath: string;

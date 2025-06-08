@@ -17,7 +17,7 @@ interface RelationshipTypeMapping {
 export class CsvRelationshipTypeMappingVisitor {
   private static readonly INDEX_COLUMN_NAME = "index";
   private static readonly TYPE_COLUMN_NAME = "type";
-  static readonly TYPE_MAPPING_FILE_NAME = "type_mappings.csv";
+  static readonly TYPE_MAPPING_FILE_NAME = "type-mappings.csv";
 
   private readonly csvWriter: fs.WriteStream;
   private readonly fileLocation: string;

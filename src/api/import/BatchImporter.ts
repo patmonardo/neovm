@@ -5,7 +5,7 @@
  * This is where the actual file I/O and graph construction happens.
  */
 
-import { Input } from './input/Input';
+import { Input } from "./input/Input";
 
 export interface BatchImporter {
   /**
@@ -50,7 +50,9 @@ export interface IncrementalBatchImporter extends BatchImporter {
 }
 
 // Default implementation of three-phase import
-export abstract class AbstractIncrementalBatchImporter implements IncrementalBatchImporter {
+export abstract class AbstractIncrementalBatchImporter
+  implements IncrementalBatchImporter
+{
   async doImport(input: Input): Promise<void> {
     await this.prepare(input);
     await this.build(input);

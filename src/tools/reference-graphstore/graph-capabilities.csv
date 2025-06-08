@@ -1,0 +1,2 @@
+canWriteToDatabase,canWriteToLocalFile,writeMode
+true,true,LOCAL

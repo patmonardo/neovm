@@ -1,10 +1,3 @@
-/**
- * GRAPH PROPERTY SCHEMA LOADER - CSV GRAPH PROPERTY SCHEMA PARSER
- *
- * Simple loader with single load() method that reads CSV graph property schema files.
- * Parses schema lines and builds graph property schema using visitor pattern.
- */
-
 import { PropertyState } from '@/api';
 import { ValueType } from '@/api';
 import { PropertySchema } from '@/api/schema';
@@ -13,7 +6,11 @@ import { DefaultValueIOHelper } from './DefaultValueIOHelper';
 import { CsvGraphPropertySchemaVisitor } from './CsvGraphPropertySchemaVisitor';
 import * as fs from 'fs';
 import * as path from 'path';
+import Papa from "papaparse";
 
+/**
+ * GraphPropertySchemaLoader using Papa Parse for robust CSV parsing.
+ */
 export class GraphPropertySchemaLoader {
   private readonly graphPropertySchemaPath: string;
 
@@ -25,11 +22,8 @@ export class GraphPropertySchemaLoader {
   }
 
   /**
-   * Load Map<String, PropertySchema> from CSV file.
+   * Load Map<String, PropertySchema> from CSV file using Papa Parse.
    * Returns empty map if file doesn't exist.
-   *
-   * @returns Map of property schemas built from CSV schema file
-   * @throws Error if file cannot be read or parsed
    */
   load(): Map<string, PropertySchema> {
     const schemaBuilder = new GraphPropertySchemaBuilderVisitor();
@@ -41,122 +35,146 @@ export class GraphPropertySchemaLoader {
         return schemaBuilder.schema();
       }
 
-      // Read CSV file line by line
-      const fileContent = fs.readFileSync(this.graphPropertySchemaPath, 'utf-8');
-      const lines = fileContent.trim().split('\n');
+      const csvContent = fs.readFileSync(this.graphPropertySchemaPath, "utf-8");
 
-      if (lines.length === 0) {
-        schemaBuilder.close();
-        return schemaBuilder.schema();
+      const result = Papa.parse(csvContent, {
+        header: true,
+        skipEmptyLines: true,
+        transform: (value) => value.trim(),
+        dynamicTyping: false,
+      });
+
+      if (result.errors.length > 0) {
+        console.warn(`CSV parsing errors in ${this.graphPropertySchemaPath}:`, result.errors);
       }
 
-      // Parse header line
-      const header = lines[0].split(',').map(col => col.trim());
-      const propertyKeyIndex = header.indexOf('propertyKey');
-      const valueTypeIndex = header.indexOf('valueType');
-      const defaultValueIndex = header.indexOf('defaultValue');
-      const stateIndex = header.indexOf('state');
+      const rows = result.data as GraphPropertySchemaRow[];
 
-      if (propertyKeyIndex === -1) {
-        throw new Error('Missing required "propertyKey" column in graph property schema');
-      }
+      // Process each row
+      for (const row of rows) {
+        this.validateRow(row);
 
-      // Process each data line
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line === '') continue;
+        schemaBuilder.key(row.propertyKey);
+        schemaBuilder.valueType(this.parseValueType(row.valueType || "STRING"));
+        schemaBuilder.state(this.parsePropertyState(row.state || "PERSISTENT"));
 
-        const schemaLine = this.parseSchemaLine(line, {
-          propertyKeyIndex,
-          valueTypeIndex,
-          defaultValueIndex,
-          stateIndex
-        });
-
-        // Build schema using visitor pattern
-        schemaBuilder.key(schemaLine.propertyKey);
-        schemaBuilder.valueType(schemaLine.valueType);
-        schemaBuilder.defaultValue(
-          DefaultValueIOHelper.deserialize(schemaLine.defaultValue, schemaLine.valueType, true)
-        );
-        schemaBuilder.state(schemaLine.state);
+        // Handle default value if present
+        if (row.defaultValue && row.defaultValue.trim() !== "") {
+          const valueType = this.parseValueType(row.valueType || "STRING");
+          const isArray = this.isArrayType(valueType);
+          const defaultValue = DefaultValueIOHelper.deserialize(
+            row.defaultValue,
+            valueType,
+            isArray
+          );
+          schemaBuilder.defaultValue(defaultValue);
+        }
 
         schemaBuilder.endOfEntity();
       }
 
+      schemaBuilder.close();
+      return schemaBuilder.schema();
+
     } catch (error) {
       throw new Error(`Failed to load graph property schema: ${(error as Error).message}`);
     }
-
-    schemaBuilder.close();
-    return schemaBuilder.schema();
   }
 
   /**
-   * Parse a single CSV line into a PropertySchemaLine object.
+   * 🧪 Simple debug method for basic file checking.
    */
-  private parseSchemaLine(line: string, indices: ColumnIndices): PropertySchemaLine {
-    const columns = line.split(',').map(col => col.trim());
+  debug(): void {
+    console.log("🌐 === GraphPropertySchemaLoader Debug ===");
+    console.log(`📁 File: ${this.graphPropertySchemaPath}`);
+    console.log(`📄 Exists: ${fs.existsSync(this.graphPropertySchemaPath)}`);
 
-    const propertyKey = columns[indices.propertyKeyIndex] || '';
+    if (fs.existsSync(this.graphPropertySchemaPath)) {
+      try {
+        const schema = this.load();
+        console.log(`✅ Loaded ${schema.size} graph properties`);
 
-    const valueType = indices.valueTypeIndex >= 0 && columns[indices.valueTypeIndex]
-      ? this.parseValueType(columns[indices.valueTypeIndex])
-      : ValueType.STRING; // Default value type
+        // Show first few properties
+        let count = 0;
+        for (const [key, propSchema] of schema.entries()) {
+          if (count < 3) {
+            const valueType = ValueType.csvName(propSchema.valueType());
+            const state = PropertyState.name(propSchema.state());
+            const hasDefault = propSchema.defaultValue() !== null;
+            console.log(`  ${key}: ${valueType} (${state}) ${hasDefault ? 'has default' : 'no default'}`);
+          }
+          count++;
+        }
+        if (schema.size > 3) {
+          console.log(`  ... and ${schema.size - 3} more properties`);
+        }
+      } catch (error) {
+        console.log(`❌ Load failed: ${(error as Error).message}`);
+      }
+    }
+    console.log("🌐 === End Debug ===\n");
+  }
 
-    const defaultValue = indices.defaultValueIndex >= 0 && columns[indices.defaultValueIndex]
-      ? columns[indices.defaultValueIndex]
-      : null;
-
-    const state = indices.stateIndex >= 0 && columns[indices.stateIndex]
-      ? this.parsePropertyState(columns[indices.stateIndex])
-      : PropertyState.PERSISTENT; // Default state
-
-    return new PropertySchemaLine(propertyKey, valueType, defaultValue, state);
+  /**
+   * 🔧 Validate CSV row data.
+   */
+  private validateRow(row: GraphPropertySchemaRow): void {
+    if (!row.propertyKey || row.propertyKey.trim() === "") {
+      throw new Error("Missing required field: propertyKey");
+    }
   }
 
   private parseValueType(valueTypeStr: string): ValueType {
+    if (!valueTypeStr || valueTypeStr.trim() === "") {
+      return ValueType.STRING; // Default value type
+    }
+
     switch (valueTypeStr.toUpperCase()) {
-      case 'LONG': return ValueType.LONG;
-      case 'DOUBLE': return ValueType.DOUBLE;
-      case 'STRING': return ValueType.STRING;
-      case 'BOOLEAN': return ValueType.BOOLEAN;
-      case 'LONG_ARRAY': return ValueType.LONG_ARRAY;
-      case 'DOUBLE_ARRAY': return ValueType.DOUBLE_ARRAY;
-      case 'STRING_ARRAY': return ValueType.STRING_ARRAY;
+      case "LONG": return ValueType.LONG;
+      case "DOUBLE": return ValueType.DOUBLE;
+      case "STRING": return ValueType.STRING;
+      case "BOOLEAN": return ValueType.BOOLEAN;
+      case "LONG_ARRAY": return ValueType.LONG_ARRAY;
+      case "DOUBLE_ARRAY": return ValueType.DOUBLE_ARRAY;
+      case "STRING_ARRAY": return ValueType.STRING_ARRAY;
+      case "FLOAT_ARRAY": return ValueType.FLOAT_ARRAY;
       default:
         throw new Error(`Unknown ValueType: ${valueTypeStr}`);
     }
   }
 
   private parsePropertyState(stateStr: string): PropertyState {
+    if (!stateStr || stateStr.trim() === "") {
+      return PropertyState.PERSISTENT; // Default state
+    }
+
     switch (stateStr.toUpperCase()) {
-      case 'PERSISTENT': return PropertyState.PERSISTENT;
-      case 'TRANSIENT': return PropertyState.TRANSIENT;
+      case "PERSISTENT": return PropertyState.PERSISTENT;
+      case "TRANSIENT": return PropertyState.TRANSIENT;
       default:
         throw new Error(`Unknown PropertyState: ${stateStr}`);
+    }
+  }
+
+  private isArrayType(valueType: ValueType): boolean {
+    switch (valueType) {
+      case ValueType.LONG_ARRAY:
+      case ValueType.DOUBLE_ARRAY:
+      case ValueType.STRING_ARRAY:
+      case ValueType.FLOAT_ARRAY:
+        return true;
+      default:
+        return false;
     }
   }
 }
 
 /**
- * Property schema line data structure.
+ * 🧩 Interface for graph property schema CSV rows.
  */
-class PropertySchemaLine {
-  constructor(
-    public readonly propertyKey: string,
-    public readonly valueType: ValueType,
-    public readonly defaultValue: string | null,
-    public readonly state: PropertyState
-  ) {}
-}
-
-/**
- * Column indices for CSV parsing.
- */
-interface ColumnIndices {
-  propertyKeyIndex: number;
-  valueTypeIndex: number;
-  defaultValueIndex: number;
-  stateIndex: number;
+interface GraphPropertySchemaRow {
+  propertyKey: string;
+  valueType: string;
+  defaultValue: string;
+  state: string;
 }

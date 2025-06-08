@@ -1,10 +1,3 @@
-/**
- * RELATIONSHIP SCHEMA LOADER - CSV RELATIONSHIP SCHEMA PARSER
- *
- * Simple loader with single load() method that reads CSV relationship schema files.
- * Parses schema lines and builds MutableRelationshipSchema using visitor pattern.
- */
-
 import { RelationshipType } from "@/projection";
 import { PropertyState } from "@/api";
 import { ValueType } from "@/api";
@@ -16,7 +9,11 @@ import { CsvRelationshipSchemaVisitor } from "./CsvRelationshipSchemaVisitor";
 import { DefaultValueIOHelper } from "./DefaultValueIOHelper";
 import * as fs from "fs";
 import * as path from "path";
+import Papa from "papaparse";
 
+/**
+ * RelationshipSchemaLoader using Papa Parse for robust CSV parsing.
+ */
 export class RelationshipSchemaLoader {
   private readonly relationshipSchemaPath: string;
 
@@ -28,162 +25,141 @@ export class RelationshipSchemaLoader {
   }
 
   /**
-   * Load MutableRelationshipSchema from CSV file.
-   *
-   * @returns MutableRelationshipSchema built from CSV schema file
-   * @throws Error if file cannot be read or parsed
+   * Load MutableRelationshipSchema from CSV file using Papa Parse.
    */
   load(): MutableRelationshipSchema {
+    try {
+      if (!fs.existsSync(this.relationshipSchemaPath)) {
+        throw new Error(`Relationship schema file not found: ${this.relationshipSchemaPath}`);
+      }
+
+      const csvContent = fs.readFileSync(this.relationshipSchemaPath, "utf-8");
+
+      const result = Papa.parse(csvContent, {
+        header: true,
+        skipEmptyLines: true,
+        transform: (value) => value.trim(),
+        dynamicTyping: false,
+      });
+
+      if (result.errors.length > 0) {
+        console.warn(`CSV parsing errors in ${this.relationshipSchemaPath}:`, result.errors);
+      }
+
+      const rows = result.data as RelationshipSchemaRow[];
+
+      if (rows.length === 0) {
+        throw new Error("Relationship schema file is empty or contains only headers");
+      }
+
+      return this.buildRelationshipSchema(rows);
+    } catch (error) {
+      throw new Error(`Failed to load relationship schema: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * 🧪 Simple debug method for basic file checking.
+   */
+  debug(): void {
+    console.log("🔗 === RelationshipSchemaLoader Debug ===");
+    console.log(`📁 File: ${this.relationshipSchemaPath}`);
+    console.log(`📄 Exists: ${fs.existsSync(this.relationshipSchemaPath)}`);
+
+    if (fs.existsSync(this.relationshipSchemaPath)) {
+      try {
+        const relSchema = this.load();
+        const types = Array.from(relSchema.availableTypes());
+        console.log(`✅ Loaded ${types.length} relationship types: ${types.map(t => t.name()).join(", ")}`);
+      } catch (error) {
+        console.log(`❌ Load failed: ${(error as Error).message}`);
+      }
+    }
+    console.log("🔗 === End Debug ===\n");
+  }
+
+  /**
+   * 🏗️ Build MutableRelationshipSchema from parsed CSV rows.
+   */
+  private buildRelationshipSchema(rows: RelationshipSchemaRow[]): MutableRelationshipSchema {
     const schemaBuilder = new RelationshipSchemaBuilderVisitor();
 
     try {
-      // Read CSV file line by line
-      const fileContent = fs.readFileSync(this.relationshipSchemaPath, "utf-8");
-      const lines = fileContent.trim().split("\n");
+      for (const row of rows) {
+        this.validateRow(row);
 
-      if (lines.length === 0) {
-        throw new Error("Relationship schema file is empty");
-      }
+        const relationshipType = RelationshipType.of(row.relationshipType);
+        const direction = this.parseDirection(row.direction || "DIRECTED");
 
-      // Parse header line
-      const header = lines[0].split(",").map((col) => col.trim());
-      const relationshipTypeIndex = header.indexOf("relationshipType");
-      const directionIndex = header.indexOf("direction");
-      const propertyKeyIndex = header.indexOf("propertyKey");
-      const valueTypeIndex = header.indexOf("valueType");
-      const defaultValueIndex = header.indexOf("defaultValue");
-      const aggregationIndex = header.indexOf("aggregation");
-      const stateIndex = header.indexOf("state");
+        schemaBuilder.relationshipType(relationshipType);
+        schemaBuilder.direction(direction);
 
-      if (relationshipTypeIndex === -1) {
-        throw new Error(
-          'Missing required "relationshipType" column in relationship schema'
-        );
-      }
+        if (row.propertyKey && row.propertyKey.trim() !== "") {
+          schemaBuilder.key(row.propertyKey);
+          schemaBuilder.valueType(this.parseValueType(row.valueType));
+          schemaBuilder.state(this.parsePropertyState(row.state));
+          schemaBuilder.aggregation(this.parseAggregation(row.aggregation || "NONE"));
 
-      // Process each data line
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line === "") continue;
-
-        const schemaLine = this.parseSchemaLine(line, {
-          relationshipTypeIndex,
-          directionIndex,
-          propertyKeyIndex,
-          valueTypeIndex,
-          defaultValueIndex,
-          aggregationIndex,
-          stateIndex,
-        });
-
-        // Build schema using visitor pattern
-        schemaBuilder.relationshipType(schemaLine.relationshipType);
-        schemaBuilder.direction(schemaLine.direction);
-
-        if (schemaLine.propertyKey !== null) {
-          schemaBuilder.key(schemaLine.propertyKey);
-          schemaBuilder.valueType(schemaLine.valueType!);
-          schemaBuilder.defaultValue(
-            DefaultValueIOHelper.deserialize(
-              schemaLine.defaultValue,
-              schemaLine.valueType!,
-              true
-            )
-          );
-          schemaBuilder.state(schemaLine.state!);
-          schemaBuilder.aggregation(schemaLine.aggregation!);
+          if (row.defaultValue && row.defaultValue.trim() !== "") {
+            const valueType = this.parseValueType(row.valueType);
+            const isArray = this.isArrayType(valueType);
+            const defaultValue = DefaultValueIOHelper.deserialize(
+              row.defaultValue,
+              valueType,
+              isArray
+            );
+            schemaBuilder.defaultValue(defaultValue);
+          }
         }
 
         schemaBuilder.endOfEntity();
       }
-    } catch (error) {
-      throw new Error(
-        `Failed to load relationship schema: ${(error as Error).message}`
-      );
-    }
 
-    schemaBuilder.close();
-    return schemaBuilder.schema();
+      schemaBuilder.close();
+      return schemaBuilder.schema();
+    } catch (error) {
+      throw new Error(`Failed to build relationship schema: ${(error as Error).message}`);
+    }
   }
 
-  /**
-   * Parse a single CSV line into a SchemaLine object.
-   */
-  private parseSchemaLine(line: string, indices: ColumnIndices): SchemaLine {
-    const columns = line.split(",").map((col) => col.trim());
+  private validateRow(row: RelationshipSchemaRow): void {
+    if (!row.relationshipType || row.relationshipType.trim() === "") {
+      throw new Error("Missing required field: relationshipType");
+    }
 
-    const relationshipType = RelationshipType.of(
-      columns[indices.relationshipTypeIndex] || ""
-    );
-
-    const direction =
-      indices.directionIndex >= 0 && columns[indices.directionIndex]
-        ? this.parseDirection(columns[indices.directionIndex])
-        : Direction.DIRECTED; // Default value from Java
-
-    const propertyKey =
-      indices.propertyKeyIndex >= 0 && columns[indices.propertyKeyIndex]
-        ? columns[indices.propertyKeyIndex]
-        : null;
-
-    const valueType =
-      indices.valueTypeIndex >= 0 && columns[indices.valueTypeIndex]
-        ? this.parseValueType(columns[indices.valueTypeIndex])
-        : null;
-
-    const defaultValue =
-      indices.defaultValueIndex >= 0 && columns[indices.defaultValueIndex]
-        ? columns[indices.defaultValueIndex]
-        : null;
-
-    const aggregation =
-      indices.aggregationIndex >= 0 && columns[indices.aggregationIndex]
-        ? this.parseAggregation(columns[indices.aggregationIndex])
-        : null;
-
-    const state =
-      indices.stateIndex >= 0 && columns[indices.stateIndex]
-        ? this.parsePropertyState(columns[indices.stateIndex])
-        : null;
-
-    return new SchemaLine(
-      relationshipType,
-      direction,
-      propertyKey,
-      valueType,
-      defaultValue,
-      aggregation,
-      state
-    );
+    if (row.propertyKey && row.propertyKey.trim() !== "") {
+      if (!row.valueType || row.valueType.trim() === "") {
+        throw new Error(`Missing valueType for property ${row.propertyKey} in relationship ${row.relationshipType}`);
+      }
+      if (!row.state || row.state.trim() === "") {
+        throw new Error(`Missing state for property ${row.propertyKey} in relationship ${row.relationshipType}`);
+      }
+    }
   }
 
   private parseDirection(directionStr: string): Direction {
     switch (directionStr.toUpperCase()) {
-      case "DIRECTED":
-        return Direction.DIRECTED;
-      case "UNDIRECTED":
-        return Direction.UNDIRECTED;
+      case "DIRECTED": return Direction.DIRECTED;
+      case "UNDIRECTED": return Direction.UNDIRECTED;
       default:
         throw new Error(`Unknown Direction: ${directionStr}`);
     }
   }
 
   private parseValueType(valueTypeStr: string): ValueType {
+    if (!valueTypeStr || valueTypeStr.trim() === "") {
+      throw new Error("ValueType string is undefined or empty");
+    }
+
     switch (valueTypeStr.toUpperCase()) {
-      case "LONG":
-        return ValueType.LONG;
-      case "DOUBLE":
-        return ValueType.DOUBLE;
-      case "STRING":
-        return ValueType.STRING;
-      case "BOOLEAN":
-        return ValueType.BOOLEAN;
-      case "LONG_ARRAY":
-        return ValueType.LONG_ARRAY;
-      case "DOUBLE_ARRAY":
-        return ValueType.DOUBLE_ARRAY;
-      case "STRING_ARRAY":
-        return ValueType.STRING_ARRAY;
+      case "LONG": return ValueType.LONG;
+      case "DOUBLE": return ValueType.DOUBLE;
+      case "STRING": return ValueType.STRING;
+      case "BOOLEAN": return ValueType.BOOLEAN;
+      case "LONG_ARRAY": return ValueType.LONG_ARRAY;
+      case "DOUBLE_ARRAY": return ValueType.DOUBLE_ARRAY;
+      case "STRING_ARRAY": return ValueType.STRING_ARRAY;
+      case "FLOAT_ARRAY": return ValueType.FLOAT_ARRAY;
       default:
         throw new Error(`Unknown ValueType: ${valueTypeStr}`);
     }
@@ -191,57 +167,48 @@ export class RelationshipSchemaLoader {
 
   private parseAggregation(aggregationStr: string): Aggregation {
     switch (aggregationStr.toUpperCase()) {
-      case "NONE":
-        return Aggregation.NONE;
-      case "SUM":
-        return Aggregation.SUM;
-      case "MIN":
-        return Aggregation.MIN;
-      case "MAX":
-        return Aggregation.MAX;
-      case "COUNT":
-        return Aggregation.COUNT;
+      case "NONE": return Aggregation.NONE;
+      case "SUM": return Aggregation.SUM;
+      case "MIN": return Aggregation.MIN;
+      case "MAX": return Aggregation.MAX;
+      case "COUNT": return Aggregation.COUNT;
       default:
         throw new Error(`Unknown Aggregation: ${aggregationStr}`);
     }
   }
 
   private parsePropertyState(stateStr: string): PropertyState {
+    if (!stateStr || stateStr.trim() === "") {
+      throw new Error("PropertyState string is undefined or empty");
+    }
+
     switch (stateStr.toUpperCase()) {
-      case "PERSISTENT":
-        return PropertyState.PERSISTENT;
-      case "TRANSIENT":
-        return PropertyState.TRANSIENT;
+      case "PERSISTENT": return PropertyState.PERSISTENT;
+      case "TRANSIENT": return PropertyState.TRANSIENT;
       default:
         throw new Error(`Unknown PropertyState: ${stateStr}`);
     }
   }
+
+  private isArrayType(valueType: ValueType): boolean {
+    switch (valueType) {
+      case ValueType.LONG_ARRAY:
+      case ValueType.DOUBLE_ARRAY:
+      case ValueType.STRING_ARRAY:
+      case ValueType.FLOAT_ARRAY:
+        return true;
+      default:
+        return false;
+    }
+  }
 }
 
-/**
- * Schema line data structure.
- */
-class SchemaLine {
-  constructor(
-    public readonly relationshipType: RelationshipType,
-    public readonly direction: Direction,
-    public readonly propertyKey: string | null,
-    public readonly valueType: ValueType | null,
-    public readonly defaultValue: string | null,
-    public readonly aggregation: Aggregation | null,
-    public readonly state: PropertyState | null
-  ) {}
-}
-
-/**
- * Column indices for CSV parsing.
- */
-interface ColumnIndices {
-  relationshipTypeIndex: number;
-  directionIndex: number;
-  propertyKeyIndex: number;
-  valueTypeIndex: number;
-  defaultValueIndex: number;
-  aggregationIndex: number;
-  stateIndex: number;
+interface RelationshipSchemaRow {
+  relationshipType: string;
+  direction: string;
+  propertyKey: string;
+  valueType: string;
+  defaultValue: string;
+  aggregation: string;
+  state: string;
 }

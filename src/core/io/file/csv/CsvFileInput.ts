@@ -1,15 +1,3 @@
-/**
- * CSV FILE INPUT - MAIN CSV IMPORT ORCHESTRATOR
- *
- * This is the heart of the CSV import system. It:
- * 1. Loads all schemas and metadata from CSV files
- * 2. Discovers and maps header files to data files
- * 3. Creates specialized importers for nodes, relationships, and graph properties
- * 4. Provides InputIterators that parse CSV files into visitor calls
- *
- * This replaces Jackson CSV parsing with native TypeScript parsing.
- */
-
 import { InputIterable } from "@/api/import";
 import { InputIterator } from "@/api/import";
 import { InputChunk } from "@/api/import";
@@ -26,8 +14,7 @@ import { RelationshipFileHeader } from "@/core/io/file";
 import { GraphPropertyFileHeader } from "@/core/io/file";
 import { Capabilities } from "@/core/loading/Capabilities";
 import { MappedListIterator } from "@/core/io/file";
-
-// Import all our CSV loaders
+import { LastProgress } from "@/core/io/GraphStoreInput";
 import { UserInfoLoader } from "./UserInfoLoader";
 import { GraphInfoLoader } from "./GraphInfoLoader";
 import { NodeSchemaLoader } from "./NodeSchemaLoader";
@@ -38,12 +25,21 @@ import { GraphPropertySchemaLoader } from "./GraphPropertySchemaLoader";
 import { GraphCapabilitiesLoader } from "./GraphCapabilitiesLoader";
 import { CsvImportFileUtil } from "./CsvImportFileUtil";
 import { CsvImportParsingUtil } from "./CsvImportParsingUtil";
-
+import Papa from "papaparse";
 import * as fs from "fs";
 
+/**
+ * CSV FILE INPUT - MAIN CSV IMPORT ORCHESTRATOR (PAPA PARSE POWERED)
+ *
+ * This is the heart of the CSV import system. It:
+ * 1. Loads all schemas and metadata from CSV files (Papa Parse ✅)
+ * 2. Discovers and maps header files to data files
+ * 3. Creates specialized importers for nodes, relationships, and graph properties
+ * 4. Provides InputIterators that parse CSV files into visitor calls (Papa Parse ✅)
+ */
 export class CsvFileInput implements FileInput {
   // CSV PARSING CONSTANTS
-  private static readonly COLUMN_SEPARATOR = ",";
+  public static readonly COLUMN_SEPARATOR = ",";
 
   // LOADED DATA - All schemas and metadata loaded from CSV files
   private readonly _importPath: string;
@@ -58,8 +54,8 @@ export class CsvFileInput implements FileInput {
 
   constructor(importPath: string) {
     this._importPath = importPath;
-
-    // Load all schemas and metadata using our CSV loaders
+    console.log(`Initializing CSV import from path: ${importPath}`);
+    // Load all schemas and metadata using our Papa Parse loaders
     this._userName = new UserInfoLoader(importPath).load();
     this._graphInfo = new GraphInfoLoader(importPath).load();
     this._nodeSchema = new NodeSchemaLoader(importPath).load();
@@ -79,12 +75,11 @@ export class CsvFileInput implements FileInput {
     const pathMapping = CsvImportFileUtil.nodeHeaderToFileMapping(
       this._importPath
     );
-
     // 2. Parse headers and create mapping
     const headerToDataFilesMapping = new Map<NodeFileHeader, string[]>();
     for (const [headerPath, dataPaths] of pathMapping.entries()) {
       const labelMappingFn = this._labelMapping
-        ? (label: string) => this._labelMapping!.get(label) || label
+        ? (label: string) => this._labelMapping?.get(label) || label
         : (label: string) => label;
 
       const header = CsvImportFileUtil.parseNodeHeader(
@@ -93,7 +88,9 @@ export class CsvFileInput implements FileInput {
       );
       headerToDataFilesMapping.set(header, dataPaths);
     }
-
+    console.log(
+      `Found ${headerToDataFilesMapping.size} node headers with data files.`
+    );
     // 3. Return InputIterable that creates NodeImporter
     return {
       iterator: () =>
@@ -164,31 +161,24 @@ export class CsvFileInput implements FileInput {
   userName(): string {
     return this._userName;
   }
-
   graphInfo(): GraphInfo {
     return this._graphInfo;
   }
-
   nodeSchema(): MutableNodeSchema {
     return this._nodeSchema;
   }
-
   labelMapping(): Map<string, string> | null {
     return this._labelMapping;
   }
-
   relationshipSchema(): MutableRelationshipSchema {
     return this._relationshipSchema;
   }
-
   typeMapping(): Map<string, string> | null {
     return this._typeMapping;
   }
-
   graphPropertySchema(): Map<string, PropertySchema> {
     return this._graphPropertySchema;
   }
-
   capabilities(): Capabilities {
     return this._capabilities;
   }
@@ -219,13 +209,22 @@ abstract class FileImporter<
    * Gets the next chunk of data to process.
    * This is called by the batch import framework.
    */
-  next(chunk: InputChunk): boolean {
+  async next(chunk: InputChunk): Promise<boolean> {
     if (this.entryIterator.hasNext()) {
-      const entry = this.entryIterator.next();
-      const header = entry.key;
-      const dataFilePath = entry.value;
+      const iteratorResult = this.entryIterator.next();
 
-      // Initialize the chunk with header and file path
+      if (iteratorResult.done) {
+        return false;
+      }
+
+      console.log("Iterator result:", JSON.stringify(iteratorResult, null, 2));
+
+      const pair = iteratorResult.value;
+      const header = pair.left; // ✅ Use .left instead of .key
+      const dataFilePath = pair.right; // ✅ Use .right instead of .value, and it's a single string!
+
+      console.log(`Processing header with data file: ${dataFilePath}`);
+
       if (chunk instanceof LineChunk) {
         (chunk as LineChunk<HEADER, SCHEMA, PROPERTY_SCHEMA>).initialize(
           header,
@@ -236,12 +235,13 @@ abstract class FileImporter<
 
       throw new Error("Expected LineChunk");
     }
+
     return false;
   }
 
   abstract newChunk(): InputChunk;
 
-  close(): void {
+  async close(): Promise<void> {
     // No resources to close for file-based iteration
   }
 }
@@ -302,14 +302,14 @@ class GraphPropertyImporter extends FileImporter<
 }
 
 // =============================================================================
-// ABSTRACT LINE CHUNK - Base for all CSV line processing
+// ABSTRACT LINE CHUNK - Base for all CSV line processing (PAPA PARSE POWERED)
 // =============================================================================
 
 abstract class LineChunk<
   HEADER extends FileHeader<SCHEMA, PROPERTY_SCHEMA>,
   SCHEMA,
   PROPERTY_SCHEMA extends PropertySchema
-> implements InputChunk, GraphStoreInput.LastProgress
+> implements InputChunk, LastProgress
 {
   private readonly schema: SCHEMA;
 
@@ -331,6 +331,10 @@ abstract class LineChunk<
     this.header = header;
     this.propertySchemas = header.schemaForIdentifier(this.schema);
 
+    console.log(
+      `Initializing LineChunk with header: ${header.propertyMappings}`
+    );
+    console.log(`Loading data file: ${dataFilePath}`);
     // Load entire CSV file - replacing Jackson streaming
     try {
       const fileContent = fs.readFileSync(dataFilePath, "utf-8");
@@ -347,10 +351,18 @@ abstract class LineChunk<
   }
 
   /**
-   * Process next line from CSV file.
+   * Get the schema for this chunk.
+   * This is used to validate properties and types.
+   */
+  get schemaForIdentifier(): SCHEMA {
+    return this.schema;
+  }
+
+  /**
+   * Process next line from CSV file using Papa Parse.
    * Returns true if line was processed, false if no more lines.
    */
-  next(visitor: InputEntityVisitor): boolean {
+  async next(visitor: InputEntityVisitor): Promise<boolean> {
     if (
       !this.lines ||
       !this.header ||
@@ -364,7 +376,7 @@ abstract class LineChunk<
       return true; // Skip empty lines, continue processing
     }
 
-    // Parse CSV line - simple split, could be enhanced for quoted fields
+    // ✅ PAPA PARSE CSV LINE - Robust parsing for quoted fields
     const lineArray = this.parseCSVLine(line);
 
     if (lineArray.length !== 0) {
@@ -375,13 +387,44 @@ abstract class LineChunk<
   }
 
   /**
-   * Simple CSV line parser - splits on comma.
-   * TODO: Could be enhanced to handle quoted fields with commas.
+   * ✅ PAPA PARSE CSV LINE PARSER - Handles quoted fields, escapes, etc.
+   * Replaces simple split() with robust Papa Parse parsing.
    */
   private parseCSVLine(line: string): string[] {
-    return line
-      .split(CsvFileInput.COLUMN_SEPARATOR)
-      .map((field) => field.trim());
+    try {
+      const result = Papa.parse<string[]>(line, {
+        header: false, // Single line, no headers
+        skipEmptyLines: false, // Process even if looks empty
+        dynamicTyping: false, // Keep as strings for consistency
+        quoteChar: '"', // Handle quoted fields
+        escapeChar: '"', // Handle escaped quotes
+        delimiter: ",", // Explicit delimiter
+        transform: (value: string) => value.trim(), // Trim each field
+      });
+
+      if (result.errors.length > 0) {
+        console.warn(`CSV line parsing errors:`, result.errors);
+        // Fall back to simple split if Papa Parse fails
+        return line
+          .split(CsvFileInput.COLUMN_SEPARATOR)
+          .map((field) => field.trim());
+      }
+
+      if (result.data.length > 0) {
+        return result.data[0];
+      } else {
+        return [];
+      }
+    } catch (error) {
+      console.warn(
+        `Papa Parse failed for line, falling back to simple split:`,
+        error
+      );
+      // Fall back to simple split for robustness
+      return line
+        .split(CsvFileInput.COLUMN_SEPARATOR)
+        .map((field) => field.trim());
+    }
   }
 
   /**
@@ -393,9 +436,12 @@ abstract class LineChunk<
     visitor: InputEntityVisitor
   ): void;
 
-  close(): void {
-    // Memory cleanup
+  close(): Promise<void> {
     this.lines = undefined;
+    this.header = undefined;
+    this.propertySchemas = undefined;
+    this.currentLineIndex = 0;
+    return Promise.resolve();
   }
 
   lastProgress(): number {
@@ -425,7 +471,7 @@ class NodeLineChunk extends LineChunk<
     visitor.labels(header.nodeLabels());
 
     // Parse and set node ID (first column)
-    visitor.id(CsvImportParsingUtil.parseId(lineArray[0]));
+    visitor.id(Number(CsvImportParsingUtil.parseId(lineArray[0])));
 
     // Process properties
     this.visitProperties(header, this.propertySchemas!, visitor, lineArray);
@@ -475,8 +521,8 @@ class RelationshipLineChunk extends LineChunk<
     visitor.type(header.relationshipType());
 
     // Parse and set start/end IDs (first two columns)
-    visitor.startId(CsvImportParsingUtil.parseId(lineArray[0]));
-    visitor.endId(CsvImportParsingUtil.parseId(lineArray[1]));
+    visitor.startId(Number(CsvImportParsingUtil.parseId(lineArray[0])));
+    visitor.endId(Number(CsvImportParsingUtil.parseId(lineArray[1])));
 
     // Process properties
     this.visitProperties(header, this.propertySchemas!, visitor, lineArray);
@@ -499,7 +545,7 @@ class RelationshipLineChunk extends LineChunk<
       if (propertySchema) {
         const value = CsvImportParsingUtil.parseProperty(
           stringProperty,
-          headerProperty.valueType,
+          headerProperty.valueType(),
           propertySchema.defaultValue()
         );
         visitor.property(propertyKey, value);

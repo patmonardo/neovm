@@ -1,6 +1,0 @@
-:ID,name:string,age:int,email:string,isActive:boolean
-user_001,Alice Johnson,28,alice@example.com,true
-user_002,Bob Smith,34,bob@example.com,true
-user_003,Charlie Brown,22,charlie@example.com,false
-user_004,Diana Prince,31,diana@example.com,true
-user_005,Eve Wilson,26,eve@example.com,true

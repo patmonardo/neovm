@@ -1,4 +1,3 @@
-
 /**
  * READ BEHAVIOUR - IMPORT FILTERING & CONTROL
  *
@@ -30,13 +29,28 @@ export interface ReadBehaviour {
   ): boolean;
 
   translateRelationshipId(relationshipId: number): number;
-  translateRelationshipStartNodeId(relationshipId: number, startNodeId: number, endNodeId: number): number;
-  translateRelationshipEndNodeId(relationshipId: number, startNodeId: number, endNodeId: number): number;
+  translateRelationshipStartNodeId(
+    relationshipId: number,
+    startNodeId: number,
+    endNodeId: number
+  ): number;
+  translateRelationshipEndNodeId(
+    relationshipId: number,
+    startNodeId: number,
+    endNodeId: number
+  ): number;
 
   // Label and property filtering
   filterLabels(labels: string[]): string[];
-  shouldIncludeNodeProperty(propertyKey: string, labels: string[], completeMatch: boolean): boolean;
-  shouldIncludeRelationshipProperty(propertyKey: string, relationshipType: string): boolean;
+  shouldIncludeNodeProperty(
+    propertyKey: string,
+    labels: string[],
+    completeMatch: boolean
+  ): boolean;
+  shouldIncludeRelationshipProperty(
+    propertyKey: string,
+    relationshipType: string
+  ): boolean;
 
   // Statistics and error handling
   unused(): void;

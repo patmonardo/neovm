@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export class CsvGraphInfoVisitor implements SingleRowVisitor<GraphInfo> {
-  static readonly GRAPH_INFO_FILE_NAME = "graph_info.csv";
+  static readonly GRAPH_INFO_FILE_NAME = "graph-info.csv";
   static readonly DATABASE_NAME_COLUMN_NAME = "databaseName";
   static readonly DATABASE_LOCATION_COLUMN_NAME = "databaseLocation";
   static readonly REMOTE_DATABASE_ID_COLUMN_NAME = "remoteDatabaseId";

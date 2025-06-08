@@ -1,10 +1,3 @@
-/**
- * GRAPH INFO LOADER - CSV GRAPH INFO PARSER
- *
- * Simple loader with single load() method that reads CSV graph info files.
- * Parses graph metadata without Jackson dependency.
- */
-
 import { RelationshipType } from "@/projection";
 import { DatabaseId } from "@/api/DatabaseId";
 import { DatabaseInfo, DatabaseLocation } from "@/api/DatabaseInfo";
@@ -13,7 +6,12 @@ import { GraphInfo } from "@/core/io/file";
 import { CsvGraphInfoVisitor } from "./CsvGraphInfoVisitor";
 import * as fs from "fs";
 import * as path from "path";
+import Papa from "papaparse";
 
+/**
+ * Enhanced GraphInfoLoader using Papa Parse for robust CSV parsing.
+ * Loads existing single GraphInfo structure - no multi-graph complexity.
+ */
 export class GraphInfoLoader {
   private readonly graphInfoPath: string;
 
@@ -25,105 +23,202 @@ export class GraphInfoLoader {
   }
 
   /**
-   * Load GraphInfo from CSV file.
-   *
-   * @returns GraphInfo built from CSV file
-   * @throws Error if file cannot be read or parsed
+   * Load GraphInfo from CSV file using Papa Parse.
+   * Handles the exact format produced by CsvGraphInfoVisitor.
    */
   load(): GraphInfo {
     try {
-      // Read CSV file
-      const fileContent = fs.readFileSync(this.graphInfoPath, "utf-8");
-      const lines = fileContent.trim().split("\n");
-
-      if (lines.length < 2) {
-        throw new Error("Graph info file must have header and data line");
+      if (!fs.existsSync(this.graphInfoPath)) {
+        throw new Error(`Graph info file not found: ${this.graphInfoPath}`);
       }
 
-      // Parse header and data
-      const header = lines[0].split(",").map((col) => col.trim());
-      const data = lines[1].split(",").map((col) => col.trim());
+      const csvContent = fs.readFileSync(this.graphInfoPath, "utf-8");
 
-      const line = this.parseGraphInfoLine(header, data);
+      const result = Papa.parse(csvContent, {
+        header: true, // Use column names from CsvGraphInfoVisitor
+        skipEmptyLines: true,
+        transform: (value) => value.trim(),
+        dynamicTyping: false, // Keep all as strings for consistent parsing
+      });
 
-      // Build DatabaseInfo using of() factory
-      const databaseId = DatabaseId.of(line.databaseName);
-      let databaseInfo: DatabaseInfo;
-
-      if (
-        line.databaseLocation === DatabaseLocation.REMOTE &&
-        line.remoteDatabaseId
-      ) {
-        // Remote database - use 3-parameter overload
-        const remoteDatabaseId = DatabaseId.of(line.remoteDatabaseId);
-        databaseInfo = DatabaseInfo.of(
-          databaseId,
-          line.databaseLocation,
-          remoteDatabaseId
+      if (result.errors.length > 0) {
+        console.warn(
+          `CSV parsing errors in ${this.graphInfoPath}:`,
+          result.errors
         );
-      } else {
-        // Local or None database - use 2-parameter overload
-        databaseInfo = DatabaseInfo.of(databaseId, line.databaseLocation);
       }
 
-      // Build GraphInfo
-      return GraphInfo.builder()
-        .databaseInfo(databaseInfo)
-        .idMapBuilderType(line.idMapBuilderType)
-        .nodeCount(line.nodeCount)
-        .maxOriginalId(line.maxOriginalId)
-        .relationshipTypeCounts(line.relTypeCounts)
-        .inverseIndexedRelationshipTypes(line.inverseIndexedRelTypes)
-        .build();
+      const data = result.data as GraphInfoRow[];
+
+      if (data.length === 0) {
+        throw new Error("No graph info data found");
+      }
+
+      // Use first row (single graph)
+      const row = data[0];
+      this.validateGraphInfoRow(row);
+
+      return this.buildGraphInfo(row);
     } catch (error) {
       throw new Error(`Failed to load graph info: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Parse CSV line into GraphInfoLine object.
+   * 🧪 Debug method for development tools.
+   * Shows exactly what Papa Parse extracts from the CSV.
    */
-  private parseGraphInfoLine(header: string[], data: string[]): GraphInfoLine {
-    const line = new GraphInfoLine();
+  debug(): void {
+    console.log("🌐 === GraphInfoLoader Debug Report ===");
 
-    for (let i = 0; i < header.length && i < data.length; i++) {
-      const column = header[i];
-      const value = data[i];
+    try {
+      console.log(`📁 File path: ${this.graphInfoPath}`);
+      console.log(`📄 File exists: ${fs.existsSync(this.graphInfoPath)}`);
 
-      switch (column) {
-        case "databaseName":
-          line.databaseName = value;
-          break;
-        case "databaseLocation":
-          line.databaseLocation = this.parseDatabaseLocation(value);
-          break;
-        case "remoteDatabaseId":
-          line.remoteDatabaseId = value || null;
-          break;
-        case "idMapBuilderType":
-          line.idMapBuilderType = value || IdMap.NO_TYPE;
-          break;
-        case "nodeCount":
-          line.nodeCount = parseInt(value) || 0;
-          break;
-        case "maxOriginalId":
-          line.maxOriginalId = parseInt(value) || 0;
-          break;
-        case "relTypeCounts":
-          line.relTypeCounts = this.parseRelationshipTypeCounts(value);
-          break;
-        case "inverseIndexedRelTypes":
-          line.inverseIndexedRelTypes = this.parseInverseIndexedRelTypes(value);
-          break;
-        // Ignore databaseId - backwards compatibility only
-        case "databaseId":
-          break;
+      if (!fs.existsSync(this.graphInfoPath)) {
+        console.log("❌ Cannot debug - file does not exist");
+        return;
       }
+
+      // Raw file content
+      const rawContent = fs.readFileSync(this.graphInfoPath, "utf-8");
+      console.log(`📏 File size: ${rawContent.length} characters`);
+      console.log(`📄 Raw content: "${rawContent}"`);
+
+      // Papa Parse analysis
+      console.log("\n🎯 Papa Parse Analysis:");
+      const result = Papa.parse(rawContent, {
+        header: true,
+        skipEmptyLines: true,
+      });
+
+      console.log(`📊 Parsed rows: ${result.data.length}`);
+      console.log(
+        `📋 Headers detected: ${result.meta.fields?.join(", ") || "none"}`
+      );
+      console.log(`⚠️ Parse errors: ${result.errors.length}`);
+
+      if (result.errors.length > 0) {
+        result.errors.forEach((error, index) => {
+          console.log(
+            `  Error ${index + 1}: ${error.message} (row: ${error.row})`
+          );
+        });
+      }
+
+      // Show parsed data structure
+      if (result.data.length > 0) {
+        console.log("\n📊 Parsed GraphInfo Data:");
+        (result.data as GraphInfoRow[]).forEach((row, index) => {
+          console.log(`  Row ${index + 1}:`);
+          console.log(`    databaseName: "${row.databaseName}"`);
+          console.log(`    databaseLocation: "${row.databaseLocation}"`);
+          console.log(`    nodeCount: "${row.nodeCount}"`);
+          console.log(`    maxOriginalId: "${row.maxOriginalId}"`);
+          console.log(`    relTypeCounts: "${row.relTypeCounts}"`);
+          console.log(
+            `    inverseIndexedRelTypes: "${row.inverseIndexedRelTypes}"`
+          );
+        });
+      }
+
+      // Test the actual loading
+      console.log("\n🔄 Loading Test:");
+      try {
+        const graphInfo = this.load();
+        console.log(`✅ GraphInfo loaded successfully`);
+        console.log(
+          `🌐 Database name: "${graphInfo
+            .databaseInfo()
+            .databaseId()
+            .databaseName()}"`
+        );
+        console.log(
+          `📍 Database location: ${graphInfo.databaseInfo().databaseLocation()}`
+        );
+        console.log(`📊 Node count: ${graphInfo.nodeCount()}`);
+        console.log(`🔢 Max original ID: ${graphInfo.maxOriginalId()}`);
+        console.log(`🗂️ ID map type: ${graphInfo.idMapBuilderType()}`);
+
+        const relTypeCounts = graphInfo.relationshipTypeCounts();
+        console.log(`🔗 Relationship types: ${relTypeCounts.size} types`);
+        for (const [type, count] of relTypeCounts.entries()) {
+          console.log(`  ${type.name()}: ${count} relationships`);
+        }
+
+        const inverseTypes = graphInfo.inverseIndexedRelationshipTypes();
+        console.log(
+          `📇 Inverse indexed types: ${inverseTypes
+            .map((t) => t.name())
+            .join(", ")}`
+        );
+      } catch (error) {
+        console.log(`❌ Loading test failed: ${(error as Error).message}`);
+      }
+    } catch (error) {
+      console.log(`❌ Debug failed: ${(error as Error).message}`);
     }
 
-    return line;
+    console.log("🌐 === End GraphInfoLoader Debug ===\n");
   }
 
+  /**
+   * 🔧 Validate that required fields are present.
+   */
+  private validateGraphInfoRow(row: GraphInfoRow): void {
+    if (!row.databaseName || row.databaseName.trim() === "") {
+      throw new Error("Missing required field: databaseName");
+    }
+    if (!row.databaseLocation || row.databaseLocation.trim() === "") {
+      throw new Error("Missing required field: databaseLocation");
+    }
+  }
+
+  /**
+   * 🏗️ Build GraphInfo from parsed CSV row.
+   * Uses the exact same logic as before, just with Papa Parse input.
+   */
+  private buildGraphInfo(row: GraphInfoRow): GraphInfo {
+    // Build DatabaseInfo
+    const databaseId = DatabaseId.of(row.databaseName);
+    const databaseLocation = this.parseDatabaseLocation(row.databaseLocation);
+
+    let databaseInfo: DatabaseInfo;
+    if (databaseLocation === DatabaseLocation.REMOTE && row.remoteDatabaseId) {
+      const remoteDatabaseId = DatabaseId.of(row.remoteDatabaseId);
+      databaseInfo = DatabaseInfo.of(
+        databaseId,
+        databaseLocation,
+        remoteDatabaseId
+      );
+    } else {
+      databaseInfo = DatabaseInfo.of(databaseId, databaseLocation);
+    }
+
+    // Parse relationship type counts (using existing format)
+    const relTypeCounts = this.parseRelationshipTypeCounts(
+      row.relTypeCounts || ""
+    );
+
+    // Parse inverse indexed types (using existing format)
+    const inverseIndexedRelTypes = this.parseInverseIndexedRelTypes(
+      row.inverseIndexedRelTypes || ""
+    );
+
+    // Build GraphInfo using existing builder pattern
+    return GraphInfo.builder()
+      .databaseInfo(databaseInfo)
+      .idMapBuilderType(row.idMapBuilderType || IdMap.NO_TYPE)
+      .nodeCount(parseInt(row.nodeCount?.toString() || "0") || 0)
+      .maxOriginalId(parseInt(row.maxOriginalId?.toString() || "0") || 0)
+      .relationshipTypeCounts(relTypeCounts)
+      .inverseIndexedRelationshipTypes(inverseIndexedRelTypes)
+      .build();
+  }
+
+  /**
+   * 🔧 Parse database location from string.
+   */
   private parseDatabaseLocation(value: string): DatabaseLocation {
     switch (value.toUpperCase()) {
       case "LOCAL":
@@ -137,8 +232,8 @@ export class GraphInfoLoader {
   }
 
   /**
-   * Parse relationship type counts from CSV string.
-   * Format: "TYPE1=count1;TYPE2=count2"
+   * 🔗 Parse relationship type counts from CSV string.
+   * Format: "TYPE1=count1;TYPE2=count2" (same as CsvMapUtil format)
    */
   private parseRelationshipTypeCounts(
     value: string
@@ -163,8 +258,8 @@ export class GraphInfoLoader {
   }
 
   /**
-   * Parse inverse indexed relationship types from CSV string.
-   * Format: "TYPE1;TYPE2;TYPE3"
+   * 📇 Parse inverse indexed relationship types from CSV string.
+   * Format: "TYPE1;TYPE2;TYPE3" (same as CsvGraphInfoVisitor format)
    */
   private parseInverseIndexedRelTypes(value: string): RelationshipType[] {
     if (!value || value.trim() === "") {
@@ -179,15 +274,16 @@ export class GraphInfoLoader {
 }
 
 /**
- * Graph info line data structure.
+ * 🧩 Interface matching the CSV columns from CsvGraphInfoVisitor.
+ * Maps directly to the column names defined in the visitor.
  */
-class GraphInfoLine {
-  databaseName: string = "";
-  databaseLocation: DatabaseLocation = DatabaseLocation.LOCAL;
-  remoteDatabaseId: string | null = null;
-  idMapBuilderType: string = IdMap.NO_TYPE;
-  nodeCount: number = 0;
-  maxOriginalId: number = 0;
-  relTypeCounts: Map<RelationshipType, number> = new Map();
-  inverseIndexedRelTypes: RelationshipType[] = [];
+interface GraphInfoRow {
+  databaseName: string; // DATABASE_NAME_COLUMN_NAME
+  databaseLocation: string; // DATABASE_LOCATION_COLUMN_NAME
+  remoteDatabaseId?: string; // REMOTE_DATABASE_ID_COLUMN_NAME
+  idMapBuilderType?: string; // ID_MAP_BUILDER_TYPE_COLUMN_NAME
+  nodeCount?: string | number; // NODE_COUNT_COLUMN_NAME
+  maxOriginalId?: string | number; // MAX_ORIGINAL_ID_COLUMN_NAME
+  relTypeCounts?: string; // REL_TYPE_COUNTS_COLUMN_NAME
+  inverseIndexedRelTypes?: string; // INVERSE_INDEXED_REL_TYPES
 }
