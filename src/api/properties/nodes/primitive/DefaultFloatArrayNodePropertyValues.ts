@@ -6,7 +6,7 @@ import { FloatArrayNodePropertyValues } from "../abstract/FloatArrayNodeProperty
 /**
  * Default implementation of FloatArrayNodePropertyValues backed by a Map.
  */
-export class DefFloatArrayNodePropertyValues implements FloatArrayNodePropertyValues {
+export class DefaultFloatArrayNodePropertyValues implements FloatArrayNodePropertyValues {
   private readonly data: Map<number, Float32Array>;
   private readonly defaultValue: Float32Array;
   private readonly defaults: Omit<

@@ -9,7 +9,7 @@ import { Properties } from "../Properties";
 /**
  * Implementation of RelationshipProperty.
  */
-export class DefRelationshipProperty implements RelationshipProperty {
+export class DefaultRelationshipProperty implements RelationshipProperty {
   /**
    * Creates a new RelationshipProperty implementation.
    *

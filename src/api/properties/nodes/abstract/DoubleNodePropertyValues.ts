@@ -1,7 +1,7 @@
 import { ValueType } from "@/api";
 import { DefaultValue } from "@/api";
 import { NodePropertyValues } from "../NodePropertyValues";
-import { DefDoubleNodePropertyValues } from "../primitive/DefDoubleNodePropertyValues";
+import { DefaultDoubleNodePropertyValues } from "../primitive/DefaultDoubleNodePropertyValues";
 import { EmptyDoubleNodePropertyValues } from "../primitive/EmptyDoubleNodePropertyValues";
 
 /**
@@ -56,9 +56,7 @@ export namespace DoubleNodePropertyValues {
    * Creates a new instance with the specified default value
    */
   export function of(defaultValue: number = 0.0): DoubleNodePropertyValues {
-    // Import here to avoid circular dependencies
-    // const { DefDoubleNodePropertyValues } = require('../primitive/DefDoubleNodePropertyValues');
-    return new DefDoubleNodePropertyValues(
+    return new DefaultDoubleNodePropertyValues(
       new Map<number, number>(),
       DefaultValue.of(defaultValue)
     );
@@ -71,9 +69,7 @@ export namespace DoubleNodePropertyValues {
     data: Map<number, number>,
     defaultValue: number = 0.0
   ): DoubleNodePropertyValues {
-    // Import here to avoid circular dependencies
-    // const { DefDoubleNodePropertyValues } = require('../primitive/DefDoubleNodePropertyValues');
-    return new DefDoubleNodePropertyValues(
+    return new DefaultDoubleNodePropertyValues(
       new Map(data),
       DefaultValue.of(defaultValue)
     );
@@ -83,8 +79,6 @@ export namespace DoubleNodePropertyValues {
    * Creates an empty instance that returns no values
    */
   export function empty(): DoubleNodePropertyValues {
-    // Import here to avoid circular dependencies
-    // const { EmptyDoubleNodePropertyValues } = require('../primitive/EmptyDoubleNodePropertyValues');
     return EmptyDoubleNodePropertyValues.INSTANCE;
   }
 
@@ -95,14 +89,13 @@ export namespace DoubleNodePropertyValues {
     values: number[],
     defaultValue: number = 0.0
   ): DoubleNodePropertyValues {
-    // Import here to avoid circular dependencies
-    // const {
-    //   DefDoubleNodePropertyValues,
-    // } = require("../primitive/DefDoubleNodePropertyValues");
     const map = new Map<number, number>();
     values.forEach((value, index) => {
       map.set(index, value);
     });
-    return new DefDoubleNodePropertyValues(map, DefaultValue.of(defaultValue));
+    return new DefaultDoubleNodePropertyValues(
+      map,
+      DefaultValue.of(defaultValue)
+    );
   }
 }

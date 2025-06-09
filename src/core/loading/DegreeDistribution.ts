@@ -1,13 +1,13 @@
+import { Graph } from '@/api';
+import { TerminationFlag } from '@/termination';
+import { ParallelUtil } from '@/concurrency';
+import { Concurrency } from '@/concurrency';
+
 /**
  * DEGREE DISTRIBUTION - GRAPH STATISTICS UTILITIES
  *
  * Computes degree distribution statistics and graph density metrics.
  */
-
-import { Graph } from '@/api';
-import { TerminationFlag } from '@/termination';
-import { ParallelUtil } from '@/concurrency';
-import { ConcurrencyConfig } from '@/config';
 
 export class DegreeDistribution {
   /**
@@ -33,7 +33,7 @@ export class DegreeDistribution {
     // Parallel computation of node degrees
     ParallelUtil.parallelForEachNode(
       graph.nodeCount(),
-      ConcurrencyConfig.TYPED_DEFAULT_CONCURRENCY,
+      Concurrency.of(1),
       terminationFlag,
       (nodeId: number) => histogram.recordValue(graph.degree(nodeId))
     );

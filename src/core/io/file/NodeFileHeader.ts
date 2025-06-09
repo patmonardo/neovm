@@ -1,3 +1,9 @@
+import { NodeLabel } from "@/projection";
+import { MutableNodeSchema } from "@/api/schema";
+import { PropertySchema } from "@/api/schema";
+import { HeaderProperty } from "./HeaderProperty";
+import { FileHeader } from "./FileHeader";
+
 /**
  * NODE FILE HEADER - CSV NODE FILE STRUCTURE
  *
@@ -7,20 +13,13 @@
  * CSV Format: ID_COLUMN | property1:type | property2:type | ... | :LABEL
  * Example: ":ID,name:string,age:int,:LABEL"
  */
-
-import { NodeLabel } from "@/projection";
-import { MutableNodeSchema } from "@/api/schema";
-import { PropertySchema } from "@/api/schema";
-import { HeaderProperty } from "./HeaderProperty";
-import { FileHeader } from "./FileHeader";
-
 export interface NodeFileHeader
   extends FileHeader<MutableNodeSchema, PropertySchema> {
   /**
    * Array of node labels that this CSV file contains.
    * Empty array means unlabeled nodes (ALL_NODES).
    */
-  nodeLabels(): string[];
+  nodeLabels(): Array<string>;
 
   /**
    * Extract property schema for these node labels from the overall schema.
@@ -60,7 +59,7 @@ export namespace NodeFileHeader {
       propertyMappings.push(HeaderProperty.parse(i, column));
     }
 
-    return new DefNodeFileHeader(propertyMappings, nodeLabels);
+    return new DefaultNodeFileHeader(propertyMappings, nodeLabels);
   }
 
   /**
@@ -72,7 +71,7 @@ export namespace NodeFileHeader {
   /**
    * Implementation of NodeFileHeader interface.
    */
-  class DefNodeFileHeader implements NodeFileHeader {
+  class DefaultNodeFileHeader implements NodeFileHeader {
     constructor(
       private readonly _propertyMappings: HeaderProperty[],
       private readonly _nodeLabels: string[]
@@ -82,7 +81,7 @@ export namespace NodeFileHeader {
       return [...this._nodeLabels];
     }
 
-    propertyMappings(): HeaderProperty[] {
+    propertyMappings(): Array<HeaderProperty> {
       return [...this._propertyMappings];
     }
 

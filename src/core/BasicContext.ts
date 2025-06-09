@@ -1,7 +1,14 @@
 import {
-  Context, SecurityContext, AuthSubject, User, ExecutionConfig,
-  ExecutionMode, LogLevel, ExecutionMetrics, Transaction
-} from './Context';
+  Context,
+  SecurityContext,
+  AuthSubject,
+  User,
+  ExecutionConfig,
+  ExecutionMode,
+  LogLevel,
+  ExecutionMetrics,
+  Transaction,
+} from "./Context";
 
 /**
  * Basic implementation of Context for standalone NeoVM execution.
@@ -80,7 +87,7 @@ export class BasicContext implements Context {
       memoryUsed: 0, // Would be updated by runtime
       cpuTime: Date.now() - this.startTime,
       tasksCompleted: 0,
-      errorsCount: 0
+      errorsCount: 0,
     };
   }
 
@@ -90,7 +97,7 @@ export class BasicContext implements Context {
   }
 
   public getDatabaseName(): string {
-    return 'neovm';
+    return "neovm";
   }
 }
 
@@ -113,8 +120,11 @@ class BasicSecurityContext implements SecurityContext {
   }
 
   public hasRole(role: string): boolean {
-    return this.authSubject.isAuthenticated() &&
-           (this.getUserRoles().includes(role) || this.getUserRoles().includes('admin'));
+    return (
+      this.authSubject.isAuthenticated() &&
+      (this.getUserRoles().includes(role) ||
+        this.getUserRoles().includes("admin"))
+    );
   }
 
   public getRoles(): string[] {
@@ -124,7 +134,7 @@ class BasicSecurityContext implements SecurityContext {
   private getUserRoles(): string[] {
     // Access user through context would be circular, so we'll need the user passed in
     // This is a simplified implementation
-    return ['user'];
+    return ["user"];
   }
 }
 
@@ -139,11 +149,11 @@ class BasicAuthSubject implements AuthSubject {
   }
 
   public executingUser(): string {
-    return this.user?.username || 'anonymous';
+    return this.user?.username || "anonymous";
   }
 
   public authenticatedUser(): string {
-    return this.user?.username || 'anonymous';
+    return this.user?.username || "anonymous";
   }
 
   public isAuthenticated(): boolean {

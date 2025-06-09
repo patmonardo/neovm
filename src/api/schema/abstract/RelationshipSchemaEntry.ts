@@ -1,10 +1,9 @@
-import { ElementIdentifier } from '@/projection';
-import { RelationshipType } from '@/projection';
-import { Direction } from '../Direction';
-import { ElementSchemaEntry } from './ElementSchemaEntry';
-import { PropertySchema } from './PropertySchema';
-import { RelationshipPropertySchema } from './RelationshipPropertySchema';
-import { MutableRelationshipSchemaEntry } from '../primitive/MutableRelationshipSchemaEntry';
+import { ElementIdentifier } from "@/projection";
+import { RelationshipType } from "@/projection";
+import { Direction } from "../Direction";
+import { ElementSchemaEntry } from "./ElementSchemaEntry";
+import { PropertySchema } from "./PropertySchema";
+import { RelationshipPropertySchema } from "./RelationshipPropertySchema";
 
 /**
  * Schema entry for a relationship type in a graph.
@@ -70,6 +69,9 @@ export namespace RelationshipSchemaEntry {
     relationshipType: RelationshipType,
     direction: Direction
   ): RelationshipSchemaEntry {
+    const {
+      MutableRelationshipSchemaEntry,
+    } = require("../primitive/MutableRelationshipSchemaEntry");
     return new MutableRelationshipSchemaEntry(relationshipType, direction);
   }
 

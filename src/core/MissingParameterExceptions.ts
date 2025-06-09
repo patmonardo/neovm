@@ -1,5 +1,4 @@
-import { StringSimilarity } from "./StringSimilarity"; // Assuming this utility will be translated
-
+import { StringSimilarity } from "./StringSimilarity";
 /**
  * Custom error class for illegal arguments, similar to Java's IllegalArgumentException.
  */
@@ -28,8 +27,13 @@ export class MissingParameterExceptions {
    * @param candidates A collection of available parameter names to check for suggestions.
    * @returns An IllegalArgumentError instance.
    */
-  public static missingValueFor(key: string, candidates: string[] | Set<string>): IllegalArgumentError {
-    return new IllegalArgumentError(MissingParameterExceptions.missingValueForMessage(key, candidates));
+  public static missingValueFor(
+    key: string,
+    candidates: string[] | Set<string>
+  ): IllegalArgumentError {
+    return new IllegalArgumentError(
+      MissingParameterExceptions.missingValueForMessage(key, candidates)
+    );
   }
 
   /**
@@ -38,10 +42,18 @@ export class MissingParameterExceptions {
    * @param candidates A collection of available parameter names to check for suggestions.
    * @returns The formatted error message string.
    */
-  public static missingValueForMessage(key: string, candidates: string[] | Set<string>): string {
+  public static missingValueForMessage(
+    key: string,
+    candidates: string[] | Set<string>
+  ): string {
     // Ensure candidates is an array for StringSimilarity
-    const candidateArray = Array.isArray(candidates) ? candidates : Array.from(candidates);
-    const suggestions = StringSimilarity.similarStringsIgnoreCase(key, candidateArray);
+    const candidateArray = Array.isArray(candidates)
+      ? candidates
+      : Array.from(candidates);
+    const suggestions = StringSimilarity.similarStringsIgnoreCase(
+      key,
+      candidateArray
+    );
     return MissingParameterExceptions.missingValueMessage(key, suggestions);
   }
 
@@ -61,7 +73,9 @@ export class MissingParameterExceptions {
     if (suggestions.length === 1) {
       return `No value specified for the mandatory configuration parameter \`${key}\` (a similar parameter exists: [${suggestions[0]}])`;
     }
-    return `No value specified for the mandatory configuration parameter \`${key}\` (similar parameters exist: [${suggestions.join(", ")}])`;
+    return `No value specified for the mandatory configuration parameter \`${key}\` (similar parameters exist: [${suggestions.join(
+      ", "
+    )}])`;
   }
 }
 

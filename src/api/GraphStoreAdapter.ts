@@ -1,22 +1,22 @@
 import { NodeLabel } from "@/projection";
-import { RelationshipType } from "@/projection/RelationshipType";
-import { ValueType } from "@/api/ValueType";
-import { GraphProperty } from "./properties/graph";
-import { GraphPropertyValues } from "./properties/graph";
-import { NodeProperty } from "./properties/nodes";
-import { NodePropertyValues } from "./properties/nodes";
-import { RelationshipProperty } from "./properties/relationships";
-import { RelationshipPropertyStore } from "./properties/relationships";
+import { RelationshipType } from "@/projection";
+import { ValueType } from "@/api/";
+import { Capabilities } from "@/core/loading";
+import { DeletionResult } from "@/core/loading";
+import { SingleTypeRelationships } from "@/core/loading";
 import { GraphSchema } from "./schema";
-import { Capabilities } from "@/core/loading/Capabilities";
-import { DeletionResult } from "@/core/loading/DeletionResult";
-import { SingleTypeRelationships } from "@/core/loading/SingleTypeRelationships";
+import { GraphProperty } from "./properties";
+import { GraphPropertyValues } from "./properties";
+import { NodeProperty } from "./properties";
+import { NodePropertyValues } from "./properties";
+import { RelationshipProperty } from "./properties";
+import { RelationshipPropertyStore } from "./properties";
+import { Graph } from "./Graph";
+import { GraphStore } from "./GraphStore";
 import { DatabaseInfo } from "./DatabaseInfo";
 import { IdMap } from "./IdMap";
 import { Topology } from "./Topology";
 import { CompositeRelationshipIterator } from "./CompositeRelationshipIterator";
-import { Graph } from "./Graph";
-import { GraphStore } from "./GraphStore";
 
 export abstract class GraphStoreAdapter implements GraphStore {
   protected readonly graphStore: GraphStore;

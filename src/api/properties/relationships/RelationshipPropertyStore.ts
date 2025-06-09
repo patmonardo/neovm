@@ -1,6 +1,6 @@
 import { RelationshipProperty } from "./RelationshipProperty";
-import { DefRelationshipPropertyStore } from "./primitive/DefRelationshipPropertyStore";
 import { RelationshipPropertyBuilder } from "./RelationshipPropertyBuilder";
+import { DefaultRelationshipPropertyStore } from "./primitive/DefaultRelationshipPropertyStore";
 
 /**
  * Store for relationship properties indexed by their property key.
@@ -69,7 +69,7 @@ export namespace RelationshipPropertyStore {
    * @returns An empty store
    */
   export function empty(): RelationshipPropertyStore {
-    return new DefRelationshipPropertyStore(new Map());
+    return new DefaultRelationshipPropertyStore(new Map());
   }
 
   /**

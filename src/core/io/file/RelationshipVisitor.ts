@@ -1,7 +1,7 @@
 import { RelationshipType } from "@/projection";
 import { RelationshipPropertySchema } from "@/api/schema";
 import { RelationshipSchema } from "@/api/schema";
-import { IdentifierMapper } from "@/core/io/IdentifierMapper";
+import { IdentifierMapper } from "@/core/io";
 import { ElementVisitor } from "./ElementVisitor";
 
 /**
@@ -98,13 +98,13 @@ export abstract class RelationshipVisitor extends ElementVisitor<RelationshipPro
   }
 
   /**
-   * Sets the relationship type for the current relationship.
+   * Sets the relationship type for the current rrelationship.
    *
    * @param type The relationship type string
    * @returns true to continue processing
    */
   public type(type: string): boolean {
-    this.relationshipType = type;
+    this._relationshipType = type;
     return true;
   }
 
@@ -113,8 +113,8 @@ export abstract class RelationshipVisitor extends ElementVisitor<RelationshipPro
   /**
    * Returns the identifier for the current element (relationship type).
    */
-  protected elementIdentifier(): string {
-    return this.relationshipType;
+  public elementIdentifier(): string {
+    return this._relationshipType;
   }
 
   /**
@@ -122,7 +122,7 @@ export abstract class RelationshipVisitor extends ElementVisitor<RelationshipPro
    */
   protected getPropertySchema(): RelationshipPropertySchema[] {
     return this.relationshipSchema.propertySchemasFor(
-      RelationshipType.of(this.relationshipType)
+      RelationshipType.of(this._relationshipType)
     );
   }
 
@@ -132,7 +132,7 @@ export abstract class RelationshipVisitor extends ElementVisitor<RelationshipPro
   public reset(): void {
     this.currentStartNode = -1;
     this.currentEndNode = -1;
-    this.relationshipType = "";
+    this._relationshipType = "";
   }
 }
 

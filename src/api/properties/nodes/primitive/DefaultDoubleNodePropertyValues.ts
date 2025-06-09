@@ -6,7 +6,7 @@ import {
 } from "../NodePropertyValues";
 import { DoubleNodePropertyValues } from "../abstract/DoubleNodePropertyValues";
 
-export class DefDoubleNodePropertyValues implements DoubleNodePropertyValues {
+export class DefaultDoubleNodePropertyValues implements DoubleNodePropertyValues {
   private readonly data: Map<number, number>;
   private readonly defaultValue: DefaultValue;
   private readonly defaults: Omit<

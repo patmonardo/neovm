@@ -2,7 +2,6 @@ import { NodeLabel } from "@/projection";
 import { ElementSchema } from "./ElementSchema";
 import { NodeSchemaEntry } from "./NodeSchemaEntry";
 import { PropertySchema } from "./PropertySchema";
-import { MutableNodeSchema } from "../primitive/MutableNodeSchema";
 
 /**
  * Schema definition for nodes in a graph.
@@ -45,12 +44,14 @@ export abstract class NodeSchema extends ElementSchema<
  * Namespace providing utility functions and factories for NodeSchema.
  */
 export namespace NodeSchema {
+
   /**
    * Creates an empty node schema with no entries.
-   *
-   * @returns An empty node schema
-   */
-  export function empty(): NodeSchema {
+  *
+  * @returns An empty node schema
+  */
+ export function empty(): NodeSchema {
+    const { MutableNodeSchema } = require("../primitive/MutableNodeSchema.js");
     return MutableNodeSchema.empty();
   }
 

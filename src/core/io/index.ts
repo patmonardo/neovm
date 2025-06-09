@@ -8,3 +8,10 @@ export * from "./IdentifierMapper";
 export * from "./MetaDataStore";
 export * from "./NodeStore";
 export * from "./RelationshipStore";
+
+/**
+ * Interface for objects that can be flushed (similar to Java's Flushable).
+ */
+export interface Flushable {
+  flush(): void;
+}

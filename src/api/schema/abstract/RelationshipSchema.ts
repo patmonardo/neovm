@@ -3,7 +3,6 @@ import { Direction } from "../Direction";
 import { RelationshipSchemaEntry } from "../abstract/RelationshipSchemaEntry";
 import { ElementSchema } from "./ElementSchema";
 import { RelationshipPropertySchema } from "./RelationshipPropertySchema";
-import { MutableRelationshipSchema } from "../primitive/MutableRelationshipSchema";
 
 /**
  * Schema definition for relationships in a graph.
@@ -84,10 +83,14 @@ export abstract class RelationshipSchema extends ElementSchema<
  * Namespace providing utility functions for RelationshipSchema.
  */
 export namespace RelationshipSchema {
+
   /**
    * Creates an empty relationship schema with no entries.
-   */
-  export function empty(): RelationshipSchema {
+  */
+ export function empty(): RelationshipSchema {
+    const {
+      MutableRelationshipSchema,
+    } = require("../primitive/MutableRelationshipSchema.js");
     return MutableRelationshipSchema.empty();
   }
 

@@ -1,3 +1,4 @@
+export interface SingleTypeRelationships {};
 // import { RelationshipType } from "@/projection";
 // import { Topology } from "@/api";
 // import { Direction } from "@/api/schema";

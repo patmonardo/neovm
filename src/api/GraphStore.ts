@@ -1,21 +1,21 @@
 import { NodeLabel } from "@/projection";
 import { RelationshipType } from "@/projection";
 import { ValueType } from "./ValueType";
-import { GraphProperty } from "./properties/graph";
-import { GraphPropertyValues } from "./properties/graph";
-import { NodeProperty } from "./properties/nodes";
-import { NodePropertyValues } from "./properties/nodes";
-import { RelationshipProperty } from "./properties/relationships";
-import { RelationshipPropertyStore } from "./properties/relationships";
 import { GraphSchema } from "./schema";
-import { Capabilities } from "../core/loading/Capabilities";
-import { DeletionResult } from "../core/loading/DeletionResult";
-import { SingleTypeRelationships } from "../core/loading/SingleTypeRelationships";
+import { GraphProperty } from "./properties";
+import { GraphPropertyValues } from "./properties";
+import { NodeProperty } from "./properties";
+import { NodePropertyValues } from "./properties";
+import { RelationshipProperty } from "./properties";
+import { RelationshipPropertyStore } from "./properties";
 import { Topology } from "./Topology";
 import { DatabaseInfo } from "./DatabaseInfo";
 import { Graph } from "./Graph";
 import { IdMap } from "./IdMap";
 import { CompositeRelationshipIterator } from "./CompositeRelationshipIterator";
+import { DeletionResult } from "@/core/loading";
+import { SingleTypeRelationships } from "@/core/loading";
+import { Capabilities } from "@/core/loading";
 
 /**
  * Central interface for managing and accessing graph data.
@@ -153,7 +153,7 @@ export interface GraphStore {
    * @param labels Array of node labels to check
    * @param propertyKey Property key to check
    */
-  hasNodeProperty(labels: Array<NodeLabel>, propertyKey: string): boolean;
+  hasNodeProperty(labels: Set<NodeLabel>, propertyKey: string): boolean;
 
   /**
    * Returns property keys common to all specified node labels.
@@ -218,7 +218,7 @@ export interface GraphStore {
   /**
    * Returns relationship types that have an inverse index.
    */
-  inverseIndexedRelationshipTypes(): Set<RelationshipType>;
+  inverseIndexedRelationshipTypes(): Array<RelationshipType>;
 
   // Relationship Properties
 
@@ -238,7 +238,7 @@ export interface GraphStore {
    *
    * @param relTypes Array of relationship types to get common properties for
    */
-  relationshipPropertyKeys(relTypes: Array<RelationshipType>): string[];
+  relationshipPropertyKeys(relTypes: Set<RelationshipType>): Set<string>;
 
   /**
    * Returns the value type of a relationship property.

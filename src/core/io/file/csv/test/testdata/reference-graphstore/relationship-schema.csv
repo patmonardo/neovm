@@ -1,0 +1,10 @@
+startLabel,type,endLabel,propertyKey,valueType,defaultValue,state
+User,FOLLOWS,User,since,STRING,,PERSISTENT
+User,FOLLOWS,User,notifications,BOOLEAN,"DefaultValue(true)",PERSISTENT
+User,POSTED,Post,timestamp,STRING,,PERSISTENT
+User,LIKED,Post,timestamp,STRING,,PERSISTENT
+User,WORKS_AT,Company,position,STRING,,PERSISTENT
+User,WORKS_AT,Company,salary,DOUBLE,,PERSISTENT
+User,WORKS_AT,Company,startDate,STRING,,PERSISTENT
+Post,TAGGED_WITH,Tag,confidence,DOUBLE,"DefaultValue(1.0)",PERSISTENT
+Company,LOCATED_IN,Company,relationship,STRING,,PERSISTENT

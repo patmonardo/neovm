@@ -3,7 +3,7 @@ import { DefaultValue } from "@/api";
 import { NodePropertyValues } from "../NodePropertyValues";
 import { DoubleArrayNodePropertyValues } from "../abstract/DoubleArrayNodePropertyValues";
 
-export class DefDoubleArrayNodePropertyValues
+export class DefaultDoubleArrayNodePropertyValues
   implements DoubleArrayNodePropertyValues
 {
   private readonly data: Map<number, Float64Array>;
@@ -30,7 +30,7 @@ export class DefDoubleArrayNodePropertyValues
       (typeof customDefault === 'number' && typeof customDefault !== 'string')) {
       this.defaultValue = new Float64Array(customDefault as ArrayLike<number>);
     } else {
-      this.defaultValue = customDefaultValue!.floatArrayValue();
+      this.defaultValue = customDefaultValue!.doubleArrayValue();
     }
 
     this.defaults = NodePropertyValues.withDefaultsForType(() => this.valueType());

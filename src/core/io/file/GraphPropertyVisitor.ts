@@ -1,11 +1,5 @@
 import { InputEntityVisitor } from '@/api/import';
-
-/**
- * Interface for objects that can be flushed (similar to Java's Flushable).
- */
-export interface Flushable {
-  flush(): void;
-}
+import { Flushable } from '@/core/io';
 
 /**
  * Abstract base class for visiting graph properties during import/export operations.

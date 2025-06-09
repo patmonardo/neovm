@@ -5,9 +5,9 @@
  * Uses visitor pattern (boolean returns) with state storage in concrete classes.
  */
 
-import { RelationshipType } from '@/projection/RelationshipType';
-import { Direction } from '@/api/schema/Direction';
-import { Aggregation } from '@/core/Aggregation';
+import { RelationshipType } from '@/projection';
+import { Direction } from '@/api/schema';
+import { Aggregation } from '@/core';
 import { InputSchemaVisitor } from './InputSchemaVisitor';
 import { ElementSchemaVisitor } from './ElementSchemaVisitor';
 

@@ -75,11 +75,11 @@ class DefaultGraphPropertyFileHeader implements GraphPropertyFileHeader {
     propertySchema: Map<string, PropertySchema>
   ): Map<string, PropertySchema> {
     const graphPropertySchema = propertySchema.get(
-      this._propertyMapping.propertyKey
+      this._propertyMapping.propertyKey()
     );
     if (!graphPropertySchema) {
       throw new Error(
-        `Property schema not found for key: ${this._propertyMapping.propertyKey}`
+        `Property schema not found for key: ${this._propertyMapping.propertyKey()}`
       );
     }
     return new Map([[graphPropertySchema.key(), graphPropertySchema]]);

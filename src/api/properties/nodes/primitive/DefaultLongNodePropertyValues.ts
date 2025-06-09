@@ -3,7 +3,7 @@ import { DefaultValue } from '@/api';
 import { NodePropertyValues } from '../NodePropertyValues';
 import { LongNodePropertyValues } from '../abstract/LongNodePropertyValues';
 
-export class DefLongNodePropertyValues implements LongNodePropertyValues {
+export class DefaultLongNodePropertyValues implements LongNodePropertyValues {
   private readonly data: Map<number, number>;
   private readonly defaultValue: number;
   private readonly defaults: Omit<

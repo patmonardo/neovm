@@ -1,0 +1,1 @@
+name:string,description:string,version:string,created:string,lastModified:string,nodeCount:long,relationshipCount:long

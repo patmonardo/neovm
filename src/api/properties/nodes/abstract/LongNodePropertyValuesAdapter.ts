@@ -1,16 +1,13 @@
-import { ValueType } from "@/api/ValueType";
-import { DefaultValue } from "@/api/DefaultValue"; // Assuming this exists and LONG_DEFAULT_FALLBACK is bigint
-import { ValueConversion } from "@/api/ValueConversion"; // Assuming this exists for exactLongToDouble
+import { ValueType } from "@/api";
+import { DefaultValue } from "@/api";
+import { ValueConversion } from "@/api";
+import { MemoryEstimation } from "@/mem";
+import { MemoryEstimations } from "@/mem";
+import { HugeLongArray } from "@/collections";
+import { HugeAtomicLongArray } from "@/collections";
+import { HugeIntArray } from "@/collections";
+import { HugeByteArray } from "@/collections";
 import { LongNodePropertyValues } from "./LongNodePropertyValues";
-
-// Placeholder imports for Huge array types
-import { HugeLongArray } from "@/collections/ha/HugeLongArray";
-import { HugeAtomicLongArray } from "@/collections/haa/HugeAtomicLongArray";
-import { HugeIntArray } from "@/collections/ha/HugeIntArray";
-import { HugeByteArray } from "@/collections/ha/HugeByteArray";
-
-import { MemoryEstimation } from "@/mem/MemoryEstimation"; // Placeholder
-import { MemoryEstimations } from "@/mem/MemoryEstimations"; // Placeholder
 
 /**
  * A generic interface for the underlying arrays that can be adapted.
@@ -97,7 +94,7 @@ class AdaptedLongNodePropertyValues implements LongNodePropertyValues {
   memoryEstimation(): MemoryEstimation {
     // Delegate if the underlying array has a memoryEstimation method
     // return (this.array as any).memoryEstimation?.() || MemoryEstimations.empty();
-    return MemoryEstimations.empty(); // Placeholder
+    return MemoryEstimations.empty();
   }
 }
 

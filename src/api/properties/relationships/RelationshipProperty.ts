@@ -4,7 +4,7 @@ import { PropertyState } from "@/api";
 import { Aggregation } from "@/core";
 import { Properties } from "./Properties";
 import { RelationshipPropertySchema } from "@/api/schema";
-import { DefRelationshipProperty } from "./primitive/DefRelationshipProperty";
+import { DefaultRelationshipProperty } from "./primitive/DefaultRelationshipProperty";
 
 /**
  * Represents a property associated with relationships in a graph.
@@ -89,7 +89,7 @@ export namespace RelationshipProperty {
     defaultValue: DefaultValue,
     aggregation: Aggregation
   ): RelationshipProperty {
-    return new DefRelationshipProperty (
+    return new DefaultRelationshipProperty(
       values,
       RelationshipPropertySchema.of(key, type, defaultValue, state, aggregation)
     );

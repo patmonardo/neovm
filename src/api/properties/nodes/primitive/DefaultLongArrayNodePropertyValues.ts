@@ -6,7 +6,7 @@ import { LongArrayNodePropertyValues } from "../abstract/LongArrayNodePropertyVa
 /**
  * Default implementation of LongArrayNodePropertyValues backed by a Map.
  */
-export class DefLongArrayNodePropertyValues implements LongArrayNodePropertyValues {
+export class DefaultLongArrayNodePropertyValues implements LongArrayNodePropertyValues {
   private readonly data: Map<number, number[]>;
   private readonly defaultValue: number[];
   private readonly defaults: Omit<

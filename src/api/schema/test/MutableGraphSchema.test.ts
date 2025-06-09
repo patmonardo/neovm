@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
+import { ValueType } from "@/api";
 import { MutableGraphSchema } from "../primitive/MutableGraphSchema";
 import { MutableNodeSchema } from "../primitive/MutableNodeSchema";
 import { MutableRelationshipSchema } from "../primitive/MutableRelationshipSchema";
 import { NodeLabel, RelationshipType } from "@/projection";
-import { ValueType } from "@/api";
 import { PropertySchema } from "../abstract/PropertySchema";
 import { Direction } from "../Direction";
 

@@ -1,4 +1,3 @@
-export * from "./CapabilitiesDTO";
 export * from "./CsvFileInput";
 export * from "./CsvGraphCapabilitiesWriter";
 export * from "./CsvGraphInfoVisitor";
@@ -16,6 +15,7 @@ export * from "./CsvRelationshipVisitor";
 export * from "./CsvToGraphStoreImporter";
 export * from "./DefaultValueIOHelper";
 export * from "./GraphCapabilitiesLoader";
+export * from "./CapabilitiesDTO";
 export * from "./GraphInfoLoader";
 export * from "./GraphPropertySchemaLoader";
 export * from "./GraphStoreToCsvExporter";

@@ -2,13 +2,13 @@ import { RelationshipType } from "@/projection";
 import { GraphStore } from "@/api";
 import { IdMap } from "@/api";
 import { Topology } from "@/api";
-import { RelationshipPropertyStore } from "@/api/properties/relationships";
+import { RelationshipPropertyStore } from "@/api/properties";
 import { MutableNodeSchema } from "@/api/schema";
 import { Concurrency } from "@/concurrency";
 import { DefaultPool } from "@/concurrency";
 import { ParallelUtil } from "@/concurrency/";
-import { GraphStoreGraphPropertyVisitor } from "@/core/io/GraphStoreGraphPropertyVisitor";
-import { GraphStoreRelationshipVisitor } from "@/core/io/GraphStoreRelationshipVisitor";
+import { GraphStoreGraphPropertyVisitor } from "@/core/io";
+import { GraphStoreRelationshipVisitor } from "@/core/io";
 import { WriteMode } from "@/core/loading/Capabilities";
 import { ImmutableStaticCapabilities } from "@/core/loading";
 import { GraphStoreBuilder } from "@/core/loading";
@@ -29,7 +29,7 @@ import { GraphPropertyStoreFromVisitorHelper } from "./GraphPropertyStoreFromVis
 import * as fs from "fs";
 
 /**
- * ✅ ENHANCED: Result record containing user name and the imported graph store.
+ * Result record containing user name and the imported graph store.
  */
 export interface UserGraphStore {
   userName: string;
@@ -38,7 +38,7 @@ export interface UserGraphStore {
 }
 
 /**
- * ✅ NEW: Import statistics for monitoring and debugging.
+ * Import statistics for monitoring and debugging.
  */
 export interface ImportStatistics {
   startTime: Date;
@@ -66,7 +66,7 @@ export interface ImportStatistics {
 }
 
 /**
- * ✅ ENHANCED: Result record containing relationship topology and properties after import.
+ * Result record containing relationship topology and properties after import.
  */
 export interface RelationshipTopologyAndProperties {
   topologies: Map<RelationshipType, Topology>;
@@ -76,7 +76,7 @@ export interface RelationshipTopologyAndProperties {
 }
 
 /**
- * ✅ ENHANCED: Abstract base class for importing graph stores from file-based storage.
+ * Abstract base class for importing graph stores from file-based storage.
  *
  * MAJOR IMPROVEMENTS:
  * - Enhanced error handling and recovery
@@ -93,12 +93,12 @@ export abstract class FileToGraphStoreImporter {
   private readonly importPath: string;
   private readonly concurrency: Concurrency;
 
-  private readonly graphSchemaBuilder: MutableGraphSchema.Builder;
+  private readonly graphSchemaBuilder: MutableGraphSchema;
   private readonly graphStoreBuilder: GraphStoreBuilder;
   private readonly log: Log;
   private readonly taskRegistryFactory: TaskRegistryFactory;
 
-  // ✅ NEW: Enhanced tracking and statistics
+  // Enhanced tracking and statistics
   private progressTracker!: ProgressTracker;
   private readonly importStatistics: Partial<ImportStatistics>;
   private errorCount: number = 0;
@@ -117,14 +117,14 @@ export abstract class FileToGraphStoreImporter {
       new GraphStoreGraphPropertyVisitor.Builder();
     this.concurrency = concurrency;
     this.importPath = importPath;
-    this.graphSchemaBuilder = ImmutableMutableGraphSchema.builder();
+    this.graphSchemaBuilder = MutableGraphSchema.builder();
     this.graphStoreBuilder = new GraphStoreBuilder()
       .concurrency(concurrency)
       .capabilities(ImmutableStaticCapabilities.of(WriteMode.LOCAL));
     this.log = log;
     this.taskRegistryFactory = taskRegistryFactory;
 
-    // ✅ NEW: Initialize statistics
+    // Initialize statistics
     this.importStatistics = {
       nodesImported: 0,
       relationshipsImported: 0,
@@ -149,7 +149,7 @@ export abstract class FileToGraphStoreImporter {
   protected abstract rootTaskName(): string;
 
   /**
-   * ✅ ENHANCED: Main entry point to run the import process.
+   * Main entry point to run the import process.
    *
    * @returns UserGraphStore containing the user name, imported graph store, and statistics
    * @throws Error if import fails
@@ -176,7 +176,7 @@ export abstract class FileToGraphStoreImporter {
       const endTime = new Date();
       const durationMs = endTime.getTime() - startTime.getTime();
 
-      // ✅ NEW: Complete statistics
+      //  Complete statistics
       const completeStatistics: ImportStatistics = {
         ...(this.importStatistics as ImportStatistics),
         endTime,
@@ -217,7 +217,7 @@ export abstract class FileToGraphStoreImporter {
   }
 
   /**
-   * ✅ NEW: Validate file input before processing.
+   *  Validate file input before processing.
    */
   private validateFileInput(fileInput: FileInput): void {
     this.log.info("🔍 Validating file input...");
@@ -243,7 +243,7 @@ export abstract class FileToGraphStoreImporter {
   }
 
   /**
-   * ✅ ENHANCED: Creates a RelationshipImportResult from relationship builders by type.
+   * Creates a RelationshipImportResult from relationship builders by type.
    */
   public static relationshipImportResult(
     relationshipBuildersByType: Map<string, RelationshipsBuilder>
@@ -260,7 +260,7 @@ export abstract class FileToGraphStoreImporter {
   }
 
   /**
-   * ✅ ENHANCED: Imports the complete graph store from file input.
+   * Imports the complete graph store from file input.
    */
   private importGraphStore(fileInput: FileInput): void {
     this.log.info("📊 Starting graph store import...");
@@ -276,7 +276,7 @@ export abstract class FileToGraphStoreImporter {
   }
 
   /**
-   * ✅ ENHANCED: Creates a progress tracker for the import operation.
+   * Creates a progress tracker for the import operation.
    */
   private createProgressTracker(fileInput: FileInput): ProgressTracker {
     const graphInfo = fileInput.graphInfo();
@@ -306,14 +306,15 @@ export abstract class FileToGraphStoreImporter {
 
     return new TaskProgressTracker(
       task,
+      this.jobId(),
       this.log,
-      this.concurrency,
-      this.taskRegistryFactory
+      this.taskRegistryFactory,
+      this.importPath
     );
   }
 
   /**
-   * ✅ ENHANCED: Imports nodes from file input.
+   * Imports nodes from file input.
    */
   private importNodes(fileInput: FileInput): Nodes {
     this.log.info("👥 Starting node import...");
@@ -360,7 +361,7 @@ export abstract class FileToGraphStoreImporter {
     this.nodeVisitorBuilder.withNodeSchema(nodeSchema);
     this.nodeVisitorBuilder.withNodesBuilder(nodesBuilder);
 
-    // ✅ ENHANCED: Parallel processing with error handling
+    // Parallel processing with error handling
     const nodesIterator = fileInput.nodes().iterator();
     const tasks: Runnable[] = ParallelUtil.tasks(
       this.concurrency,
@@ -397,7 +398,7 @@ export abstract class FileToGraphStoreImporter {
   }
 
   /**
-   * ✅ ENHANCED: Imports relationships from file input.
+   * Imports relationships from file input.
    */
   private importRelationships(fileInput: FileInput, nodes: IdMap): void {
     this.log.info("🔗 Starting relationship import...");
@@ -543,7 +544,7 @@ export abstract class FileToGraphStoreImporter {
   }
 
   /**
-   * ✅ NEW: Get current memory usage in MB.
+   *  Get current memory usage in MB.
    */
   private getMemoryUsageMB(): number {
     try {
@@ -555,7 +556,7 @@ export abstract class FileToGraphStoreImporter {
   }
 
   /**
-   * ✅ NEW: Log comprehensive import summary.
+   * Log comprehensive import summary.
    */
   private logImportSummary(statistics: ImportStatistics): void {
     this.log.info("📊 === IMPORT SUMMARY ===");
@@ -577,7 +578,7 @@ export abstract class FileToGraphStoreImporter {
   }
 
   /**
-   * ✅ ENHANCED: Validator to ensure directory exists and is readable.
+   * Validator to ensure directory exists and is readable.
    */
   public static readonly DIRECTORY_IS_READABLE = (value: string): void => {
     if (!fs.existsSync(value)) {

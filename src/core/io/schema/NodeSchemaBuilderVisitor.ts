@@ -1,14 +1,13 @@
+import { MutableNodeSchema } from "@/api/schema";
+import { PropertySchema } from "@/api/schema";
+import { NodeSchemaVisitor } from "./NodeSchemaVisitor";
+
 /**
  * NODE SCHEMA BUILDER VISITOR - BUILDS MUTABLE NODE SCHEMA
  *
  * Visitor that constructs MutableNodeSchema from streaming schema data.
  * Used by NodeSchemaLoader to build schema from CSV files.
  */
-
-import { MutableNodeSchema } from "@/api/schema";
-import { PropertySchema } from "@/api/schema";
-import { NodeSchemaVisitor } from "./NodeSchemaVisitor";
-
 export class NodeSchemaBuilderVisitor extends NodeSchemaVisitor {
   private readonly nodeSchema: MutableNodeSchema;
 

@@ -4,7 +4,7 @@ import { ModifiableRelationshipCursor } from "../abstract/RelationshipCursor";
 /**
  * Immutable implementation of RelationshipCursor.
  */
-export class DefRelationshipCursor implements RelationshipCursor {
+export class DefaultRelationshipCursor implements RelationshipCursor {
   /**
    * Creates a new immutable RelationshipCursor implementation.
    *
@@ -34,7 +34,7 @@ export class DefRelationshipCursor implements RelationshipCursor {
 /**
  * Mutable implementation of ModifiableRelationshipCursor.
  */
-export class DefModifiableRelationshipCursor
+export class DefaultModifiableRelationshipCursor
   implements ModifiableRelationshipCursor
 {
   /**

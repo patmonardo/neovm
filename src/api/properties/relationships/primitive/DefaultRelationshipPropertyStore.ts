@@ -4,7 +4,7 @@ import { RelationshipPropertyStore } from "../RelationshipPropertyStore";
 /**
  * Implementation of RelationshipPropertyStore.
  */
-export class DefRelationshipPropertyStore
+export class DefaultRelationshipPropertyStore
   implements RelationshipPropertyStore
 {
   /**
@@ -34,7 +34,7 @@ export class DefRelationshipPropertyStore
 
     const filteredMap = new Map<string, RelationshipProperty>();
     filteredMap.set(propertyKey, property);
-    return new DefRelationshipPropertyStore(filteredMap);
+    return new DefaultRelationshipPropertyStore(filteredMap);
   }
 
   keySet(): Set<string> {

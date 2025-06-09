@@ -1,6 +1,6 @@
 import { PropertyStore } from "../PropertyStore";
-import { NodePropertyValues } from "./NodePropertyValues";
 import { NodeProperty } from "./NodeProperty";
+import { NodePropertyValues } from "./NodePropertyValues";
 import { NodePropertyStoreBuilder } from "./NodePropertyStoreBuilder";
 
 /**

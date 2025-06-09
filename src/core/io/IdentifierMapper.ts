@@ -1,4 +1,4 @@
-import { formatWithLocale } from '@/utils/StringFormatting';
+import { formatWithLocale } from "@/utils";
 
 /**
  * Interface for mapping between objects and their string identifiers.
@@ -46,11 +46,15 @@ export interface IdentifierMapper<T> {
  */
 abstract class BaseIdentifierMapper<T> implements IdentifierMapper<T> {
   identifierFor(name: T): string {
-    throw new Error(formatWithLocale("no identifier for the name '%s' exists.", name));
+    throw new Error(
+      formatWithLocale("no identifier for the name '%s' exists.", name)
+    );
   }
 
   forIdentifier(identifier: string): T {
-    throw new Error(formatWithLocale("no name for the identifier '%s' exists.", identifier));
+    throw new Error(
+      formatWithLocale("no name for the identifier '%s' exists.", identifier)
+    );
   }
 
   identifiers(): string[] {
@@ -121,7 +125,9 @@ class RealMapper<T> extends BaseIdentifierMapper<T> {
   }
 
   forEach(action: (name: T, identifier: string) => void): void {
-    this.identifierMapping.forEach((identifier, name) => action(name, identifier));
+    this.identifierMapping.forEach((identifier, name) =>
+      action(name, identifier)
+    );
   }
 }
 
@@ -244,7 +250,10 @@ export namespace IdentifierMapper {
    * @returns An identity IdentifierMapper for strings
    */
   export function identity(): IdentifierMapper<string> {
-    return biject((x: string) => x, (x: string) => x);
+    return biject(
+      (x: string) => x,
+      (x: string) => x
+    );
   }
 
   /**

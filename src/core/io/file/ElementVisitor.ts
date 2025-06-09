@@ -1,20 +1,5 @@
-import { ValueType } from "@/api";
 import { PropertySchema } from "@/api/schema";
-
-/**
- * Functional interface for consuming property key-value pairs.
- */
-export interface PropertyConsumer {
-  accept(key: string, value: any): void;
-}
-
-/**
- * Functional interface for consuming property key-value pairs with type information.
- */
-export interface PropertyWithTypeConsumer {
-  accept(key: string, value: any, valueType: ValueType): void;
-}
-
+import { PropertyConsumer, PropertyWithTypeConsumer } from "@/core/io/file";
 /**
  * Abstract base class for visiting graph elements (nodes or relationships) during import/export.
  * Handles property processing and schema management for elements.
@@ -54,7 +39,7 @@ export abstract class ElementVisitor<PROPERTY_SCHEMA extends PropertySchema> {
    * Returns the property schema for the current element.
    * Subclasses implement this to provide element-specific schema lookup.
    */
-  protected abstract getPropertySchema(): PROPERTY_SCHEMA[];
+  protected abstract getPropertySchema(): Array<PROPERTY_SCHEMA>;
 
   /**
    * Resets the visitor state for processing a new element.

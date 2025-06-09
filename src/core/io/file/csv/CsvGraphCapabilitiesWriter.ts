@@ -147,13 +147,6 @@ export class CsvGraphCapabilitiesWriter {
 }
 
 /**
- * Simple writer interface (equivalent to Java SimpleWriter<T>)
- */
-export interface SimpleWriter<T> {
-  write(item: T): Promise<void>;
-}
-
-/**
  * 🚀 Factory function for creating capabilities writers
  */
 export function createCapabilitiesWriter(
