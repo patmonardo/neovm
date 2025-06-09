@@ -1,9 +1,10 @@
-import { ValueType } from '@/api';
-import { DefaultValue } from '@/api';
-import { PropertyState } from '@/api';
-import { PropertySchema } from '@/api/schema';
-import { Property } from '../Property';
-import { NodePropertyValues } from './NodePropertyValues';
+import { ValueType } from "@/api";
+import { DefaultValue } from "@/api";
+import { PropertyState } from "@/api";
+import { PropertySchema } from "@/api/schema";
+import { Property } from "../Property";
+import { NodePropertyValues } from "./NodePropertyValues";
+import { DefaultNodeProperty } from "./primitive/DefaultNodeProperty";
 
 /**
  * Represents a property of a node in the graph.
@@ -54,13 +55,12 @@ export namespace NodeProperty {
     values: NodePropertyValues,
     defaultValue?: DefaultValue
   ): NodeProperty {
-    const { DefNodeProperty } = require("./primitive/DefNodeProperty");
-    return new DefNodeProperty(
+    return new DefaultNodeProperty(
       values,
       PropertySchema.of(
         key,
         values.valueType(),
-        ValueType.fallbackValue(values.valueType()), // Fixed: Call static function
+        defaultValue ?? ValueType.fallbackValue(values.valueType()),
         origin
       )
     );

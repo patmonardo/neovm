@@ -1,7 +1,7 @@
-import { ValueType } from "@/api/ValueType";
-import { DefaultValue } from "@/api/DefaultValue";
-import { PropertyState } from "@/api/PropertyState";
-import { Aggregation } from "@/core/Aggregation";
+import { ValueType } from "@/api";
+import { DefaultValue } from "@/api";
+import { PropertyState } from "@/api";
+import { Aggregation } from "@/core";
 import { PropertySchema } from "./PropertySchema";
 
 /**
@@ -48,7 +48,7 @@ export namespace RelationshipPropertySchema {
   /**
    * Implementation class (private to the namespace)
    */
-  class RelationshipPropertySchemaImpl extends RelationshipPropertySchema {
+  class DefaultRelationshipPropertySchema extends RelationshipPropertySchema {
     constructor(
       private readonly _key: string,
       private readonly _valueType: ValueType,
@@ -81,7 +81,7 @@ export namespace RelationshipPropertySchema {
 
     equals(obj: unknown): boolean {
       if (this === obj) return true;
-      if (!(obj instanceof RelationshipPropertySchemaImpl)) return false;
+      if (!(obj instanceof DefaultRelationshipPropertySchema)) return false;
 
       return (
         this._key === obj._key &&
@@ -147,7 +147,7 @@ export namespace RelationshipPropertySchema {
     state: PropertyState = PropertyState.PERSISTENT,
     aggregation: Aggregation = Aggregation.NONE
   ): RelationshipPropertySchema {
-    return new RelationshipPropertySchemaImpl(
+    return new DefaultRelationshipPropertySchema(
       key,
       valueType,
       defaultValue,

@@ -1,8 +1,9 @@
-import { RelationshipType } from '@/projection';
-import { Direction } from '../Direction';
-import { RelationshipSchemaEntry } from '../abstract/RelationshipSchemaEntry';
-import { ElementSchema } from './ElementSchema';
-import { RelationshipPropertySchema } from './RelationshipPropertySchema';
+import { RelationshipType } from "@/projection";
+import { Direction } from "../Direction";
+import { RelationshipSchemaEntry } from "../abstract/RelationshipSchemaEntry";
+import { ElementSchema } from "./ElementSchema";
+import { RelationshipPropertySchema } from "./RelationshipPropertySchema";
+import { MutableRelationshipSchema } from "../primitive/MutableRelationshipSchema";
 
 /**
  * Schema definition for relationships in a graph.
@@ -17,17 +18,21 @@ export abstract class RelationshipSchema extends ElementSchema<
   /**
    * Returns all schema entries.
    */
-  abstract entries(): RelationshipSchemaEntry[];
+  abstract entries(): Array<RelationshipSchemaEntry>;
 
   /**
    * Gets a schema entry by its identifier.
    */
-  abstract get(identifier: RelationshipType): RelationshipSchemaEntry | undefined;
+  abstract get(
+    identifier: RelationshipType
+  ): RelationshipSchemaEntry | undefined;
 
   /**
    * Creates a filtered version of this schema.
    */
-  abstract filter(relationshipTypesToKeep: Array<RelationshipType>): RelationshipSchema;
+  abstract filter(
+    relationshipTypesToKeep: Array<RelationshipType>
+  ): RelationshipSchema;
 
   /**
    * Combines this schema with another schema.
@@ -67,7 +72,7 @@ export abstract class RelationshipSchema extends ElementSchema<
       result[typeName] = {
         properties: RelationshipSchema.propertySchemaMap(entry),
         direction: entry.direction().toString(),
-        aggregation: entry.aggregation().toString()
+        aggregation: entry.aggregation().toString(),
       };
     }
 
@@ -83,26 +88,26 @@ export namespace RelationshipSchema {
    * Creates an empty relationship schema with no entries.
    */
   export function empty(): RelationshipSchema {
-    // Import here to avoid circular dependencies
-    const { MutableRelationshipSchema } = require('./MutableRelationshipSchema');
     return MutableRelationshipSchema.empty();
   }
 
   /**
    * Converts property schemas to a map representation
    */
-  export function propertySchemaMap(entry: RelationshipSchemaEntry): Record<string, any> {
+  export function propertySchemaMap(
+    entry: RelationshipSchemaEntry
+  ): Map<string, any> {
     const propertySchemas = entry.properties();
-    const properties: Record<string, any> = {};
+    const properties = new Map<string, any>();
 
-    for (const [key, schema] of Object.entries(propertySchemas)) {
-      properties[key] = {
+    propertySchemas.forEach((schema, key) => {
+      properties.set(key, {
         valueType: schema.valueType().toString(),
         defaultValue: schema.defaultValue().toString(),
         state: schema.state().toString(),
-        aggregation: schema.aggregation().toString()
-      };
-    }
+        aggregation: schema.aggregation().toString(),
+      });
+    });
 
     return properties;
   }

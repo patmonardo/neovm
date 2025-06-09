@@ -1,13 +1,13 @@
-// import { RelationshipType } from '@/api/RelationshipType';
-// import { IdMap } from '@/api/IdMap';
-// import { RelationshipSchema } from '@/api/schema/RelationshipSchema';
-// import { Concurrency } from '@/core/concurrency/Concurrency';
-// import { RelationshipBuilderFromVisitor } from './file/RelationshipBuilderFromVisitor';
-// import { RelationshipVisitor } from './file/RelationshipVisitor';
-// import { GraphFactory } from '@/core/loading/construction/GraphFactory';
-// import { RelationshipsBuilder } from '@/core/loading/construction/RelationshipsBuilder';
-// import { RelationshipsBuilderBuilder } from '@/core/loading/construction/RelationshipsBuilderBuilder';
-// import { IdentifierMapper } from './IdentifierMapper';
+// import { RelationshipType } from "@/projection";
+// import { IdMap } from "@/api";
+// import { RelationshipSchema } from "@/api/schema";
+// import { Concurrency } from "@/concurrency";
+// import { RelationshipBuilderFromVisitor } from "./file";
+// import { RelationshipVisitor } from "./file/";
+// import { GraphFactory } from "@/core/loading";
+// import { RelationshipsBuilder } from "@/core/loading";
+// import { RelationshipsBuilderBuilder } from "@/core/loading";
+// import { IdentifierMapper } from "./IdentifierMapper";
 
 // /**
 //  * Concrete implementation of RelationshipVisitor that builds relationships into GraphStore.
@@ -18,7 +18,10 @@
 //   private readonly relationshipBuilderSupplier: () => RelationshipsBuilderBuilder;
 //   private readonly relationshipBuilders: Map<string, RelationshipsBuilder>;
 //   private readonly inverseIndexedRelationshipTypes: RelationshipType[];
-//   private readonly relationshipFromVisitorBuilders: Map<string, RelationshipBuilderFromVisitor>;
+//   private readonly relationshipFromVisitorBuilders: Map<
+//     string,
+//     RelationshipBuilderFromVisitor
+//   >;
 
 //   constructor(
 //     relationshipSchema: RelationshipSchema,
@@ -45,18 +48,24 @@
 //    */
 //   protected exportElement(): void {
 //     // TODO: this logic should move to the RelationshipsBuilder
-//     const relationshipsBuilder = this.getOrCreateRelationshipBuilder(this.relationshipType());
+//     const relationshipsBuilder = this.getOrCreateRelationshipBuilder(
+//       this.relationshipType()
+//     );
 //     relationshipsBuilder.addFromVisitor();
 //   }
 
 //   /**
 //    * Gets or creates a RelationshipBuilderFromVisitor for the given relationship type.
 //    */
-//   private getOrCreateRelationshipBuilder(relationshipTypeString: string): RelationshipBuilderFromVisitor {
-//     let builder = this.relationshipFromVisitorBuilders.get(relationshipTypeString);
+//   private getOrCreateRelationshipBuilder(
+//     relationshipTypeString: string
+//   ): RelationshipBuilderFromVisitor {
+//     let builder = this.relationshipFromVisitorBuilders.get(
+//       relationshipTypeString
+//     );
 
 //     if (!builder) {
-//       const propertyConfigs = this.getPropertySchema().map(schema =>
+//       const propertyConfigs = this.getPropertySchema().map((schema) =>
 //         GraphFactory.PropertyConfig.of(
 //           schema.key(),
 //           schema.aggregation(),
@@ -69,7 +78,9 @@
 //       const relBuilder = this.relationshipBuilderSupplier()
 //         .relationshipType(relationshipType)
 //         .propertyConfigs(propertyConfigs)
-//         .indexInverse(this.inverseIndexedRelationshipTypes.includes(relationshipType))
+//         .indexInverse(
+//           this.inverseIndexedRelationshipTypes.includes(relationshipType)
+//         )
 //         // TODO: Shouldn't we warn on dangling relationships?
 //         .skipDanglingRelationships(true)
 //         .build();
@@ -103,7 +114,9 @@
 //     /**
 //      * Sets the map to store relationship builders by type.
 //      */
-//     withRelationshipBuildersToTypeResultMap(relationshipBuildersByType: Map<string, RelationshipsBuilder>): this {
+//     withRelationshipBuildersToTypeResultMap(
+//       relationshipBuildersByType: Map<string, RelationshipsBuilder>
+//     ): this {
 //       this.relationshipBuildersByType = relationshipBuildersByType;
 //       return this;
 //     }
@@ -134,7 +147,9 @@
 //     /**
 //      * Sets the relationship types that should have inverse indexes.
 //      */
-//     withInverseIndexedRelationshipTypes(inverseIndexedRelationshipTypes: RelationshipType[]): this {
+//     withInverseIndexedRelationshipTypes(
+//       inverseIndexedRelationshipTypes: RelationshipType[]
+//     ): this {
 //       this.inverseIndexedRelationshipTypes = inverseIndexedRelationshipTypes;
 //       return this;
 //     }
@@ -151,19 +166,19 @@
 //      */
 //     build(): GraphStoreRelationshipVisitor {
 //       if (!this.relationshipSchema) {
-//         throw new Error('relationshipSchema is required');
+//         throw new Error("relationshipSchema is required");
 //       }
 //       if (!this.relationshipBuildersByType) {
-//         throw new Error('relationshipBuildersByType is required');
+//         throw new Error("relationshipBuildersByType is required");
 //       }
 //       if (!this.concurrency) {
-//         throw new Error('concurrency is required');
+//         throw new Error("concurrency is required");
 //       }
 //       if (!this.nodes) {
-//         throw new Error('nodes is required');
+//         throw new Error("nodes is required");
 //       }
 //       if (!this.inverseIndexedRelationshipTypes) {
-//         throw new Error('inverseIndexedRelationshipTypes is required');
+//         throw new Error("inverseIndexedRelationshipTypes is required");
 //       }
 
 //       const relationshipBuilderSupplier = (): RelationshipsBuilderBuilder =>

@@ -1,9 +1,9 @@
 import {
   RelationshipProjections,
-  RelationshipProjectionsBuilder
-} from './RelationshipProjections';
-import { RelationshipType } from '../RelationshipType';
-import { RelationshipProjection } from './RelationshipProjection';
+  RelationshipProjectionsBuilder,
+} from "./RelationshipProjections";
+import { RelationshipType } from "../RelationshipType";
+import { RelationshipProjection } from "./RelationshipProjection";
 
 /**
  * Immutable implementation of RelationshipProjections.
@@ -25,7 +25,8 @@ export class ImmutableRelationshipProjections extends RelationshipProjections {
    *
    * @returns A new builder
    */
-  public static builder(): ImmutableRelationshipProjections.Builder { // Correct return type
+  public static builder(): ImmutableRelationshipProjections.Builder {
+    // Correct return type
     return new ImmutableRelationshipProjections.Builder();
   }
 
@@ -35,7 +36,9 @@ export class ImmutableRelationshipProjections extends RelationshipProjections {
    * @param projections Map of relationship types to projections
    * @returns A new ImmutableRelationshipProjections
    */
-  public static of(projections: Map<RelationshipType, RelationshipProjection>): ImmutableRelationshipProjections {
+  public static of(
+    projections: Map<RelationshipType, RelationshipProjection>
+  ): ImmutableRelationshipProjections {
     // The constructor handles making a defensive copy.
     return new ImmutableRelationshipProjections(projections);
   }
@@ -66,7 +69,8 @@ export namespace ImmutableRelationshipProjections {
   /**
    * Builder class for ImmutableRelationshipProjections.
    */
-  export class Builder extends RelationshipProjectionsBuilder { // Extend the base builder
+  export class Builder extends RelationshipProjectionsBuilder {
+    // Extend the base builder
     // _projections is inherited from RelationshipProjectionsBuilder (if protected/public)
 
     constructor() {

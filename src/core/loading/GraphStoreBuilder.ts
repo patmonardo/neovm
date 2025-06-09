@@ -1,11 +1,11 @@
-import { DatabaseInfo } from '@/api/DatabaseInfo';
-import { Capabilities } from './Capabilities';
-import { MutableGraphSchema } from '@/api/schema';
-import { Nodes } from './Nodes';
-import { RelationshipImportResult } from './RelationshipImportResult';
-import { GraphPropertyStore } from '@/api/properties/graph/GraphPropertyStore';
-import { Concurrency } from '@/concurrency';
-import { CSRGraphStore } from './CSRGraphStore';
+import { DatabaseInfo } from "@/api/DatabaseInfo";
+import { MutableGraphSchema } from "@/api/schema";
+import { GraphPropertyStore } from "@/api/properties";
+import { Concurrency } from "@/concurrency";
+import { Capabilities } from "./Capabilities";
+import { CSRGraphStore } from "./CSRGraphStore";
+import { Nodes } from "./Nodes";
+import { RelationshipImportResult } from "./RelationshipImportResult";
 
 /**
  * GraphStoreBuilder collects parameters and invokes the static factory method:
@@ -104,7 +104,9 @@ export class GraphStoreBuilder {
   /**
    * Initializes the value for the relationshipImportResult attribute.
    */
-  relationshipImportResult(relationshipImportResult: RelationshipImportResult): GraphStoreBuilder {
+  relationshipImportResult(
+    relationshipImportResult: RelationshipImportResult
+  ): GraphStoreBuilder {
     if (!relationshipImportResult) {
       throw new Error("relationshipImportResult cannot be null");
     }
@@ -177,7 +179,11 @@ export class GraphStoreBuilder {
   }
 
   private relationshipImportResultIsSet(): boolean {
-    return (this.initBits & GraphStoreBuilder.INIT_BIT_RELATIONSHIP_IMPORT_RESULT) === 0;
+    return (
+      (this.initBits &
+        GraphStoreBuilder.INIT_BIT_RELATIONSHIP_IMPORT_RESULT) ===
+      0
+    );
   }
 
   private concurrencyIsSet(): boolean {
@@ -196,9 +202,12 @@ export class GraphStoreBuilder {
     if (!this.capabilitiesIsSet()) attributes.push("capabilities");
     if (!this.schemaIsSet()) attributes.push("schema");
     if (!this.nodesIsSet()) attributes.push("nodes");
-    if (!this.relationshipImportResultIsSet()) attributes.push("relationshipImportResult");
+    if (!this.relationshipImportResultIsSet())
+      attributes.push("relationshipImportResult");
     if (!this.concurrencyIsSet()) attributes.push("concurrency");
 
-    return `Cannot build GraphStore, some of required attributes are not set: ${attributes.join(', ')}`;
+    return `Cannot build GraphStore, some of required attributes are not set: ${attributes.join(
+      ", "
+    )}`;
   }
 }

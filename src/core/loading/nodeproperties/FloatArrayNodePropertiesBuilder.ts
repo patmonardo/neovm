@@ -39,9 +39,9 @@ import { HugeSparseFloatArrayArray } from "@/collections/hsa/HugeSparseFloatArra
 import { Concurrency } from "@/concurrency";
 import { DefaultPool } from "@/concurrency";
 import { ParallelUtil } from "@/concurrency";
-import { GdsNeo4jValueConversion } from "@/utils/GdsNeo4jValueConversion";
 import { GdsValue } from "@/values";
 import { InnerNodePropertiesBuilder } from "./InnerNodePropertiesBuilder";
+import { Float32 } from "apache-arrow";
 
 /**
  * Builder for float array node properties with memory-optimized storage.
@@ -109,7 +109,7 @@ export class FloatArrayNodePropertiesBuilder
    * @param value GdsValue containing array property data
    */
   public setValue(neoNodeId: number, value: GdsValue): void {
-    const floatArray = GdsNeo4jValueConversion.getFloatArray(value);
+    const floatArray = value.asObject() as number[];
     this.set(neoNodeId, floatArray);
   }
 

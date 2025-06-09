@@ -1,16 +1,16 @@
+import { PropertySchema } from "@/api/schema";
+import { FileHeader } from "./FileHeader";
+import { HeaderProperty } from "./HeaderProperty";
+
 /**
  * GRAPH PROPERTY FILE HEADER - CSV GRAPH PROPERTY FILE STRUCTURE
  *
  * Defines the structure and schema for CSV graph property files.
- * Graph properties are key-value pairs that apply to the entire graph.
+ * Graph properties are key-value pairs that apply to the graph.
  *
  * CSV Format: propertyName:type
  * Example: "totalNodes:long" or "createdAt:string"
  */
-
-import { PropertySchema } from "@/api/schema";
-import { FileHeader } from "./FileHeader";
-import { HeaderProperty } from "./HeaderProperty";
 
 export interface GraphPropertyFileHeader
   extends FileHeader<Map<string, PropertySchema>, PropertySchema> {
@@ -53,14 +53,14 @@ export namespace GraphPropertyFileHeader {
     }
 
     const propertyMapping = HeaderProperty.parse(0, headerLine[0]);
-    return new GraphPropertyFileHeaderImpl(propertyMapping);
+    return new DefaultGraphPropertyFileHeader(propertyMapping);
   }
 }
 
 /**
  * Implementation of GraphPropertyFileHeader interface.
  */
-class GraphPropertyFileHeaderImpl implements GraphPropertyFileHeader {
+class DefaultGraphPropertyFileHeader implements GraphPropertyFileHeader {
   constructor(private readonly _propertyMapping: HeaderProperty) {}
 
   propertyMapping(): HeaderProperty {

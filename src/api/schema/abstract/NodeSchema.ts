@@ -2,6 +2,7 @@ import { NodeLabel } from "@/projection";
 import { ElementSchema } from "./ElementSchema";
 import { NodeSchemaEntry } from "./NodeSchemaEntry";
 import { PropertySchema } from "./PropertySchema";
+import { MutableNodeSchema } from "../primitive/MutableNodeSchema";
 
 /**
  * Schema definition for nodes in a graph.
@@ -50,8 +51,6 @@ export namespace NodeSchema {
    * @returns An empty node schema
    */
   export function empty(): NodeSchema {
-    // Import here to avoid circular dependencies
-    const { MutableNodeSchema } = require('./MutableNodeSchema');
     return MutableNodeSchema.empty();
   }
 
@@ -62,9 +61,9 @@ export namespace NodeSchema {
    * @returns Formatted string representation
    */
   export function formatPropertySchema(schema: PropertySchema): string {
-    return `${schema.valueType().toString()} (${schema.defaultValue().toString()}, ${
-      schema.state().toString()
-    })`;
+    return `${schema.valueType().toString()} (${schema
+      .defaultValue()
+      .toString()}, ${schema.state().toString()})`;
   }
 
   /**
@@ -74,13 +73,13 @@ export namespace NodeSchema {
    * @returns Formatted properties map
    */
   export function formatProperties(
-    properties: Record<string, PropertySchema>
-  ): Record<string, string> {
-    const result: Record<string, string> = {};
+    properties: Map<string, PropertySchema>
+  ): Map<string, string> {
+    const result = new Map<string, string>();
 
-    for (const [key, schema] of Object.entries(properties)) {
-      result[key] = formatPropertySchema(schema);
-    }
+    properties.forEach((schema, key) => {
+      result.set(key, formatPropertySchema(schema));
+    });
 
     return result;
   }

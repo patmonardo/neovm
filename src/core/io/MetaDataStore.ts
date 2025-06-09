@@ -1,3 +1,11 @@
+import { RelationshipType } from "@/projection";
+import { IdMap } from "@/api";
+import { GraphStore } from "@/api";
+import { NodeSchema } from "@/api/schema";
+import { RelationshipSchema } from "@/api/schema";
+import { PropertySchema } from "@/api/schema";
+import { GraphInfo } from "./file/GraphInfo";
+
 /**
  * METADATA STORE - GRAPH EXPORT METADATA
  *
@@ -6,14 +14,6 @@
  *
  * This is the bridge between in-memory GraphStore and file persistence.
  */
-
-import { RelationshipType } from "@/projection";
-import { IdMap } from "@/api";
-import { GraphStore } from "@/api/GraphStore";
-import { NodeSchema } from "@/api/schema";
-import { RelationshipSchema } from "@/api/schema";
-import { PropertySchema } from "@/api/schema";
-import { GraphInfo } from "./file/GraphInfo";
 
 export class MetaDataStore {
   constructor(

@@ -1,14 +1,14 @@
-import { ValueType } from '@/api';
-import { PropertyValues } from '@/api/properties';
-import { GraphProperty } from '../GraphProperty';
-import { GraphPropertyValues } from '../GraphPropertyValues';
-import { GraphPropertyStore } from '../GraphPropertyStore';
-import { GraphPropertyStoreBuilder } from '../GraphPropertyStoreBuilder';
+import { ValueType } from "@/api";
+import { PropertyValues } from "@/api/properties";
+import { GraphProperty } from "../GraphProperty";
+import { GraphPropertyValues } from "../GraphPropertyValues";
+import { GraphPropertyStore } from "../GraphPropertyStore";
+import { GraphPropertyStoreBuilder } from "../GraphPropertyStoreBuilder";
 
 /**
  * Implementation of the GraphPropertyStore interface with builder capabilities.
  */
-export class DefGraphPropertyStore implements GraphPropertyStore {
+export class DefaultGraphPropertyStore implements GraphPropertyStore {
   private readonly propertiesMap: Map<string, GraphProperty>;
 
   /**
@@ -99,12 +99,18 @@ export class DefGraphPropertyStore implements GraphPropertyStore {
    * @returns The property values
    * @throws If the property doesn't exist or is of the wrong type
    */
-  getPropertyValues(propertyKey: string, expectedType: ValueType): GraphPropertyValues {
+  getPropertyValues(
+    propertyKey: string,
+    expectedType: ValueType
+  ): GraphPropertyValues {
     const property = this.getProperty(propertyKey);
     const values = property.values();
 
     if (values.valueType() !== expectedType) {
-      throw PropertyValues.unsupportedTypeException(values.valueType(), expectedType);
+      throw PropertyValues.unsupportedTypeException(
+        values.valueType(),
+        expectedType
+      );
     }
 
     return values;
@@ -146,4 +152,3 @@ export class DefGraphPropertyStore implements GraphPropertyStore {
     return new GraphPropertyStoreBuilder();
   }
 }
-

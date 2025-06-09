@@ -1,11 +1,11 @@
-import { PropertySchema } from "@/api/schema/abstract/PropertySchema";
+import { PropertySchema } from "@/api/schema";
 import { GraphProperty } from "../GraphProperty";
 import { GraphPropertyValues } from "../GraphPropertyValues";
 
 /**
  * Implementation of the GraphProperty interface.
  */
-export class DefGraphProperty implements GraphProperty {
+export class DefaultGraphProperty implements GraphProperty {
   private readonly propertyValues: GraphPropertyValues;
   private readonly schema: PropertySchema;
 

@@ -3,7 +3,7 @@ import { PropertyStore } from "@/api/properties/PropertyStore";
 import { GraphProperty } from "./GraphProperty";
 import { GraphPropertyValues } from "./GraphPropertyValues";
 import { GraphPropertyStoreBuilder } from "./GraphPropertyStoreBuilder";
-import { DefGraphPropertyStore } from "./primitive/DefGraphPropertyStore";
+import { DefaultGraphPropertyStore } from "./primitive/DefaultGraphPropertyStore";
 
 /**
  * A specialized property store for graph properties.
@@ -95,7 +95,7 @@ export namespace GraphPropertyStore {
    * @returns An empty GraphPropertyStore
    */
   export function empty(): GraphPropertyStore {
-    return new DefGraphPropertyStore(new Map());
+    return new DefaultGraphPropertyStore(new Map());
   }
 
   /**

@@ -1,17 +1,20 @@
-/**
- * GRAPH STORE CATALOG SERVICE - COMPLETE IMPLEMENTATION
- *
- * Service wrapper around GraphStoreCatalog with basic validation.
- */
-
 import { NodeLabel, RelationshipType } from "@/projection";
 import { GraphStore, Graph } from "@/api";
 import { User, DatabaseId, GraphName } from "@/api";
 import { GraphProjectConfig } from "@/config";
 import { AlgoBaseConfig, BaseConfig } from "@/config";
 import { CatalogRequest } from "./CatalogRequest";
+import { PostLoadValidationHook } from "./PostLoadValidationHook";
+import { PostLoadETLHook } from "./PostLoadETLHook";
+import { GraphResources } from "./GraphResources";
 import { GraphStoreCatalogEntry } from "./GraphStoreCatalogEntry";
 import { GraphStoreCatalog } from "./GraphStoreCatalog";
+
+/**
+ * GRAPH STORE CATALOG SERVICE - COMPLETE IMPLEMENTATION
+ *
+ * Service wrapper around GraphStoreCatalog with basic validation.
+ */
 
 export class GraphStoreCatalogService {
   graphExists(
@@ -265,23 +268,4 @@ export class GraphStoreCatalogService {
   set(configuration: GraphProjectConfig, graphStore: GraphStore): void {
     GraphStoreCatalog.set(configuration, graphStore);
   }
-}
-
-// HELPER CLASSES - SIMPLE IMPLEMENTATIONS
-
-export class GraphResources {
-  constructor(
-    public readonly graphStore: GraphStore,
-    public readonly graph: Graph,
-    public readonly resultStore: any
-  ) {}
-}
-
-export interface PostLoadValidationHook {
-  onGraphStoreLoaded(graphStore: GraphStore): void;
-  onGraphLoaded(graph: Graph): void;
-}
-
-export interface PostLoadETLHook {
-  onGraphStoreLoaded(graphStore: GraphStore): void;
 }

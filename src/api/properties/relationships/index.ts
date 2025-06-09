@@ -4,6 +4,7 @@ export * from "./RelationshipPropertyStore";
 export * from "./RelationshipProperties";
 export * from "./RelationshipProperty";
 export * from "./abstract/RelationshipCursor";
+export * from "./abstract/RelationshipPredicate";
 export * from "./abstract/RelationshipIterator";
 export * from "./abstract/RelationshipConsumer";
 export * from "./abstract/RelationshipWithPropertyConsumer";

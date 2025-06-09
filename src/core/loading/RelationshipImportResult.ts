@@ -4,22 +4,13 @@
  */
 
 import { RelationshipType } from '@/projection';
-import { ImmutableTopology } from '@/api';
-import { RelationshipPropertyStore } from '@/api/properties/relationships';
-import { MutableRelationshipSchema, MutableRelationshipSchemaEntry } from '@/api/schema';
+import { MutableRelationshipSchema } from '@/api/schema';
 import { SingleTypeRelationshipImporter } from './SingleTypeRelationshipImporter';
+import { SingleTypeRelationships } from './SingleTypeRelationships';
 
 export interface RelationshipImportResult {
   readonly importResults: Map<RelationshipType, SingleTypeRelationships>;
   readonly relationshipSchema: MutableRelationshipSchema;
-}
-
-export interface SingleTypeRelationships {
-  readonly topology: ImmutableTopology;
-  readonly inverseTopology?: ImmutableTopology;
-  readonly properties?: RelationshipPropertyStore;
-  readonly inverseProperties?: RelationshipPropertyStore;
-  readonly relationshipSchemaEntry: MutableRelationshipSchemaEntry;
 }
 
 class SimpleRelationshipImportResult implements RelationshipImportResult {

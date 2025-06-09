@@ -4,6 +4,7 @@ import { Direction } from '../Direction';
 import { ElementSchemaEntry } from './ElementSchemaEntry';
 import { PropertySchema } from './PropertySchema';
 import { RelationshipPropertySchema } from './RelationshipPropertySchema';
+import { MutableRelationshipSchemaEntry } from '../primitive/MutableRelationshipSchemaEntry';
 
 /**
  * Schema entry for a relationship type in a graph.
@@ -23,7 +24,7 @@ export abstract class RelationshipSchemaEntry extends ElementSchemaEntry<
   /**
    * Returns the properties associated with this relationship type.
    */
-  abstract properties(): Record<string, RelationshipPropertySchema>;
+  abstract properties(): Map<string, RelationshipPropertySchema>;
 
   /**
    * Returns the direction of relationships with this type.
@@ -69,10 +70,6 @@ export namespace RelationshipSchemaEntry {
     relationshipType: RelationshipType,
     direction: Direction
   ): RelationshipSchemaEntry {
-    // Import here to avoid circular dependencies
-    const {
-      MutableRelationshipSchemaEntry,
-    } = require("./MutableRelationshipSchemaEntry");
     return new MutableRelationshipSchemaEntry(relationshipType, direction);
   }
 

@@ -36,16 +36,10 @@ export class MutableRelationshipSchemaEntry extends RelationshipSchemaEntry {
   public static from(
     fromEntry: RelationshipSchemaEntry
   ): MutableRelationshipSchemaEntry {
-    // BUG FIX #1: Use Map constructor with proper conversion from Record to entries
-    const propertiesMap = new Map<string, RelationshipPropertySchema>();
-    Object.entries(fromEntry.properties()).forEach(([key, schema]) => {
-      propertiesMap.set(key, schema);
-    });
-
     return new MutableRelationshipSchemaEntry(
       fromEntry.identifier(),
       fromEntry.direction(),
-      propertiesMap
+      new Map(fromEntry.properties())
     );
   }
 
@@ -115,12 +109,8 @@ export class MutableRelationshipSchemaEntry extends RelationshipSchemaEntry {
    *
    * @returns Map of property keys to their schemas
    */
-  properties(): Record<string, RelationshipPropertySchema> {
-    const props: Record<string, RelationshipPropertySchema> = {};
-    this._properties.forEach((schema, key) => {
-      props[key] = schema;
-    });
-    return props;
+  properties(): Map<string, RelationshipPropertySchema> {
+    return new Map(this._properties);
   }
 
   /**
@@ -140,20 +130,18 @@ export class MutableRelationshipSchemaEntry extends RelationshipSchemaEntry {
       );
     }
 
-    // BUG FIX #2: Match Java implementation by throwing error on direction conflict
     if (other.isUndirected() !== this.isUndirected()) {
       throw new Error(
         `Conflicting directionality for relationship types ${this.identifier().name()}`
       );
     }
 
-    // BUG FIX #3: Use Map constructor with the correct property type
     const unionedProperties = this.unionProperties(other.properties());
 
     return new MutableRelationshipSchemaEntry(
       this._identifier,
       this._direction,
-      new Map(Object.entries(unionedProperties))
+      unionedProperties
     );
   }
 

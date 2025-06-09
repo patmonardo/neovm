@@ -1,1 +1,2 @@
-relationshipType,direction,propertyKey,valueType,aggregation,state
+relationshipType,direction
+TEST_REL,DIRECTED

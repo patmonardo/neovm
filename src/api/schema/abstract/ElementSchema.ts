@@ -1,4 +1,4 @@
-import { ElementIdentifier } from "@/projection/abstract/ElementIdentifier";
+import { ElementIdentifier } from "@/projection";
 import { ElementSchemaEntry } from "./ElementSchemaEntry";
 import { PropertySchema } from "./PropertySchema";
 
@@ -47,7 +47,6 @@ export abstract class ElementSchema<
    * @returns The schema entry for the given identifier, or undefined if not found
    */
   abstract get(identifier: ELEMENT_IDENTIFIER): ENTRY | undefined;
-
   /**
    * Returns all unique property keys across all schema entries.
    *
@@ -68,13 +67,13 @@ export abstract class ElementSchema<
     // If elementIdentifier is provided, return properties for that element only
     if (elementIdentifier !== undefined) {
       const entry = this.get(elementIdentifier);
-      return entry ? new Set(Object.keys(entry.properties())) : new Set();
+      return entry ? new Set(entry.properties().keys()) : new Set();
     }
 
     // Otherwise return properties for all elements
     const properties = new Set<string>();
     for (const entry of this.entries()) {
-      for (const key of Object.keys(entry.properties())) {
+      for (const key of entry.properties().keys()) {
         properties.add(key);
       }
     }
@@ -87,7 +86,7 @@ export abstract class ElementSchema<
    * @returns True if any entries have properties
    */
   hasProperties(): boolean {
-    return this.entries().some(entry => Object.keys(entry.properties()).length > 0);
+    return this.entries().some((entry) => entry.properties().size > 0);
   }
 
   /**
@@ -97,9 +96,12 @@ export abstract class ElementSchema<
    * @param propertyKey The property key to check
    * @returns True if the element has the specified property
    */
-  hasProperty(elementIdentifier: ELEMENT_IDENTIFIER, propertyKey: string): boolean {
+  hasProperty(
+    elementIdentifier: ELEMENT_IDENTIFIER,
+    propertyKey: string
+  ): boolean {
     const entry = this.get(elementIdentifier);
-    return entry ? entry.properties().hasOwnProperty(propertyKey) : false;
+    return entry ? entry.properties().has(propertyKey) : false;
   }
 
   /**
@@ -110,7 +112,7 @@ export abstract class ElementSchema<
    */
   propertySchemasFor(elementIdentifier: ELEMENT_IDENTIFIER): PROPERTY_SCHEMA[] {
     const entry = this.get(elementIdentifier);
-    return entry ? Object.values(entry.properties()) : [];
+    return entry ? Array.from(entry.properties().values()) : [];
   }
 
   /**
@@ -122,11 +124,11 @@ export abstract class ElementSchema<
     const result = new Map<string, PROPERTY_SCHEMA>();
 
     for (const entry of this.entries()) {
-      for (const [key, propertySchema] of Object.entries(entry.properties())) {
+      entry.properties().forEach((propertySchema, key) => {
         if (!result.has(key)) {
-          result.set(key, propertySchema as PROPERTY_SCHEMA);
+          result.set(key, propertySchema);
         }
-      }
+      });
     }
 
     return result;

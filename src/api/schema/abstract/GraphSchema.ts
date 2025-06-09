@@ -5,6 +5,7 @@ import { RelationshipSchema } from "./RelationshipSchema";
 import { RelationshipPropertySchema } from "./RelationshipPropertySchema";
 import { PropertySchema } from "./PropertySchema";
 import { Direction } from "../Direction";
+import { MutableGraphSchema } from "../primitive/MutableGraphSchema";
 
 /**
  * Schema representation for a graph, including node and relationship schemas.
@@ -112,7 +113,6 @@ export namespace GraphSchema {
    */
   export function empty(): GraphSchema {
     // Import here to avoid circular dependency
-    const { MutableGraphSchema } = require('./MutableGraphSchema');
     return MutableGraphSchema.empty();
   }
 
@@ -120,8 +120,6 @@ export namespace GraphSchema {
    * Creates a new mutable graph schema.
    */
   export function mutable(): GraphSchema {
-    // Import here to avoid circular dependency
-    const { MutableGraphSchema } = require('./MutableGraphSchema');
     return MutableGraphSchema.empty();
   }
 

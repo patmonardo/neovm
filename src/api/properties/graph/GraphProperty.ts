@@ -3,7 +3,7 @@ import { PropertyState } from "@/api";
 import { Property } from "@/api/properties";
 import { PropertySchema } from "@/api/schema/";
 import { GraphPropertyValues } from "./GraphPropertyValues";
-import { DefGraphProperty } from "./primitive/DefGraphProperty";
+import { DefaultGraphProperty } from "./primitive/DefaultGraphProperty";
 
 /**
  * Represents a property at the graph level.
@@ -23,7 +23,7 @@ export namespace GraphProperty {
    * @returns A new GraphProperty instance
    */
   export function of(key: string, values: GraphPropertyValues): GraphProperty {
-    return new DefGraphProperty(
+    return new DefaultGraphProperty(
       values,
       PropertySchema.of(
         key,

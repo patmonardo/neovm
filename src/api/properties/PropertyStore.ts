@@ -1,5 +1,5 @@
-import { PropertyValues } from "./PropertyValues";
 import { Property } from "./Property";
+import { PropertyValues } from "./PropertyValues";
 
 /**
  * A store that contains properties indexed by their property key.

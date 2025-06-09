@@ -85,7 +85,7 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   /**
    * Returns all schema entries.
    */
-  entries(): RelationshipSchemaEntry[] {
+  entries(): Array<RelationshipSchemaEntry> {
     return Array.from(this._entries.values());
   }
 

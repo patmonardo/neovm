@@ -1,4 +1,4 @@
-import { Aggregation } from '@/core';
+import { Aggregation } from "@/core";
 
 /**
  * Interface for reading relationship properties during batch import.
@@ -69,19 +69,24 @@ export namespace PropertyReader {
       ): number[][] => {
         const properties = new Array<number>(producer.numberOfElements());
 
-        producer.forEach((index, source, target, relationshipReference, propertyReference) => {
-          properties[index] = relationshipReference;
-        });
+        producer.forEach(
+          (index, source, target, relationshipReference, propertyReference) => {
+            properties[index] = relationshipReference;
+          }
+        );
 
         return [properties];
-      }
+      },
     };
   }
 
   /**
    * Create a buffered property reader for handling multiple properties.
    */
-  export function buffered<PROPERTY_REF>(batchSize: number, propertyCount: number): Buffered<PROPERTY_REF> {
+  export function buffered<PROPERTY_REF>(
+    batchSize: number,
+    propertyCount: number
+  ): Buffered<PROPERTY_REF> {
     return new Buffered<PROPERTY_REF>(batchSize, propertyCount);
   }
 
@@ -109,7 +114,8 @@ export namespace PropertyReader {
      */
     add(relationshipId: number, propertyKeyId: number, property: number): void {
       // Convert double to long bits representation (equivalent to Java's Double.doubleToLongBits)
-      this.buffer[propertyKeyId][relationshipId] = this.doubleToLongBits(property);
+      this.buffer[propertyKeyId][relationshipId] =
+        this.doubleToLongBits(property);
     }
 
     readProperties(
@@ -119,41 +125,32 @@ export namespace PropertyReader {
       aggregations: Aggregation[],
       atLeastOnePropertyToLoad: boolean
     ): number[][] {
-      const resultBuffer: number[][] = Array.from({ length: this.propertyCount }, () =>
-        new Array<number>(producer.numberOfElements())
+      const resultBuffer: number[][] = Array.from(
+        { length: this.propertyCount },
+        () => new Array<number>(producer.numberOfElements())
       );
 
-      for (let propertyIndex = 0; propertyIndex < this.propertyCount; propertyIndex++) {
+      for (
+        let propertyIndex = 0;
+        propertyIndex < this.propertyCount;
+        propertyIndex++
+      ) {
         const buffered = this.buffer[propertyIndex];
         const propertyValues = new Array<number>(producer.numberOfElements());
 
-        producer.forEach((index, source, target, relationshipReference, propertyReference) => {
-          const relationshipId = relationshipReference;
-          // Fill consecutively indexed in the same order as relationships
-          // are stored in the batch
-          propertyValues[index] = buffered[relationshipId];
-        });
+        producer.forEach(
+          (index, source, target, relationshipReference, propertyReference) => {
+            const relationshipId = relationshipReference;
+            // Fill consecutively indexed in the same order as relationships
+            // are stored in the batch
+            propertyValues[index] = buffered[relationshipId];
+          }
+        );
 
         resultBuffer[propertyIndex] = propertyValues;
       }
 
       return resultBuffer;
-    }
-
-    /**
-     * Get current buffer statistics.
-     */
-    getBufferStats(): BufferStats {
-      const totalCapacity = this.buffer.reduce((sum, arr) => sum + arr.length, 0);
-      const memoryUsage = totalCapacity * 8; // 8 bytes per number (double precision)
-
-      return {
-        propertyCount: this.propertyCount,
-        batchSize: this.buffer[0]?.length || 0,
-        totalCapacity,
-        memoryUsageBytes: memoryUsage,
-        memoryUsageMB: memoryUsage / (1024 * 1024)
-      };
     }
 
     /**
@@ -178,7 +175,7 @@ export namespace PropertyReader {
       // Combine the two 32-bit parts into a single number
       // Note: JavaScript numbers are 64-bit floats, so we may lose precision
       // for very large integers, but this preserves the bit pattern for most cases
-      return intView[0] + (intView[1] * 0x100000000);
+      return intView[0] + intView[1] * 0x100000000;
     }
 
     /**
@@ -189,7 +186,7 @@ export namespace PropertyReader {
       const intView = new Uint32Array(buffer);
       const floatView = new Float64Array(buffer);
 
-      intView[0] = bits & 0xFFFFFFFF;
+      intView[0] = bits & 0xffffffff;
       intView[1] = Math.floor(bits / 0x100000000);
 
       return floatView[0];
@@ -211,16 +208,24 @@ export class PropertyReaderFactory {
   /**
    * Create a property reader for multiple properties with known batch size.
    */
-  static multipleProperties(batchSize: number, propertyCount: number): PropertyReader.Buffered<any> {
+  static multipleProperties(
+    batchSize: number,
+    propertyCount: number
+  ): PropertyReader.Buffered<any> {
     return PropertyReader.buffered(batchSize, propertyCount);
   }
 
   /**
    * Create a property reader optimized for large batches.
    */
-  static largeBatch(batchSize: number, propertyCount: number): PropertyReader.Buffered<any> {
+  static largeBatch(
+    batchSize: number,
+    propertyCount: number
+  ): PropertyReader.Buffered<any> {
     if (batchSize > 10000) {
-      console.warn(`Large batch size (${batchSize}) may consume significant memory`);
+      console.warn(
+        `Large batch size (${batchSize}) may consume significant memory`
+      );
     }
     return PropertyReader.buffered(batchSize, propertyCount);
   }
@@ -239,15 +244,4 @@ export class PropertyReaderFactory {
       return this.multipleProperties(batchSize, propertyCount);
     }
   }
-}
-
-/**
- * Buffer statistics interface.
- */
-export interface BufferStats {
-  propertyCount: number;
-  batchSize: number;
-  totalCapacity: number;
-  memoryUsageBytes: number;
-  memoryUsageMB: number;
 }

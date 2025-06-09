@@ -19,7 +19,7 @@ export abstract class NodeSchemaEntry extends ElementSchemaEntry<
   /**
    * Returns the properties associated with this node label.
    */
-  abstract properties(): Record<string, PropertySchema>;
+  abstract properties(): Map<string, PropertySchema>;
 
   /**
    * Creates a union of this entry with another entry.
@@ -37,23 +37,3 @@ export abstract class NodeSchemaEntry extends ElementSchemaEntry<
   abstract hashCode(): number;
 }
 
-/**
- * Namespace providing utility functions and factories for NodeSchemaEntry.
- */
-export namespace NodeSchemaEntry {
-  /**
-   * Creates a new NodeSchemaEntry with the given label and properties.
-   *
-   * @param nodeLabel The node label
-   * @param properties Map of property keys to property schemas
-   * @returns A new NodeSchemaEntry
-   */
-  export function of(
-    nodeLabel: NodeLabel,
-    properties: Record<string, PropertySchema> = {}
-  ): NodeSchemaEntry {
-    // Import here to avoid circular dependencies
-    const { MutableNodeSchemaEntry } = require('./MutableNodeSchemaEntry');
-    return new MutableNodeSchemaEntry(nodeLabel, new Map(Object.entries(properties)));
-  }
-}

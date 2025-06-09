@@ -74,20 +74,6 @@ export class RadixSort {
   }
 
   /**
-   * Creates a copy array with same length as the input long array.
-   *
-   * This copy is used as a temporary buffer during the radix sort process.
-   * Using BigUint64Array ensures we can handle the full range of 64-bit integers
-   * that might represent node IDs in very large graphs.
-   *
-   * @param data Source array to copy length from
-   * @returns New BigUint64Array with same length as input
-   */
-  public static newCopy(data: BigUint64Array): BigUint64Array {
-    return new BigUint64Array(data.length);
-  }
-
-  /**
    * Creates a copy array with same length as the input generic array.
    *
    * This provides type-safe copying for associated data arrays of any type.

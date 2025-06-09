@@ -1,5 +1,4 @@
 import { ValueType } from "@/api";
-import { DefaultValue } from "@/api";
 import { NodePropertyValues } from "../NodePropertyValues";
 import { UnsupportedOperationError } from "../NodePropertyValues";
 import { LongArrayNodePropertyValues } from "../abstract/LongArrayNodePropertyValues";

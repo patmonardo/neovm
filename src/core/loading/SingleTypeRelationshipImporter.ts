@@ -1,13 +1,19 @@
-import { RelationshipProjection, RelationshipType, PropertyMapping } from '@/api';
-import { AdjacencyCompressor, AdjacencyCompressorFactory, AdjacencyListsWithProperties } from '@/api/compress';
-import { Aggregation } from '@/core/Aggregation';
-import { AdjacencyBuffer } from '@/core/loading/AdjacencyBuffer';
-import { AdjacencyBufferBuilder } from '@/core/loading/AdjacencyBufferBuilder';
-import { AdjacencyListBehavior } from '@/core/loading/AdjacencyListBehavior';
-import { RelationshipsBatchBuffer } from '@/core/loading/RelationshipsBatchBuffer';
-import { ThreadLocalSingleTypeRelationshipImporter, ThreadLocalSingleTypeRelationshipImporterBuilder } from '@/core/loading/ThreadLocalSingleTypeRelationshipImporter';
-import { PropertyReader } from '@/core/loading/PropertyReader';
-import { ImportSizing } from '@/core/loading/ImportSizing';
+import { RelationshipProjection, RelationshipType } from "@/projection";
+import {
+  AdjacencyCompressorFactory,
+  AdjacencyListsWithProperties,
+} from "@/api/compress";
+import { Aggregation } from "@/core/Aggregation";
+import { AdjacencyBuffer } from "@/core/loading/AdjacencyBuffer";
+import { AdjacencyBufferBuilder } from "@/core/loading";
+import { AdjacencyListBehavior } from "@/core/loading";
+import { PropertyReader } from "@/core/loading";
+import { ImportSizing } from "@/core/loading";
+import { RelationshipsBatchBuffer } from "@/core/loading";
+import {
+  ThreadLocalSingleTypeRelationshipImporter,
+  ThreadLocalSingleTypeRelationshipImporterBuilder,
+} from "@/core/loading";
 
 /**
  * High-performance single relationship type importer with parallel processing.
@@ -65,7 +71,6 @@ import { ImportSizing } from '@/core/loading/ImportSizing';
  * instance for optimal resource utilization and memory isolation.
  */
 export class SingleTypeRelationshipImporter {
-
   /**
    * Factory for creating adjacency compressors with optimal configuration.
    *
@@ -134,7 +139,6 @@ export class SingleTypeRelationshipImporter {
     nodeCountSupplier: () => number,
     importSizing: ImportSizing
   ): SingleTypeRelationshipImporter {
-
     // Configure compression strategy based on graph characteristics and properties
     const adjacencyCompressorFactory = AdjacencyListBehavior.asConfigured(
       nodeCountSupplier,
@@ -442,7 +446,10 @@ export class ImmutableImportMetaData implements ImportMetaData {
     return new ImmutableImportMetaData(
       projection,
       ImmutableImportMetaData.aggregations(projection),
-      ImmutableImportMetaData.propertyKeyIds(projection, relationshipPropertyTokens),
+      ImmutableImportMetaData.propertyKeyIds(
+        projection,
+        relationshipPropertyTokens
+      ),
       ImmutableImportMetaData.defaultValues(projection),
       typeTokenId,
       skipDanglingRelationships
@@ -459,8 +466,9 @@ export class ImmutableImportMetaData implements ImportMetaData {
    * @returns Array of default values in property order
    */
   private static defaultValues(projection: RelationshipProjection): number[] {
-    return projection.properties.mappings
-      .map(propertyMapping => propertyMapping.defaultValue.doubleValue);
+    return projection.properties.mappings.map(
+      (propertyMapping) => propertyMapping.defaultValue.doubleValue
+    );
   }
 
   /**
@@ -478,14 +486,13 @@ export class ImmutableImportMetaData implements ImportMetaData {
     projection: RelationshipProjection,
     relationshipPropertyTokens: Map<string, number>
   ): number[] {
-    return projection.properties.mappings
-      .map(mapping => {
-        const tokenId = relationshipPropertyTokens.get(mapping.neoPropertyKey);
-        if (tokenId === undefined) {
-          throw new Error(`Property token not found: ${mapping.neoPropertyKey}`);
-        }
-        return tokenId;
-      });
+    return projection.properties.mappings.map((mapping) => {
+      const tokenId = relationshipPropertyTokens.get(mapping.neoPropertyKey);
+      if (tokenId === undefined) {
+        throw new Error(`Property token not found: ${mapping.neoPropertyKey}`);
+      }
+      return tokenId;
+    });
   }
 
   /**
@@ -506,12 +513,15 @@ export class ImmutableImportMetaData implements ImportMetaData {
    * @param projection Relationship projection with aggregation configuration
    * @returns Array of resolved aggregation strategies
    */
-  private static aggregations(projection: RelationshipProjection): Aggregation[] {
+  private static aggregations(
+    projection: RelationshipProjection
+  ): Aggregation[] {
     const propertyMappings = projection.properties.mappings;
 
     // Extract per-property aggregation strategies
-    let aggregations = propertyMappings
-      .map(propertyMapping => Aggregation.resolve(propertyMapping.aggregation));
+    let aggregations = propertyMappings.map((propertyMapping) =>
+      Aggregation.resolve(propertyMapping.aggregation)
+    );
 
     // Handle case with no properties - use relationship-level aggregation
     if (propertyMappings.length === 0) {
@@ -546,7 +556,9 @@ export interface SingleTypeRelationshipImportContext {
 /**
  * Immutable implementation of SingleTypeRelationshipImportContext.
  */
-export class ImmutableSingleTypeRelationshipImportContext implements SingleTypeRelationshipImportContext {
+export class ImmutableSingleTypeRelationshipImportContext
+  implements SingleTypeRelationshipImportContext
+{
   constructor(
     public readonly relationshipType: RelationshipType,
     public readonly relationshipProjection: RelationshipProjection,
@@ -621,8 +633,14 @@ export class SingleTypeRelationshipImporterBuilder {
   }
 
   build(): SingleTypeRelationshipImporter {
-    if (!this._importMetaData || !this._nodeCountSupplier || !this._importSizing) {
-      throw new Error('Missing required configuration for SingleTypeRelationshipImporter');
+    if (
+      !this._importMetaData ||
+      !this._nodeCountSupplier ||
+      !this._importSizing
+    ) {
+      throw new Error(
+        "Missing required configuration for SingleTypeRelationshipImporter"
+      );
     }
 
     return SingleTypeRelationshipImporter.of(
@@ -643,7 +661,7 @@ export class Optional<T> {
 
   static of<T>(value: T): Optional<T> {
     if (value === null || value === undefined) {
-      throw new Error('Value cannot be null or undefined');
+      throw new Error("Value cannot be null or undefined");
     }
     return new Optional<T>(value);
   }
@@ -662,7 +680,7 @@ export class Optional<T> {
 
   get(): T {
     if (this.value === null) {
-      throw new Error('No value present');
+      throw new Error("No value present");
     }
     return this.value;
   }
@@ -699,5 +717,6 @@ export type Collection<T> = T[];
 export namespace SingleTypeRelationshipImporter {
   export const ImportMetaData = ImmutableImportMetaData;
   export const ImportContext = ImmutableSingleTypeRelationshipImportContext;
-  export type SingleTypeRelationshipImportContext = ImmutableSingleTypeRelationshipImportContext;
+  export type SingleTypeRelationshipImportContext =
+    ImmutableSingleTypeRelationshipImportContext;
 }

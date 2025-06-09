@@ -1,15 +1,15 @@
+import { NodeLabel } from '@/projection';
+import { RelationshipType } from '@/projection';
+import { GraphStore } from '@/api';
+import { IdMap } from '@/api';
+import { Concurrency } from '@/concurrency';
 import { Validator } from '@/common/Validator';
-import { NodeLabel } from '@/api/NodeLabel';
-import { RelationshipType } from '@/api/RelationshipType';
-import { GraphStore } from '@/api/GraphStore';
-import { IdMap } from '@/api/IdMap';
-import { Concurrency } from '@/core/concurrency/Concurrency';
-import { IdentifierMapper } from './IdentifierMapper';
 import { NeoNodeProperties } from './NeoNodeProperties';
 import { GraphStoreInput } from './GraphStoreInput';
 import { MetaDataStore } from './MetaDataStore';
 import { NodeStore } from './NodeStore';
 import { RelationshipStore } from './RelationshipStore';
+import { IdentifierMapper } from './IdentifierMapper';
 import * as fs from 'fs';
 import * as path from 'path';
 

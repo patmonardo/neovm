@@ -45,13 +45,11 @@ export class MutableNodeSchema extends NodeSchema {
   public static from(fromSchema: NodeSchema): MutableNodeSchema {
     const nodeSchema = MutableNodeSchema.empty();
     fromSchema.entries().forEach((fromEntry) => {
-      // BUG FIX #1: Always create a new MutableNodeSchemaEntry instead of trying to cast
-      const properties = new Map<string, PropertySchema>();
-      Object.entries(fromEntry.properties()).forEach(([key, schema]) => {
-        properties.set(key, schema);
-      });
       nodeSchema.set(
-        new MutableNodeSchemaEntry(fromEntry.identifier(), properties)
+        new MutableNodeSchemaEntry(
+          fromEntry.identifier(),
+          new Map(fromEntry.properties()) // Map constructor copies the Map
+        )
       );
     });
 
@@ -63,7 +61,7 @@ export class MutableNodeSchema extends NodeSchema {
    *
    * @returns Array of all node labels
    */
-  public availableLabels(): NodeLabel[] {
+  public availableLabels(): Array<NodeLabel> {
     return Array.from(this._labelEntries.keys());
   }
 
@@ -73,7 +71,7 @@ export class MutableNodeSchema extends NodeSchema {
    * @param labelsToKeep Array of node labels to include
    * @returns A new filtered node schema
    */
-  public filter(labelsToKeep: NodeLabel[]): NodeSchema {
+  public filter(labelsToKeep: Array<NodeLabel>): NodeSchema {
     const filteredEntries = new Map<NodeLabel, MutableNodeSchemaEntry>();
 
     // ✅ ARRAY-BASED FILTERING - NO HASH CODES NEEDED!
@@ -94,7 +92,6 @@ export class MutableNodeSchema extends NodeSchema {
    * @returns A new schema containing elements from both schemas
    */
   public union(other: NodeSchema): NodeSchema {
-    // BUG FIX #2: Pass a Map instance directly instead of a raw object
     const unionMap = this.unionEntries(other);
     return new MutableNodeSchema(unionMap);
   }
@@ -104,7 +101,7 @@ export class MutableNodeSchema extends NodeSchema {
    *
    * @returns Collection of schema entries
    */
-  public entries(): NodeSchemaEntry[] {
+  public entries(): Array<NodeSchemaEntry> {
     return Array.from(this._labelEntries.values());
   }
 
@@ -166,7 +163,7 @@ export class MutableNodeSchema extends NodeSchema {
    */
   public addLabel(
     nodeLabel: NodeLabel,
-    nodeProperties: Record<string, PropertySchema>
+    nodeProperties: Map<string, PropertySchema>
   ): MutableNodeSchema;
 
   /**
@@ -174,18 +171,20 @@ export class MutableNodeSchema extends NodeSchema {
    */
   public addLabel(
     nodeLabel: NodeLabel,
-    nodeProperties?: Record<string, PropertySchema>
+    nodeProperties?: Map<string, PropertySchema>
   ): MutableNodeSchema {
     const nodeSchemaEntry = this.getOrCreateLabel(nodeLabel);
 
     if (nodeProperties) {
-      Object.entries(nodeProperties).forEach(([key, schema]) => {
+      nodeProperties.forEach((schema, key) => {
         nodeSchemaEntry.addProperty(key, schema);
       });
     }
 
     return this;
   }
+
+
   /**
    * Adds a property to a node label.
    *
@@ -239,21 +238,6 @@ export class MutableNodeSchema extends NodeSchema {
     });
 
     return entriesMap;
-  }
-
-  /**
-   * Converts this schema to a map representation.
-   *
-   * @returns Map representation of this schema
-   */
-  public toMap(): Record<string, any> {
-    const result: Record<string, any> = {};
-
-    this._labelEntries.forEach((entry, label) => {
-      result[label.name()] = NodeSchema.formatProperties(entry.properties());
-    });
-
-    return result;
   }
 
   /**

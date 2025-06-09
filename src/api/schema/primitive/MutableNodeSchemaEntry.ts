@@ -1,9 +1,8 @@
-import { NodeLabel } from '@/projection';
-import { ValueType } from '@/api/ValueType';
-import { DefaultValue } from '@/api/DefaultValue';
-import { PropertyState } from '@/api/PropertyState';
-import { PropertySchema } from '../abstract/PropertySchema';
-import { NodeSchemaEntry } from '../abstract/NodeSchemaEntry';
+import { NodeLabel } from "@/projection";
+import { ValueType } from "@/api";
+import { PropertyState } from "@/api";
+import { PropertySchema } from "../abstract/PropertySchema";
+import { NodeSchemaEntry } from "../abstract/NodeSchemaEntry";
 
 /**
  * Mutable implementation of NodeSchemaEntry.
@@ -35,26 +34,24 @@ export class MutableNodeSchemaEntry extends NodeSchemaEntry {
    */
   constructor(identifier: NodeLabel, properties?: Map<string, PropertySchema>);
 
-  constructor(identifier: NodeLabel, properties: Map<string, PropertySchema> = new Map()) {
+  constructor(
+    identifier: NodeLabel,
+    properties: Map<string, PropertySchema> = new Map()
+  ) {
     super();
     this._identifier = identifier;
     this._properties = properties;
   }
 
-  /**
-   * Creates a new MutableNodeSchemaEntry from an existing NodeSchemaEntry.
-   *
-   * @param fromEntry The source node schema entry
-   * @returns A new mutable copy of the entry
-   */
-  public static from(fromEntry: NodeSchemaEntry): MutableNodeSchemaEntry {
-    const propertiesMap = new Map<string, PropertySchema>();
-    Object.entries(fromEntry.properties()).forEach(([key, schema]) => {
-      propertiesMap.set(key, schema);
-    });
-
-    return new MutableNodeSchemaEntry(fromEntry.identifier(), propertiesMap);
-  }
+ /**
+ * Creates a new MutableNodeSchemaEntry from an existing NodeSchemaEntry.
+ */
+public static from(fromEntry: NodeSchemaEntry): MutableNodeSchemaEntry {
+  return new MutableNodeSchemaEntry(
+    fromEntry.identifier(),
+    new Map(fromEntry.properties())
+  );
+}
 
   /**
    * Returns the node label for this schema entry.
@@ -71,12 +68,8 @@ export class MutableNodeSchemaEntry extends NodeSchemaEntry {
    *
    * @returns Map of property keys to their schemas
    */
-  properties(): Record<string, PropertySchema> {
-    const props: Record<string, PropertySchema> = {};
-    this._properties.forEach((schema, key) => {
-      props[key] = schema;
-    });
-    return props;
+  properties(): Map<string, PropertySchema> {
+    return new Map(this._properties);
   }
 
   /**
@@ -87,7 +80,10 @@ export class MutableNodeSchemaEntry extends NodeSchemaEntry {
    * @param valueType The value type
    * @returns This entry for method chaining
    */
-  addProperty(propertyName: string, valueType: ValueType): MutableNodeSchemaEntry;
+  addProperty(
+    propertyName: string,
+    valueType: ValueType
+  ): MutableNodeSchemaEntry;
 
   /**
    * Adds a property with the specified name and schema.
@@ -96,13 +92,19 @@ export class MutableNodeSchemaEntry extends NodeSchemaEntry {
    * @param propertySchema The property schema
    * @returns This entry for method chaining
    */
-  addProperty(propertyName: string, propertySchema: PropertySchema): MutableNodeSchemaEntry;
+  addProperty(
+    propertyName: string,
+    propertySchema: PropertySchema
+  ): MutableNodeSchemaEntry;
 
   /**
    * Implementation of the addProperty method.
    */
-  addProperty(propertyName: string, propertySchemaOrValueType: PropertySchema | ValueType): MutableNodeSchemaEntry {
-    if (typeof propertySchemaOrValueType === 'number') {
+  addProperty(
+    propertyName: string,
+    propertySchemaOrValueType: PropertySchema | ValueType
+  ): MutableNodeSchemaEntry {
+    if (typeof propertySchemaOrValueType === "number") {
       // It's a ValueType (enum)
       const valueType = propertySchemaOrValueType;
       this._properties.set(
@@ -110,7 +112,7 @@ export class MutableNodeSchemaEntry extends NodeSchemaEntry {
         PropertySchema.of(
           propertyName,
           valueType,
-          DefaultValue.of(valueType),
+          ValueType.fallbackValue(valueType),
           PropertyState.PERSISTENT
         )
       );
@@ -148,7 +150,7 @@ export class MutableNodeSchemaEntry extends NodeSchemaEntry {
     const unionProperties = this.unionProperties(other.properties());
     return new MutableNodeSchemaEntry(
       this.identifier(),
-      new Map(Object.entries(unionProperties))
+      unionProperties
     );
   }
 
@@ -159,14 +161,14 @@ export class MutableNodeSchemaEntry extends NodeSchemaEntry {
    */
   toMap(): Record<string, any> {
     const result: Record<string, any> = {
-      properties: {}
+      properties: {},
     };
 
     this._properties.forEach((schema, key) => {
       result.properties[key] = {
         valueType: schema.valueType().toString(),
         defaultValue: schema.defaultValue().toString(),
-        state: schema.state().toString()
+        state: schema.state().toString(),
       };
     });
 
@@ -192,9 +194,11 @@ export class MutableNodeSchemaEntry extends NodeSchemaEntry {
       if (!obj._properties.has(key)) return false;
 
       const otherSchema = obj._properties.get(key)!;
-      if (schema.valueType() !== otherSchema.valueType() ||
-          !schema.defaultValue().equals(otherSchema.defaultValue()) ||
-          schema.state() !== otherSchema.state()) {
+      if (
+        schema.valueType() !== otherSchema.valueType() ||
+        !schema.defaultValue().equals(otherSchema.defaultValue()) ||
+        schema.state() !== otherSchema.state()
+      ) {
         return false;
       }
     }

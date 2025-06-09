@@ -116,8 +116,6 @@ export class UnsupportedOperationError extends Error {
  * Namespace containing utilities and factory methods for NodePropertyValues.
  */
 export namespace NodePropertyValues {
-
-
   /**
    * Provides a base set of NodePropertyValues methods that throw
    * UnsupportedOperationError if they are not applicable to the given primary ValueType.

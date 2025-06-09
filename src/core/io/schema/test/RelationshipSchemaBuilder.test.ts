@@ -4,6 +4,7 @@ import { RelationshipType } from "@/projection";
 import { Direction } from "@/api/schema";
 import { ValueType, PropertyState } from "@/api";
 import { Aggregation } from "@/core";
+
 describe("RelationshipSchema Wonka Factory", () => {
 
   it("should endow entityhood on relationship data", () => {

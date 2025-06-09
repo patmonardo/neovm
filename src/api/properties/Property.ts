@@ -1,6 +1,6 @@
-import { ValueType } from '../ValueType';
-import { PropertySchema } from '../schema/abstract/PropertySchema';
-import { PropertyState } from '../PropertyState';
+import { ValueType } from '@/api';
+import { PropertyState } from '@/api';
+import { PropertySchema } from '@/api/schema';
 import { PropertyValues } from './PropertyValues';
 
 /**

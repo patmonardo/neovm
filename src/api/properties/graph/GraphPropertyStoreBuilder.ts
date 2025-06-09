@@ -1,7 +1,7 @@
 import { GraphPropertyValues } from './GraphPropertyValues';
 import { GraphProperty } from './GraphProperty';
 import { GraphPropertyStore } from './GraphPropertyStore';
-import { DefGraphPropertyStore } from './primitive/DefGraphPropertyStore';
+import { DefaultGraphPropertyStore } from './primitive/DefaultGraphPropertyStore';
 
 /**
  * Builder for GraphPropertyStoreImpl that follows the fluent interface pattern.
@@ -66,6 +66,6 @@ export class GraphPropertyStoreBuilder {
    * Builds the final GraphPropertyStore.
    */
   build(): GraphPropertyStore {
-    return new DefGraphPropertyStore(this._properties);
+    return new DefaultGraphPropertyStore(this._properties);
   }
 }

@@ -1,3 +1,17 @@
+import { DefaultValue } from "@/api";
+import { IdMap, PartialIdMap } from "@/api";
+import {
+  LongArrayNodePropertyValues,
+  NodePropertyValues,
+} from "@/api/properties/nodes";
+import { HugeSparseLongArrayArray } from "@/collections";
+import { Concurrency } from "@/concurrency";
+import { DefaultPool } from "@/concurrency";
+import { ParallelUtil } from "@/concurrency";
+import { GdsValue } from "@/values";
+import { InnerNodePropertiesBuilder } from "./InnerNodePropertiesBuilder";
+
+/**
 /**
  * LONG ARRAY NODE PROPERTIES BUILDER - THREAD-SAFE ARRAY PROPERTY ACCUMULATION
  *
@@ -23,22 +37,7 @@
  * - Timestamp arrays (e.g., [timestamp1, timestamp2] for event sequences)
  * - Index arrays (e.g., [idx1, idx2, idx3] for multi-dimensional indexing)
  */
-
-import { DefaultValue } from "@/api";
-import { IdMap, PartialIdMap } from "@/api";
-import {
-  LongArrayNodePropertyValues,
-  NodePropertyValues,
-} from "@/api/properties/nodes";
-import { HugeSparseLongArrayArray } from "@/collections/hsa/HugeSparseLongArrayArray";
-import { Concurrency } from "@/concurrency";
-import { DefaultPool } from "@/concurrency";
-import { ParallelUtil } from "@/concurrency";
-import { GdsNeo4jValueConversion } from "@/utils/GdsNeo4jValueConversion";
-import { GdsValue } from "@/values";
-import { InnerNodePropertiesBuilder } from "./InnerNodePropertiesBuilder";
-
-/**
+/*
  * Builder for long array node properties with thread-safe array handling.
  *
  * DESIGN PATTERNS:
@@ -98,8 +97,8 @@ export class LongArrayNodePropertiesBuilder
    * @param value GdsValue containing array property data
    */
   public setValue(neoNodeId: number, value: GdsValue): void {
-    const longArray = GdsNeo4jValueConversion.getLongArray(value);
-    this.set(neoNodeId, longArray);
+    //const longArray = GdsNeo4jValueConversion.getLongArray(value);
+    this.set(neoNodeId, value.asObject() as number[]);
   }
 
   /**

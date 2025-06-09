@@ -6,7 +6,7 @@ import { NodePropertyValues } from "../NodePropertyValues";
  * Implementation of the NodeProperty interface.
  */
 
-export class DefNodeProperty implements NodeProperty {
+export class DefaultNodeProperty implements NodeProperty {
   /**
    * Creates a new NodeProperty implementation.
    *
@@ -22,7 +22,7 @@ export class DefNodeProperty implements NodeProperty {
     return this._values;
   }
 
-  schema(): PropertySchema {
+  propertySchema(): PropertySchema {
     return this._schema;
   }
 

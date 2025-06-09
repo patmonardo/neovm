@@ -1,4 +1,4 @@
-import { ElementIdentifier } from "@/projection/abstract/ElementIdentifier";
+import { ElementIdentifier } from "@/projection";
 import { PropertySchema } from "./PropertySchema";
 
 /**
@@ -21,7 +21,7 @@ export abstract class ElementSchemaEntry<
   /**
    * Returns the properties associated with this element.
    */
-  abstract properties(): Record<string, PROPERTY_SCHEMA>;
+  abstract properties(): Map<string, PROPERTY_SCHEMA>;
 
   /**
    * Creates a union of this entry with another entry.
@@ -40,43 +40,75 @@ export abstract class ElementSchemaEntry<
    * @returns A new map containing properties from both sources
    */
   unionProperties(
-    rightProperties: Record<string, PROPERTY_SCHEMA>
-  ): Record<string, PROPERTY_SCHEMA> {
-    const result: Record<string, PROPERTY_SCHEMA> = {};
+    rightProperties: Map<string, PROPERTY_SCHEMA>
+  ): Map<string, PROPERTY_SCHEMA> {
+    const result = new Map<string, PROPERTY_SCHEMA>();
     const leftProperties = this.properties();
 
+    // console.log("🔧 DEBUG unionProperties:");
+    // displayPropertyMap(leftProperties, "Left Properties");
+    // displayPropertyMap(rightProperties, "Right Properties");
+
     // First add all properties from this entry
-    Object.entries(leftProperties).forEach(([key, value]) => {
-      result[key] = value;
+    leftProperties.forEach((value, key) => {
+      result.set(key, value);
     });
 
-    // Then add all properties from the right map, checking for conflicts
-    Object.entries(rightProperties).forEach(([key, rightValue]) => {
-      if (key in result) {
-        const leftValue = result[key];
+    // Then add all properties from the right map
+    rightProperties.forEach((rightValue, key) => {
+      if (result.has(key)) {
+        const leftValue = result.get(key)!;
+        console.log(
+          `⚠️  Conflict on '${key}': ${leftValue.valueType()} vs ${rightValue.valueType()}`
+        );
         if (leftValue.valueType() !== rightValue.valueType()) {
           throw new Error(
-            `Combining schema entries with value type ${JSON.stringify(
-              Object.entries(leftProperties).reduce((acc, [k, v]) => {
-                acc[k] = v.valueType();
-                return acc;
-              }, {} as Record<string, any>)
-            )} and ${JSON.stringify(
-              Object.entries(rightProperties).reduce((acc, [k, v]) => {
-                acc[k] = v.valueType();
-                return acc;
-              }, {} as Record<string, any>)
-            )} is not supported.`
+            `Property '${key}' has conflicting value types: ${leftValue.valueType()} vs ${rightValue.valueType()}`
           );
         }
         // Keep the left value if there's a conflict but types match
       } else {
-        result[key] = rightValue;
+        console.log(`➕ Adding '${key}': ${rightValue.valueType()}`);
+        result.set(key, rightValue);
       }
     });
 
+    // displayPropertyMap(result, "Result Properties");
     return result;
   }
+}
+
+/**
+ * Debug utility to display Map contents
+ */
+export function displayMap<K, V>(map: Map<K, V>, mapName: string = "Map"): void {
+  console.log(`\n🗺️ ${mapName} (size: ${map.size}):`);
+  if (map.size === 0) {
+    console.log("  (empty)");
+    return;
+  }
+
+  map.forEach((value, key) => {
+    console.log(`  ${String(key)} → ${String(value)}`);
+  });
+}
+
+/**
+ * Debug utility for property Maps specifically
+ */
+export function displayPropertyMap(
+  map: Map<string, PropertySchema>,
+  mapName: string = "Properties"
+): void {
+  console.log(`\n📋 ${mapName} (size: ${map.size}):`);
+  if (map.size === 0) {
+    console.log("  (empty)");
+    return;
+  }
+
+  map.forEach((schema, key) => {
+    console.log(`  ${key} → ${schema.valueType()} (${schema.state()})`);
+  });
 }
 
 /**
@@ -96,13 +128,13 @@ export namespace ElementSchemaEntry {
     const propertySchemas = entry.properties();
     const properties: Record<string, any> = {};
 
-    for (const [key, schema] of Object.entries(propertySchemas)) {
+    propertySchemas.forEach((schema, key) => {
       properties[key] = {
         valueType: schema.valueType().toString(),
         defaultValue: schema.defaultValue().toString(),
         state: schema.state().toString(),
       };
-    }
+    });
 
     return {
       properties: properties,
@@ -127,5 +159,41 @@ export namespace ElementSchemaEntry {
     }
 
     return left.union(right);
+  }
+
+  /**
+   * Debug utility to display Map contents
+   */
+  export function displayMap<K, V>(
+    map: Map<K, V>,
+    mapName: string = "Map"
+  ): void {
+    console.log(`\n🗺️ ${mapName} (size: ${map.size}):`);
+    if (map.size === 0) {
+      console.log("  (empty)");
+      return;
+    }
+
+    map.forEach((value, key) => {
+      console.log(`  ${String(key)} → ${String(value)}`);
+    });
+  }
+
+  /**
+   * Debug utility for property Maps specifically
+   */
+  export function displayPropertyMap(
+    map: Map<string, PropertySchema>,
+    mapName: string = "Properties"
+  ): void {
+    console.log(`\n📋 ${mapName} (size: ${map.size}):`);
+    if (map.size === 0) {
+      console.log("  (empty)");
+      return;
+    }
+
+    map.forEach((schema, key) => {
+      console.log(`  ${key} → ${schema.valueType()} (${schema.state()})`);
+    });
   }
 }
