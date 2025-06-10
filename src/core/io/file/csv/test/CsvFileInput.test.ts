@@ -1,552 +1,291 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { CsvFileInput } from "../CsvFileInput";
-import { Collector } from "@/api/import/input/Collector";
-import { InputEntityVisitor } from "@/api/import/input/InputEntityVisitor";
-import * as fs from "fs";
-import * as path from "path";
+import { describe, it, expect } from 'vitest';
+import { CsvFileInput } from '../CsvFileInput';
+import { InputEntityVisitor } from '@/api/import/input/InputEntityVisitor';
 
-// 🎯 DIRECT PATH TO YOUR EXISTING REFERENCE GRAPHSTORE
-const referenceGraphStoreDir =
-  "/home/pat/VSCode/neovm/src/tools/reference-graphstore";
-//const testDataDir = path.join(__dirname, "testdata", "simple");
+/**
+ * 🎯 CLEAN CSVFILEINPUT TESTS - Understanding the API step by step
+ *
+ * This file demonstrates exactly how CsvFileInput works:
+ * 1. Load schemas and metadata from CSV files
+ * 2. Create iterables for nodes, relationships, graph properties
+ * 3. Stream through CSV data chunk by chunk
+ * 4. Parse CSV lines into visitor calls
+ */
 
-// 🧪 QUICK DEBUG WITH YOUR EXISTING REFERENCE STORE
-describe("🔧 CsvFileInput Debug Session", () => {
-  it("🏗️ BASIC INSTANTIATION - Does it load without errors?", () => {
-    console.log("🏗️ Testing basic CsvFileInput instantiation...");
-    console.log(`📁 Using reference GraphStore: ${referenceGraphStoreDir}`);
+const REFERENCE_STORE = "/home/pat/VSCode/neovm/src/tools/reference-graphstore";
 
-    // Check if your reference store exists
-    if (!fs.existsSync(referenceGraphStoreDir)) {
-      console.log(
-        "❌ Reference GraphStore not found! Run csv-graphstore.tool.ts first!"
-      );
-      console.log(`Looking for: ${referenceGraphStoreDir}`);
-      return; // Skip test if reference store doesn't exist
-    }
+describe('🧪 CsvFileInput - Clean API Tests', () => {
 
-    console.log("✅ Reference GraphStore found!");
-    console.log(
-      "📋 Files in reference store:",
-      fs.readdirSync(referenceGraphStoreDir)
-    );
+  it("🏗️ BASIC CONSTRUCTION - Load schemas and metadata", () => {
+    console.log("🏗️ === BASIC CONSTRUCTION TEST ===");
 
-    const csvInput = new CsvFileInput(referenceGraphStoreDir);
+    // ✅ STEP 1: Create CsvFileInput (loads all schemas)
+    const csvInput = new CsvFileInput(REFERENCE_STORE);
+    console.log("✅ CsvFileInput created - all schemas loaded");
 
-    console.log("✅ CsvFileInput created successfully");
-    console.log(`User: ${csvInput.userName()}`);
-    console.log(
-      `Graph: ${csvInput.graphInfo().databaseInfo().databaseLocation()}`
-    );
-  });
+    // ✅ STEP 2: Check loaded metadata
+    console.log(`👤 User: ${csvInput.userName()}`);
+    console.log(`📊 Database: ${csvInput.graphInfo().databaseInfo().databaseId()}`);
+    console.log(`📊 Node count: ${csvInput.graphInfo().nodeCount()}`);
 
-  it("📊 NODE DISCOVERY - Can it find node files?", () => {
-    console.log("📊 Testing node file discovery...");
-
-    if (!fs.existsSync(referenceGraphStoreDir)) {
-      console.log("⏭️ Skipping - no reference store");
-      return;
-    }
-
-    const csvInput = new CsvFileInput(referenceGraphStoreDir);
-    const nodeIterable = csvInput.nodes();
-
-    console.log("✅ Node iterable created");
-    const iterator = nodeIterable.iterator();
-    console.log("✅ Node iterator created");
-  });
-
-  it("🔗 RELATIONSHIP DISCOVERY - Can it find relationship files?", () => {
-    console.log("🔗 Testing relationship file discovery...");
-
-    if (!fs.existsSync(referenceGraphStoreDir)) {
-      console.log("⏭️ Skipping - no reference store");
-      return;
-    }
-
-    const csvInput = new CsvFileInput(referenceGraphStoreDir);
-    const relIterable = csvInput.relationships();
-
-    console.log("✅ Relationship iterable created");
-  });
-
-  it("🎯 QUICK DATA PEEK - What data does it find?", () => {
-    console.log("🎯 Quick data peek...");
-
-    if (!fs.existsSync(referenceGraphStoreDir)) {
-      console.log("⏭️ Skipping - no reference store");
-      return;
-    }
-
-    const csvInput = new CsvFileInput(referenceGraphStoreDir);
-
-    console.log(
-      "Node schema labels:",
-      Array.from(csvInput.nodeSchema().availableLabels())
-    );
-    console.log(
-      "Relationship schema types:",
-      Array.from(csvInput.relationshipSchema().availableTypes())
-    );
-  });
-});
-
-describe("CsvFileInput - Papa Parse Powered", () => {
-  let csvInput: CsvFileInput;
-  const referenceGraphStoreDir = path.join(
-    __dirname,
-    "../../../../tools/reference-graphstore"
-  );
-
-  beforeEach(() => {
-    csvInput = new CsvFileInput(referenceGraphStoreDir);
-  });
-
-  it("✅ Should create CsvFileInput with Papa Parse schema loaders", () => {
-    console.log("📋 === CSV FILE INPUT INSTANTIATION TEST ===");
+    // ✅ STEP 3: Check loaded schemas
+    const nodeLabels = Array.from(csvInput.nodeSchema().availableLabels()).map(l => l.name());
+    const relTypes = Array.from(csvInput.relationshipSchema().availableTypes()).map(t => t.name());
+    console.log(`🏷️ Node labels: ${nodeLabels.join(', ')}`);
+    console.log(`🔗 Relationship types: ${relTypes.join(', ')}`);
 
     expect(csvInput).toBeTruthy();
-    expect(csvInput.userName()).toBe("pat");
-    expect(csvInput.graphInfo().databaseInfo().databaseLocation()).toBe(
-      "LOCAL"
-    );
-
-    console.log(`User: ${csvInput.userName()}`);
-    console.log(
-      `Graph: ${csvInput.graphInfo().databaseInfo().databaseLocation()}`
-    );
-    console.log("✅ CsvFileInput created successfully with Papa Parse loaders");
+    expect(nodeLabels.length).toBeGreaterThan(0);
+    expect(relTypes.length).toBeGreaterThan(0);
   });
 
-  it("📊 Should discover node files and create iterables", async () => {
-    console.log("📊 === NODE DISCOVERY AND ITERATION TEST ===");
+  it("📊 NODE STREAMING - Stream through node data", async () => {
+    console.log("📊 === NODE STREAMING TEST ===");
 
-    // Test node discovery
+    const csvInput = new CsvFileInput(REFERENCE_STORE);
+
+    // ✅ STEP 1: Create node iterable (discovers header files)
     const nodeIterable = csvInput.nodes();
-    expect(nodeIterable).toBeTruthy();
     console.log("✅ Node iterable created");
 
-    // Test iterator creation
-    const nodeIterator = nodeIterable.iterator();
-    expect(nodeIterator).toBeTruthy();
+    // ✅ STEP 2: Create iterator (maps headers to data files)
+    const iterator = nodeIterable.iterator();
     console.log("✅ Node iterator created");
 
-    // Test chunk creation
-    const nodeChunk = nodeIterator.newChunk();
-    expect(nodeChunk).toBeTruthy();
+    // ✅ STEP 3: Create chunk for processing
+    const chunk = iterator.newChunk();
     console.log("✅ Node chunk created");
 
-    // Test iteration (should find data files)
-    const hasNext = await nodeIterator.next(nodeChunk);
-    if (hasNext) {
-      console.log("✅ Node iterator found data files");
-    } else {
-      console.log(
-        "⚠️ No node data files found (expected if no data/ directory)"
-      );
-    }
+    // ✅ STEP 4: Load first chunk of data
+    const hasData = await iterator.next(chunk);
+    console.log(`📦 First chunk loaded: ${hasData}`);
 
-    await nodeIterator.close();
-    console.log("✅ Node iterator closed successfully");
-  });
+    if (hasData) {
+      // ✅ STEP 5: Process entities in chunk
+      const visitor = new TestVisitor();
+      let entityCount = 0;
 
-  it("🔗 Should discover relationship files and create iterables", async () => {
-    console.log("🔗 === RELATIONSHIP DISCOVERY AND ITERATION TEST ===");
-
-    const relationshipIterable = csvInput.relationships();
-    expect(relationshipIterable).toBeTruthy();
-    console.log("✅ Relationship iterable created");
-
-    const relationshipIterator = relationshipIterable.iterator();
-    expect(relationshipIterator).toBeTruthy();
-    console.log("✅ Relationship iterator created");
-
-    const relationshipChunk = relationshipIterator.newChunk();
-    expect(relationshipChunk).toBeTruthy();
-    console.log("✅ Relationship chunk created");
-
-    const hasNext = await relationshipIterator.next(relationshipChunk);
-    if (hasNext) {
-      console.log("✅ Relationship iterator found data files");
-    } else {
-      console.log(
-        "⚠️ No relationship data files found (expected if no data/ directory)"
-      );
-    }
-
-    await relationshipIterator.close();
-    console.log("✅ Relationship iterator closed successfully");
-  });
-
-  it("🌐 Should discover graph property files and create iterables", async () => {
-    console.log("🌐 === GRAPH PROPERTY DISCOVERY AND ITERATION TEST ===");
-
-    const graphPropertyIterable = csvInput.graphProperties();
-    expect(graphPropertyIterable).toBeTruthy();
-    console.log("✅ Graph property iterable created");
-
-    const graphPropertyIterator = graphPropertyIterable.iterator();
-    expect(graphPropertyIterator).toBeTruthy();
-    console.log("✅ Graph property iterator created");
-
-    const graphPropertyChunk = graphPropertyIterator.newChunk();
-    expect(graphPropertyChunk).toBeTruthy();
-    console.log("✅ Graph property chunk created");
-
-    const hasNext = await graphPropertyIterator.next(graphPropertyChunk);
-    if (hasNext) {
-      console.log("✅ Graph property iterator found data files");
-    } else {
-      console.log(
-        "⚠️ No graph property data files found (expected if no data/ directory)"
-      );
-    }
-
-    await graphPropertyIterator.close();
-    console.log("✅ Graph property iterator closed successfully");
-  });
-
-  it("🔍 Should show schema and mapping information", () => {
-    console.log("🔍 === SCHEMA AND MAPPING ANALYSIS ===");
-
-    // Node schema analysis
-    const nodeSchema = csvInput.nodeSchema();
-    const nodeLabels = Array.from(nodeSchema.availableLabels());
-    console.log(
-      `📋 Node labels: ${nodeLabels.map((l) => l.name()).join(", ")}`
-    );
-
-    // Label mapping analysis
-    const labelMapping = csvInput.labelMapping();
-    if (labelMapping) {
-      console.log(`🏷️ Label mappings: ${labelMapping.size} entries`);
-      for (const [index, label] of Array.from(labelMapping.entries()).slice(
-        0,
-        3
-      )) {
-        console.log(`  ${index} -> ${label}`);
+      while (await chunk.next(visitor) && entityCount < 5) {
+        entityCount++;
       }
-    } else {
-      console.log("🏷️ No label mappings found");
+
+      console.log(`🎯 Processed ${entityCount} entities`);
+      console.log(`📊 Visitor stats: ${visitor.getStats()}`);
     }
 
-    // Relationship schema analysis
-    const relationshipSchema = csvInput.relationshipSchema();
-    const relationshipTypes = Array.from(relationshipSchema.availableTypes());
-    console.log(
-      `🔗 Relationship types: ${relationshipTypes
-        .map((t) => t.name())
-        .join(", ")}`
-    );
+    await iterator.close();
+    expect(hasData).toBe(true);
+  });
 
-    // Type mapping analysis
-    const typeMapping = csvInput.typeMapping();
-    if (typeMapping) {
-      console.log(`🔗 Type mappings: ${typeMapping.size} entries`);
-      for (const [index, type] of Array.from(typeMapping.entries()).slice(
-        0,
-        3
-      )) {
-        console.log(`  ${index} -> ${type}`);
+  it("🔗 RELATIONSHIP STREAMING - Stream through relationship data", async () => {
+    console.log("🔗 === RELATIONSHIP STREAMING TEST ===");
+
+    const csvInput = new CsvFileInput(REFERENCE_STORE);
+
+    // ✅ Same pattern as nodes, but for relationships
+    const relIterable = csvInput.relationships();
+    const iterator = relIterable.iterator();
+    const chunk = iterator.newChunk();
+
+    console.log("✅ Relationship streaming components created");
+
+    const hasData = await iterator.next(chunk);
+    console.log(`📦 Relationship chunk loaded: ${hasData}`);
+
+    if (hasData) {
+      const visitor = new TestVisitor();
+      let entityCount = 0;
+
+      while (await chunk.next(visitor) && entityCount < 5) {
+        entityCount++;
       }
-    } else {
-      console.log("🔗 No type mappings found");
+
+      console.log(`🎯 Processed ${entityCount} relationships`);
+      console.log(`📊 Visitor stats: ${visitor.getStats()}`);
     }
 
-    // Graph properties analysis
-    const graphPropertySchema = csvInput.graphPropertySchema();
-    console.log(`🌐 Graph properties: ${graphPropertySchema.size} properties`);
-    for (const [key, schema] of Array.from(graphPropertySchema.entries()).slice(
-      0,
-      3
-    )) {
-      const valueType = ValueType.csvName(schema.valueType());
-      console.log(`  ${key}: ${valueType}`);
+    await iterator.close();
+    expect(hasData).toBe(true);
+  });
+
+  it("🌐 GRAPH PROPERTY STREAMING - Stream through graph properties", async () => {
+    console.log("🌐 === GRAPH PROPERTY STREAMING TEST ===");
+
+    const csvInput = new CsvFileInput(REFERENCE_STORE);
+
+    const propIterable = csvInput.graphProperties();
+    const iterator = propIterable.iterator();
+    const chunk = iterator.newChunk();
+
+    console.log("✅ Graph property streaming components created");
+
+    const hasData = await iterator.next(chunk);
+    console.log(`📦 Graph property chunk loaded: ${hasData}`);
+
+    if (hasData) {
+      const visitor = new TestVisitor();
+      let entityCount = 0;
+
+      while (await chunk.next(visitor) && entityCount < 10) {
+        entityCount++;
+      }
+
+      console.log(`🎯 Processed ${entityCount} graph properties`);
+      console.log(`📊 Visitor stats: ${visitor.getStats()}`);
     }
 
-    // Capabilities analysis
-    const capabilities = csvInput.capabilities();
-    console.log(`⚡ Capabilities: ${capabilities.writeMode()}`);
-    console.log(`  Can write local: ${capabilities.canWriteToLocalDatabase()}`);
-    console.log(
-      `  Can write remote: ${capabilities.canWriteToRemoteDatabase()}`
-    );
-
-    expect(nodeLabels.length).toBeGreaterThan(0);
-    expect(relationshipTypes.length).toBeGreaterThan(0);
+    await iterator.close();
+    // Graph properties might not exist, so don't require hasData
   });
 
-  it("🧪 Should handle Papa Parse CSV line parsing", () => {
-    console.log("🧪 === PAPA PARSE CSV LINE PARSING TEST ===");
+  it("🎭 COMPLETE STREAMING FLOW - Show the full API pattern", async () => {
+    console.log("🎭 === COMPLETE STREAMING FLOW TEST ===");
 
-    // Create a test chunk to access parseCSVLine (we'll need to make it public for testing)
-    const nodeIterator = csvInput.nodes().iterator();
-    const nodeChunk = nodeIterator.newChunk();
+    const csvInput = new CsvFileInput(REFERENCE_STORE);
+    const visitor = new DetailedVisitor();
 
-    // Test simple CSV line
-    console.log("Testing simple CSV parsing...");
+    // ✅ THE COMPLETE PATTERN:
+    console.log("\n📊 Processing ALL nodes:");
+    await processAllChunks(csvInput.nodes(), visitor, "nodes");
 
-    // Test quoted CSV line (this is where Papa Parse shines)
-    console.log("Testing quoted field CSV parsing...");
+    console.log("\n🔗 Processing ALL relationships:");
+    await processAllChunks(csvInput.relationships(), visitor, "relationships");
 
-    // Test complex CSV line with escapes
-    console.log("Testing escaped quote CSV parsing...");
+    console.log("\n🌐 Processing ALL graph properties:");
+    await processAllChunks(csvInput.graphProperties(), visitor, "graph properties");
 
-    console.log("✅ Papa Parse CSV line parsing tests completed");
+    console.log(`\n🎯 FINAL TOTALS: ${visitor.getFinalStats()}`);
   });
+
 });
 
-describe("CsvFileInput - Simple Bug Hunt", () => {
-  beforeEach(() => {
-    // 🧹 Clean setup
-    if (fs.existsSync(testDataDir)) {
-      fs.rmSync(testDataDir, { recursive: true, force: true });
-    }
-    fs.mkdirSync(testDataDir, { recursive: true });
-    createMinimalTestData();
-  });
+// ✅ HELPER FUNCTION - Shows the complete streaming pattern
+async function processAllChunks(iterable: any, visitor: DetailedVisitor, entityType: string) {
+  const iterator = iterable.iterator();
+  let chunkCount = 0;
 
-  afterEach(() => {
-    if (fs.existsSync(testDataDir)) {
-      fs.rmSync(testDataDir, { recursive: true, force: true });
-    }
-  });
-
-  it("🔧 MINIMAL COMPILATION TEST - Can CsvFileInput be created?", () => {
-    console.log("🔧 Testing basic CsvFileInput creation...");
-
-    try {
-      const csvInput = new CsvFileInput(testDataDir);
-      console.log("✅ CsvFileInput created successfully!");
-
-      // Test basic accessors
-      console.log(
-        `📋 Node schema loaded: ${csvInput.nodeSchema() ? "Yes" : "No"}`
-      );
-      console.log(
-        `🔗 Relationship schema loaded: ${
-          csvInput.relationshipSchema() ? "Yes" : "No"
-        }`
-      );
-
-      expect(csvInput).toBeDefined();
-      expect(csvInput.nodeSchema).toBeDefined();
-      expect(csvInput.relationshipSchema).toBeDefined();
-    } catch (error) {
-      console.log(`❌ Creation failed: ${(error as Error).message}`);
-      throw error;
-    }
-  });
-
-  it("🌊 MINIMAL STREAMING TEST - Can we create InputIterables?", () => {
-    console.log("🌊 Testing InputIterable creation...");
-
-    const csvInput = new CsvFileInput(testDataDir);
-    const collector = new Collector.LoggingCollector();
-
-    try {
-      // Test node stream creation
-      const nodeIterable = csvInput.nodes(collector);
-      console.log(`📋 Node iterable created: ${nodeIterable ? "Yes" : "No"}`);
-      expect(nodeIterable).toBeDefined();
-      expect(nodeIterable.iterator).toBeDefined();
-
-      // Test relationship stream creation
-      const relIterable = csvInput.relationships(collector);
-      console.log(
-        `🔗 Relationship iterable created: ${relIterable ? "Yes" : "No"}`
-      );
-      expect(relIterable).toBeDefined();
-      expect(relIterable.iterator).toBeDefined();
-
-      // Test graph properties stream creation
-      const graphPropsIterable = csvInput.graphProperties(collector);
-      console.log(
-        `🌐 Graph properties iterable created: ${
-          graphPropsIterable ? "Yes" : "No"
-        }`
-      );
-      expect(graphPropsIterable).toBeDefined();
-
-      console.log("✅ All InputIterables created successfully!");
-    } catch (error) {
-      console.log(
-        `❌ InputIterable creation failed: ${(error as Error).message}`
-      );
-      throw error;
-    }
-  });
-
-  it("📦 MINIMAL ITERATOR TEST - Can we create InputIterators?", () => {
-    console.log("📦 Testing InputIterator creation...");
-
-    const csvInput = new CsvFileInput(testDataDir);
-    const collector = new Collector.LoggingCollector();
-
-    try {
-      const nodeIterable = csvInput.nodes(collector);
-      const nodeIterator = nodeIterable.iterator();
-      console.log(`🔄 Node iterator created: ${nodeIterator ? "Yes" : "No"}`);
-      expect(nodeIterator).toBeDefined();
-      expect(nodeIterator.newChunk).toBeDefined();
-      expect(nodeIterator.next).toBeDefined();
-
-      const chunk = nodeIterator.newChunk();
-      console.log(`📋 Node chunk created: ${chunk ? "Yes" : "No"}`);
-      expect(chunk).toBeDefined();
-
-      console.log("✅ InputIterator and chunk created successfully!");
-    } catch (error) {
-      console.log(`❌ Iterator creation failed: ${(error as Error).message}`);
-      throw error;
-    }
-  });
-
-  it("🎭 MINIMAL PROCESSING TEST - Can we process one chunk?", async () => {
-    console.log("🎭 Testing minimal chunk processing...");
-
-    const csvInput = new CsvFileInput(testDataDir);
-    const collector = new Collector.LoggingCollector();
-    const visitor = new SimpleTestVisitor();
-
-    try {
-      const nodeIterable = csvInput.nodes(collector);
-      const iterator = nodeIterable.iterator();
+  try {
+    while (true) {
       const chunk = iterator.newChunk();
-
-      console.log("🔄 Attempting to load first chunk...");
       const hasData = await iterator.next(chunk);
-      console.log(`📊 First chunk loaded: ${hasData ? "Yes" : "No"}`);
 
-      if (hasData) {
-        console.log("🎭 Attempting to process first entity...");
-        const hasEntity = await chunk.next(visitor);
-        console.log(`📋 First entity processed: ${hasEntity ? "Yes" : "No"}`);
+      if (!hasData) break;
 
-        if (hasEntity) {
-          console.log(
-            `🎯 Visitor received: ${visitor.getProcessedCount()} entities`
-          );
-        }
+      chunkCount++;
+      console.log(`  📦 Processing ${entityType} chunk ${chunkCount}...`);
+
+      let entityCount = 0;
+      while (await chunk.next(visitor)) {
+        entityCount++;
       }
 
-      await iterator.close();
-      console.log("✅ Minimal processing completed!");
-    } catch (error) {
-      console.log(`❌ Processing failed: ${(error as Error).message}`);
-      console.log(`📊 Error collector: ${collector.badEntries()} errors`);
-      throw error;
+      console.log(`    ✅ Chunk ${chunkCount}: ${entityCount} ${entityType}`);
     }
-  });
-});
+  } finally {
+    await iterator.close();
+  }
 
-// 🎭 MINIMAL TEST DATA CREATION
-function createMinimalTestData(): void {
-  console.log("🏗️ Creating minimal test data...");
-
-  // Minimal node schema
-  fs.writeFileSync(
-    path.join(testDataDir, "node-schema.csv"),
-    "label,propertyKey,valueType,defaultValue,state\n" +
-      "Person,name,STRING,,PERSISTENT\n"
-  );
-
-  // Minimal relationship schema
-  fs.writeFileSync(
-    path.join(testDataDir, "relationship-schema.csv"),
-    "startLabel,type,endLabel,propertyKey,valueType,defaultValue,state\n" +
-      "Person,KNOWS,Person,since,STRING,,PERSISTENT\n"
-  );
-
-  // Minimal user info
-  fs.writeFileSync(
-    path.join(testDataDir, "user-info.csv"),
-    "userName\n" + "testuser\n"
-  );
-
-  // Minimal graph info
-  fs.writeFileSync(
-    path.join(testDataDir, "graph-info.csv"),
-    "graphName\n" + "testgraph\n"
-  );
-
-  // Create headers and data directories
-  const headersDir = path.join(testDataDir, "headers");
-  const dataDir = path.join(testDataDir, "data");
-  fs.mkdirSync(headersDir, { recursive: true });
-  fs.mkdirSync(dataDir, { recursive: true });
-
-  // Minimal node header and data
-  fs.writeFileSync(
-    path.join(headersDir, "person_header.csv"),
-    ":ID,name:string,:LABEL\n"
-  );
-
-  fs.writeFileSync(
-    path.join(dataDir, "person_data.csv"),
-    "1,Alice,Person\n" + "2,Bob,Person\n"
-  );
-
-  // Minimal relationship header and data
-  fs.writeFileSync(
-    path.join(headersDir, "knows_header.csv"),
-    ":START_ID,:END_ID,:TYPE,since:string\n"
-  );
-
-  fs.writeFileSync(
-    path.join(dataDir, "knows_data.csv"),
-    "1,2,KNOWS,2020-01-01\n"
-  );
-
-  console.log("✅ Minimal test data created!");
+  console.log(`  🎯 Total ${entityType} chunks: ${chunkCount}`);
 }
 
-// 🎭 SIMPLE TEST VISITOR
-class SimpleTestVisitor implements InputEntityVisitor {
-  private processedCount = 0;
+// ✅ SIMPLE TEST VISITOR - Just counts and shows basic info
+class TestVisitor implements InputEntityVisitor {
+  private entityCount = 0;
+  private propertyCount = 0;
+  private lastEntity: any = {};
+
+  // Node methods
+  id(id: any): void {
+    this.lastEntity.id = id;
+  }
+
+  labels(labels: string[]): void {
+    this.lastEntity.labels = labels;
+  }
+
+  property(key: string, value: any): void {
+    this.propertyCount++;
+    if (!this.lastEntity.properties) this.lastEntity.properties = {};
+    this.lastEntity.properties[key] = value;
+  }
+
+  endOfEntity(): void {
+    this.entityCount++;
+    if (this.entityCount <= 3) {
+      console.log(`    📋 Entity ${this.entityCount}: ${JSON.stringify(this.lastEntity)}`);
+    }
+    this.lastEntity = {};
+  }
+
+  // Relationship methods
+  startId(id: any): void {
+    this.lastEntity.startId = id;
+  }
+
+  endId(id: any): void {
+    this.lastEntity.endId = id;
+  }
+
+  type(type: string): void {
+    this.lastEntity.type = type;
+  }
+
+  getStats(): string {
+    return `${this.entityCount} entities, ${this.propertyCount} properties`;
+  }
+}
+
+// ✅ DETAILED VISITOR - Tracks comprehensive statistics
+class DetailedVisitor implements InputEntityVisitor {
+  private nodeCount = 0;
+  private relCount = 0;
+  private propCount = 0;
+  private labelCounts = new Map<string, number>();
+  private typeCounts = new Map<string, number>();
   private currentEntity: any = {};
 
-  id(id: any, group?: any): void {
-    console.log(`    🆔 ID: ${id}`);
+  id(id: any): void {
     this.currentEntity.id = id;
   }
 
   labels(labels: string[]): void {
-    console.log(`    🏷️ Labels: ${labels.join(", ")}`);
     this.currentEntity.labels = labels;
+    labels.forEach(label => {
+      this.labelCounts.set(label, (this.labelCounts.get(label) || 0) + 1);
+    });
   }
 
   property(key: string, value: any): void {
-    console.log(`    🔑 Property: ${key} = ${value}`);
-    if (!this.currentEntity.properties) {
-      this.currentEntity.properties = {};
-    }
+    this.propCount++;
+    if (!this.currentEntity.properties) this.currentEntity.properties = {};
     this.currentEntity.properties[key] = value;
   }
 
   endOfEntity(): void {
-    this.processedCount++;
-    console.log(`    ✅ Entity ${this.processedCount} complete`);
+    if (this.currentEntity.labels) {
+      this.nodeCount++;
+    } else if (this.currentEntity.type) {
+      this.relCount++;
+    }
     this.currentEntity = {};
   }
 
-  // Relationship methods
-  startId(id: any, group?: any): void {
-    console.log(`    ▶️ Start ID: ${id}`);
+  startId(id: any): void {
     this.currentEntity.startId = id;
   }
 
-  endId(id: any, group?: any): void {
-    console.log(`    ⏹️ End ID: ${id}`);
+  endId(id: any): void {
     this.currentEntity.endId = id;
   }
 
   type(type: string): void {
-    console.log(`    🔗 Type: ${type}`);
     this.currentEntity.type = type;
+    this.typeCounts.set(type, (this.typeCounts.get(type) || 0) + 1);
   }
 
-  getProcessedCount(): number {
-    return this.processedCount;
+  getFinalStats(): string {
+    const labels = Array.from(this.labelCounts.entries()).map(([k,v]) => `${k}:${v}`).join(', ');
+    const types = Array.from(this.typeCounts.entries()).map(([k,v]) => `${k}:${v}`).join(', ');
+    return `${this.nodeCount} nodes (${labels}), ${this.relCount} rels (${types}), ${this.propCount} properties`;
   }
 }

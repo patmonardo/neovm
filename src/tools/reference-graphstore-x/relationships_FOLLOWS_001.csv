@@ -1,0 +1,12 @@
+user_001,user_002,2023-06-15,true,FOLLOWS
+user_001,user_005,2023-08-20,true,FOLLOWS
+user_002,user_001,2023-06-20,true,FOLLOWS
+user_002,user_003,2023-07-10,false,FOLLOWS
+user_002,user_004,2023-09-05,true,FOLLOWS
+user_003,user_001,2023-07-01,true,FOLLOWS
+user_004,user_002,2023-09-10,true,FOLLOWS
+user_004,user_005,2023-10-15,true,FOLLOWS
+user_005,user_001,2023-08-25,true,FOLLOWS
+user_005,user_002,2023-09-01,false,FOLLOWS
+user_006,user_001,2024-01-10,true,FOLLOWS
+user_006,user_005,2024-01-12,true,FOLLOWS

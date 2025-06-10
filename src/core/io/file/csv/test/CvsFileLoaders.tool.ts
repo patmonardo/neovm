@@ -386,15 +386,57 @@ describe("🎯 CsvFileInput Constructor Control Panel", () => {
       const graphPropsIterable = csvInput.graphProperties();
       console.log("✅ Graph properties iterable created successfully!");
 
+      // ✅ NEW: Actually iterate through the graph properties
+      console.log("\n🔍 Iterating through graph properties:");
+      const iterator = graphPropsIterable.iterator();
+      console.log("✅ Graph properties iterator created");
+
+      let propertyCount = 0;
+      const properties: any[] = [];
+
+      // Collect and display all graph properties
+      while (iterator.hasNext()) {
+        const graphProperty = iterator.next();
+        properties.push(graphProperty);
+        propertyCount++;
+
+        console.log(`📊 Graph Property ${propertyCount}:`);
+        console.log(`  Key: ${graphProperty.key()}`);
+        console.log(`  Value: ${graphProperty.value()}`);
+        console.log(`  Type: ${typeof graphProperty.value()}`);
+
+        // Show additional property details if available
+        if (graphProperty.valueType) {
+          console.log(`  Value Type: ${graphProperty.valueType()}`);
+        }
+      }
+
+      console.log(`\n📈 Summary: Found ${propertyCount} graph properties`);
+
+      if (propertyCount === 0) {
+        console.log(
+          "📝 No graph properties found - check if graph-properties.csv exists"
+        );
+      } else {
+        console.log("\n📋 All Graph Properties:");
+        properties.forEach((prop, index) => {
+          const value = prop.value();
+          const displayValue =
+            typeof value === "string" && value.length > 50
+              ? value.substring(0, 50) + "..."
+              : value;
+          console.log(`  ${index + 1}. ${prop.key()} = ${displayValue}`);
+        });
+      }
+
       expect(graphPropsIterable).toBeTruthy();
+      expect(iterator).toBeTruthy();
     } catch (error) {
       console.log(
-        `❌ Graph properties iterable creation failed: ${
-          (error as Error).message
-        }`
+        `❌ Graph properties processing failed: ${(error as Error).message}`
       );
+      console.log(`🔍 Error details help us understand expected file format`);
       throw error;
     }
   });
-
 });

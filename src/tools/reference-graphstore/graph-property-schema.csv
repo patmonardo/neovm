@@ -1,5 +1,6 @@
 propertyKey,valueType,defaultValue,state
 version,STRING,,PERSISTENT
+title,STRING,,PERSISTENT
 created,STRING,,PERSISTENT
 lastModified,STRING,,TRANSIENT
 nodeCount,LONG,"DefaultValue(0)",PERSISTENT

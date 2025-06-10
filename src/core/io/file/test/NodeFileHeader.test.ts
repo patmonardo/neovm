@@ -48,7 +48,7 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
     const examples = [
       {
         name: "Simple Person File",
-        headers: [":ID", "name:string", "age:int", ":LABEL"],
+        headers: [":ID", "name:string", "age:long", ":LABEL"],
         labels: ["Person"],
       },
       {
@@ -56,7 +56,7 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
         headers: [
           ":ID",
           "companyName:string",
-          "founded:int",
+          "founded:long",
           "revenue:double",
           "public:boolean",
           ":LABEL",
@@ -102,13 +102,13 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
     const errorCases = [
       {
         name: "Missing ID Column",
-        headers: ["name:string", "age:int"],
+        headers: ["name:string", "age:long"],
         labels: ["Person"],
         expectedError: "First column of header must be :ID",
       },
       {
         name: "Wrong ID Column Position",
-        headers: ["name:string", ":ID", "age:int"],
+        headers: ["name:string", ":ID", "age:long"],
         labels: ["Person"],
         expectedError: "First column of header must be :ID",
       },
@@ -139,7 +139,6 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
   it("🔬 Property Mapping Deep Dive", () => {
     console.log("🔬 === PROPERTY MAPPING DEEP DIVE ===");
 
-    // Complex CSV with various property types
     const complexHeaders = [
       ":ID",
       "firstName:string",
@@ -165,20 +164,159 @@ describe("NodeFileHeader - CSV Node Import Brain", () => {
 
     console.log("\n🔍 Property mappings breakdown:");
     nodeFileHeader.propertyMappings().forEach((prop, index) => {
+      const sourceColumn = complexHeaders[prop.position()];
+      const [propertyName, propertyType] = sourceColumn.split(":");
+
       console.log(`  Mapping ${index + 1}:`);
       console.log(`    Column index: ${prop.position()}`);
       console.log(`    Property key: ${prop.propertyKey()}`);
-      console.log(`    Source column: ${complexHeaders[prop.position()]}`);
+      console.log(`    Source column: ${sourceColumn}`);
+      console.log(`    Property type: ${propertyType || "string"}`); // ✅ ADDED: Show type
+    });
+  });
+
+  // Add this new test to understand supported types:
+
+  it("🔧 Type System Deep Dive", () => {
+    console.log("🔧 === TYPE SYSTEM DEEP DIVE ===");
+
+    const supportedTypes = [
+      "string",
+      "long",
+      "double",
+      "boolean",
+      "bigint",
+      "float",
+      "string[]",
+      "long[]",
+      "double[]",
+      "boolean[]",
+      "bigint[]",
+      "float[]",
+      "Any[]",
+    ];
+
+    const unsupportedTypes = ["int", "short", "byte", "char", "int[]"];
+
+    console.log("✅ Supported CSV types:");
+    supportedTypes.forEach((type) => {
+      try {
+        const headers = [":ID", `testProp:${type}`, ":LABEL"];
+        NodeFileHeader.of(headers, ["TestNode"]);
+        console.log(`  ✅ ${type}`);
+      } catch (error) {
+        console.log(`  ❌ ${type} - ${error.message}`);
+      }
     });
 
-    // Show the ID column is NOT in property mappings
-    console.log("\n💡 Important notes:");
-    console.log("  - :ID column (index 0) is NOT in property mappings");
-    console.log("  - :LABEL column (if present) is NOT in property mappings");
-    console.log("  - Only data properties are mapped");
-    console.log("  - Column indices are preserved for CSV parsing");
+    console.log("\n❌ Unsupported CSV types (should fail):");
+    unsupportedTypes.forEach((type) => {
+      try {
+        const headers = [":ID", `testProp:${type}`, ":LABEL"];
+        NodeFileHeader.of(headers, ["TestNode"]);
+        console.log(`  ⚠️ ${type} - Unexpectedly succeeded!`);
+      } catch (error) {
+        console.log(`  ✅ ${type} - Correctly rejected: ${error.message}`);
+      }
+    });
+  });
 
-    // ▶️ CLICK -> Deep dive into property mappings!
+  it("⚠️ Error Cases and Validation", () => {
+    console.log("⚠️ === ERROR CASES AND VALIDATION ===");
+
+    const errorCases = [
+      {
+        name: "Missing ID Column",
+        headers: ["name:string", "age:long"],
+        labels: ["Person"],
+        expectedError: "First column of header must be :ID",
+      },
+      {
+        name: "Wrong ID Column Position",
+        headers: ["name:string", ":ID", "age:long"],
+        labels: ["Person"],
+        expectedError: "First column of header must be :ID",
+      },
+      {
+        name: "Empty Headers",
+        headers: [],
+        labels: ["Person"],
+        expectedError: "First column of header must be :ID",
+      },
+      // ✅ ADD: Test invalid type
+      {
+        name: "Invalid Type 'int'",
+        headers: [":ID", "age:int", ":LABEL"],
+        labels: ["Person"],
+        expectedError: "Unknown value type from CSV name: 'int'",
+      },
+      // ✅ ADD: Test missing type annotation
+      {
+        name: "Missing Type Annotation",
+        headers: [":ID", "name", ":LABEL"], // No :string
+        labels: ["Person"],
+        expectedError: "Property column must have type annotation",
+      },
+    ];
+
+    errorCases.forEach((testCase, index) => {
+      console.log(`\n🚨 Error Case ${index + 1}: ${testCase.name}`);
+      console.log("  Headers:", testCase.headers);
+
+      try {
+        const header = NodeFileHeader.of(testCase.headers, testCase.labels);
+        console.log("  ❌ Unexpected success - should have failed!");
+        console.log("  📊 Properties:", header.propertyMappings().length);
+      } catch (error) {
+        console.log("  ✅ Correctly caught error:", error.message);
+        console.log("  🎯 Expected:", testCase.expectedError);
+
+        // ✅ ADD: Check if error message matches expected
+        if (
+          error.message.includes(testCase.expectedError) ||
+          testCase.expectedError.includes(error.message)
+        ) {
+          console.log("  ✅ Error message matches expectation");
+        } else {
+          console.log("  ⚠️ Error message differs from expectation");
+        }
+      }
+    });
+  });
+
+  it("📊 Graph Info CSV Compatibility", () => {
+    console.log("📊 === GRAPH INFO CSV COMPATIBILITY ===");
+
+    // Test that NodeFileHeader can work with the data referenced in graph-info.csv
+    const typicalGraphInfoStructure = {
+      expectedNodeTypes: ["User", "Post", "Company", "Tag"],
+      expectedRelationshipTypes: ["FOLLOWS", "POSTED", "LIKED", "WORKS_AT"],
+      expectedNodeCount: 29,
+      expectedRelationshipCount: 50,
+    };
+
+    console.log("🎯 Expected structure from graph-info.csv:");
+    console.log("  Node types:", typicalGraphInfoStructure.expectedNodeTypes);
+    console.log(
+      "  Relationship types:",
+      typicalGraphInfoStructure.expectedRelationshipTypes
+    );
+    console.log("  Node count:", typicalGraphInfoStructure.expectedNodeCount);
+    console.log(
+      "  Relationship count:",
+      typicalGraphInfoStructure.expectedRelationshipCount
+    );
+
+    // Test that NodeFileHeader can handle these node types
+    typicalGraphInfoStructure.expectedNodeTypes.forEach((nodeType) => {
+      try {
+        const testHeaders = [":ID", "testProp:string", ":LABEL"];
+        const header = NodeFileHeader.of(testHeaders, [nodeType]);
+        console.log(`  ✅ ${nodeType}: Compatible with NodeFileHeader`);
+      } catch (error) {
+        console.log(`  ❌ ${nodeType}: Error - ${error.message}`);
+      }
+    });
   });
 
   it("🏷️ Node Labels and Schema Integration", () => {

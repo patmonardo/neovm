@@ -1,0 +1,2 @@
+databaseName,databaseLocation,remoteDatabaseId,idMapBuilderType,nodeCount,maxOriginalId,relTypeCounts,inverseIndexedRelTypes
+social_network_db,LOCAL,,HASH,15000,18100,"FOLLOWS=3500;FRIENDS=2800;LIKES=8200;POSTED=1200;COMMENTED_ON=2400","FOLLOWS;FRIENDS"
