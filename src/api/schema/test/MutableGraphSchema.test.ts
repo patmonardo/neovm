@@ -16,8 +16,10 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
     console.log("📋 Created empty graph schema");
 
     // ✅ VERIFY: Empty state using proper APIs
-    const nodeLabelsCount = schema.nodeSchema().availableLabels().length;
-    const relationshipTypesCount = schema.relationshipSchema().availableTypes().length;
+    const nodeLabelsCount = schema.nodeSchema().availableLabels().size;
+    const relationshipTypesCount = schema
+      .relationshipSchema()
+      .availableTypes().size;
     const graphPropsCount = schema.graphProperties().size; // ✅ Map.size
 
     console.log(`📊 Node labels: ${nodeLabelsCount}`);
@@ -43,18 +45,26 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
     // ✅ FIXED: Use Map instead of Record
     const personProperties = new Map([
       ["name", PropertySchema.of("name", ValueType.STRING)],
-      ["age", PropertySchema.of("age", ValueType.LONG)]
+      ["age", PropertySchema.of("age", ValueType.LONG)],
     ]);
 
     const companyProperties = new Map([
       ["name", PropertySchema.of("name", ValueType.STRING)],
-      ["founded", PropertySchema.of("founded", ValueType.LONG)]
+      ["founded", PropertySchema.of("founded", ValueType.LONG)],
     ]);
 
-    console.log(`👤 Adding Person with properties: ${Array.from(personProperties.keys()).join(", ")}`);
+    console.log(
+      `👤 Adding Person with properties: ${Array.from(
+        personProperties.keys()
+      ).join(", ")}`
+    );
     nodeSchema.addLabel(personLabel, personProperties);
 
-    console.log(`🏢 Adding Company with properties: ${Array.from(companyProperties.keys()).join(", ")}`);
+    console.log(
+      `🏢 Adding Company with properties: ${Array.from(
+        companyProperties.keys()
+      ).join(", ")}`
+    );
     nodeSchema.addLabel(companyLabel, companyProperties);
 
     // 🏗️ SETUP: Create relationship schema
@@ -65,7 +75,12 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
 
     console.log(`💼 Adding WORKS_AT (DIRECTED)`);
     relationshipSchema.addRelationshipType(worksAtType, Direction.DIRECTED);
-    relationshipSchema.addProperty(worksAtType, Direction.DIRECTED, "since", ValueType.LONG);
+    relationshipSchema.addProperty(
+      worksAtType,
+      Direction.DIRECTED,
+      "since",
+      ValueType.LONG
+    );
 
     console.log(`👥 Adding KNOWS (UNDIRECTED)`);
     relationshipSchema.addRelationshipType(knowsType, Direction.UNDIRECTED);
@@ -74,7 +89,7 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
     console.log("\n📋 Building graph properties...");
     const graphProperties = new Map([
       ["created", PropertySchema.of("created", ValueType.LONG)],
-      ["version", PropertySchema.of("version", ValueType.STRING)]
+      ["version", PropertySchema.of("version", ValueType.STRING)],
     ]);
 
     const graphPropNames = Array.from(graphProperties.keys());
@@ -82,14 +97,20 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
 
     // 🔧 ACTION: Assemble complete schema
     console.log("\n🎯 Assembling complete graph schema...");
-    const schema = MutableGraphSchema.of(nodeSchema, relationshipSchema, graphProperties);
+    const schema = MutableGraphSchema.of(
+      nodeSchema,
+      relationshipSchema,
+      graphProperties
+    );
 
     // ✅ VERIFY: Final counts
-    const finalNodeCount = schema.nodeSchema().availableLabels().length;
-    const finalRelCount = schema.relationshipSchema().availableTypes().length;
+    const finalNodeCount = schema.nodeSchema().availableLabels().size;
+    const finalRelCount = schema.relationshipSchema().availableTypes().size;
     const finalGraphPropCount = schema.graphProperties().size;
 
-    console.log(`📊 Final schema - Nodes: ${finalNodeCount}, Rels: ${finalRelCount}, Props: ${finalGraphPropCount}`);
+    console.log(
+      `📊 Final schema - Nodes: ${finalNodeCount}, Rels: ${finalRelCount}, Props: ${finalGraphPropCount}`
+    );
 
     expect(finalNodeCount).toBe(2);
     expect(finalRelCount).toBe(2);
@@ -110,21 +131,28 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
     const propertiesToAdd = [
       { name: "created", type: ValueType.LONG },
       { name: "version", type: ValueType.STRING },
-      { name: "isPublic", type: ValueType.BOOLEAN }
+      { name: "isPublic", type: ValueType.BOOLEAN },
     ];
 
-    propertiesToAdd.forEach(prop => {
+    propertiesToAdd.forEach((prop) => {
       console.log(`   Adding ${prop.name} (${prop.type})`);
-      schema.putGraphProperty(prop.name, PropertySchema.of(prop.name, prop.type));
+      schema.putGraphProperty(
+        prop.name,
+        PropertySchema.of(prop.name, prop.type)
+      );
     });
 
     // ✅ VERIFY: Property addition using Map API
     const afterAddition = schema.graphProperties();
     const propKeys = Array.from(afterAddition.keys());
 
-    console.log(`📊 Properties after addition: ${propKeys.join(", ")} (${afterAddition.size})`);
+    console.log(
+      `📊 Properties after addition: ${propKeys.join(", ")} (${
+        afterAddition.size
+      })`
+    );
 
-    propertiesToAdd.forEach(prop => {
+    propertiesToAdd.forEach((prop) => {
       console.log(`✅ ${prop.name} exists: ${afterAddition.has(prop.name)}`);
       expect(afterAddition.has(prop.name)).toBe(true);
     });
@@ -139,7 +167,11 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
     const afterRemoval = schema.graphProperties();
     const remainingKeys = Array.from(afterRemoval.keys());
 
-    console.log(`📊 Properties after removal: ${remainingKeys.join(", ")} (${afterRemoval.size})`);
+    console.log(
+      `📊 Properties after removal: ${remainingKeys.join(", ")} (${
+        afterRemoval.size
+      })`
+    );
     console.log(`✅ Created exists: ${afterRemoval.has("created")}`);
     console.log(`❌ Version removed: ${!afterRemoval.has("version")}`);
     console.log(`✅ IsPublic exists: ${afterRemoval.has("isPublic")}`);
@@ -161,10 +193,10 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
 
     // Add node labels
     const nodeLabels = ["Person", "Company", "Product", "Location"];
-    nodeLabels.forEach(labelName => {
+    nodeLabels.forEach((labelName) => {
       const label = NodeLabel.of(labelName);
       const properties = new Map([
-        ["name", PropertySchema.of("name", ValueType.STRING)]
+        ["name", PropertySchema.of("name", ValueType.STRING)],
       ]);
       console.log(`   Adding ${labelName} node label`);
       schema.nodeSchema().addLabel(label, properties);
@@ -175,55 +207,84 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
       { name: "WORKS_AT", direction: Direction.DIRECTED },
       { name: "KNOWS", direction: Direction.UNDIRECTED },
       { name: "LOCATED_IN", direction: Direction.DIRECTED },
-      { name: "PRODUCES", direction: Direction.DIRECTED }
+      { name: "PRODUCES", direction: Direction.DIRECTED },
     ];
 
-    relationshipTypes.forEach(rel => {
+    relationshipTypes.forEach((rel) => {
       const relType = RelationshipType.of(rel.name);
       console.log(`   Adding ${rel.name} (${rel.direction})`);
       schema.relationshipSchema().addRelationshipType(relType, rel.direction);
     });
 
-    const originalNodeCount = schema.nodeSchema().availableLabels().length;
-    const originalRelCount = schema.relationshipSchema().availableTypes().length;
+    const originalNodeCount = schema.nodeSchema().availableLabels().size;
+    const originalRelCount = schema.relationshipSchema().availableTypes().size;
 
-    console.log(`📊 Original - Nodes: ${originalNodeCount}, Relationships: ${originalRelCount}`);
+    console.log(
+      `📊 Original - Nodes: ${originalNodeCount}, Relationships: ${originalRelCount}`
+    );
 
     // 🔧 ACTION: Filter node labels
     console.log("\n🔍 Filtering to keep only Person and Company...");
     const nodeFilterArray = [NodeLabel.of("Person"), NodeLabel.of("Company")];
-    const nodeFiltered = schema.filterNodeLabels(nodeFilterArray);
+    const nodeFiltered = schema.filterNodeLabels(new Set(nodeFilterArray));
 
     // ✅ VERIFY: Node filtering
-    const filteredNodeCount = nodeFiltered.nodeSchema().availableLabels().length;
-    const filteredNodeNames = nodeFiltered.nodeSchema().availableLabels().map(l => l.name());
+    const filteredNodeCount = nodeFiltered.nodeSchema().availableLabels().size;
+    const filteredNodeNames = Array.from(
+      nodeFiltered.nodeSchema().availableLabels()
+    ).map((l) => l.name());
 
-    console.log(`📊 Node-filtered - Nodes: ${filteredNodeCount} (${filteredNodeNames.join(", ")})`);
-    console.log(`📊 Relationships preserved: ${nodeFiltered.relationshipSchema().availableTypes().length}`);
+    console.log(
+      `📊 Node-filtered - Nodes: ${filteredNodeCount} (${filteredNodeNames.join(
+        ", "
+      )})`
+    );
+    console.log(
+      `📊 Relationships preserved: ${
+        nodeFiltered.relationshipSchema().availableTypes().size
+      }`
+    );
 
     expect(filteredNodeCount).toBe(2);
     expect(filteredNodeNames).toContain("Person");
     expect(filteredNodeNames).toContain("Company");
     expect(filteredNodeNames).not.toContain("Product");
-    expect(nodeFiltered.relationshipSchema().availableTypes().length).toBe(originalRelCount);
+    expect(nodeFiltered.relationshipSchema().availableTypes().size).toBe(
+      originalRelCount
+    );
 
     // 🔧 ACTION: Filter relationship types
     console.log("\n🔍 Filtering to keep only WORKS_AT and KNOWS...");
-    const relFilterArray = [RelationshipType.of("WORKS_AT"), RelationshipType.of("KNOWS")];
-    const relFiltered = schema.filterRelationshipTypes(relFilterArray);
+    const relFilter =  new Set([
+      RelationshipType.of("WORKS_AT"),
+      RelationshipType.of("KNOWS"),
+    ]);
+    const relFiltered = schema.filterRelationshipTypes(relFilter);
 
     // ✅ VERIFY: Relationship filtering
-    const filteredRelCount = relFiltered.relationshipSchema().availableTypes().length;
-    const filteredRelNames = relFiltered.relationshipSchema().availableTypes().map(r => r.name());
+    const filteredRelCount = relFiltered
+      .relationshipSchema()
+      .availableTypes().size;
+    const filteredRelNames = Array.from(
+      relFiltered.relationshipSchema().availableTypes()
+    ).map((r) => r.name());
 
-    console.log(`📊 Rel-filtered - Relationships: ${filteredRelCount} (${filteredRelNames.join(", ")})`);
-    console.log(`📊 Nodes preserved: ${relFiltered.nodeSchema().availableLabels().length}`);
+    console.log(
+      `📊 Rel-filtered - Relationships: ${filteredRelCount} (${filteredRelNames.join(
+        ", "
+      )})`
+    );
+    console.log(
+      `📊 Nodes preserved: ${relFiltered.nodeSchema().availableLabels().size}`
+    );
 
     expect(filteredRelCount).toBe(2);
     expect(filteredRelNames).toContain("WORKS_AT");
     expect(filteredRelNames).toContain("KNOWS");
     expect(filteredRelNames).not.toContain("LOCATED_IN");
-    expect(relFiltered.nodeSchema().availableLabels().length).toBe(originalNodeCount);
+    expect(relFiltered.nodeSchema().availableLabels().size).toBe(
+      originalNodeCount
+    );
 
     console.log("✅ Schema filtering operations working correctly");
   });
@@ -237,18 +298,25 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
 
     const personProperties = new Map([
       ["name", PropertySchema.of("name", ValueType.STRING)],
-      ["age", PropertySchema.of("age", ValueType.LONG)]
+      ["age", PropertySchema.of("age", ValueType.LONG)],
     ]);
 
     schema1.nodeSchema().addLabel(NodeLabel.of("Person"), personProperties);
-    schema1.relationshipSchema().addRelationshipType(RelationshipType.of("WORKS_AT"), Direction.DIRECTED);
-    schema1.putGraphProperty("created", PropertySchema.of("created", ValueType.LONG));
+    schema1
+      .relationshipSchema()
+      .addRelationshipType(RelationshipType.of("WORKS_AT"), Direction.DIRECTED);
+    schema1.putGraphProperty(
+      "created",
+      PropertySchema.of("created", ValueType.LONG)
+    );
 
-    const schema1Nodes = schema1.nodeSchema().availableLabels().length;
-    const schema1Rels = schema1.relationshipSchema().availableTypes().length;
+    const schema1Nodes = schema1.nodeSchema().availableLabels().size;
+    const schema1Rels = schema1.relationshipSchema().availableTypes().size;
     const schema1Props = schema1.graphProperties().size;
 
-    console.log(`📊 Schema1 - Nodes: ${schema1Nodes}, Rels: ${schema1Rels}, Props: ${schema1Props}`);
+    console.log(
+      `📊 Schema1 - Nodes: ${schema1Nodes}, Rels: ${schema1Rels}, Props: ${schema1Props}`
+    );
 
     // 🏗️ SETUP: Create second schema
     console.log("\n🏗️ Creating schema2 with Company and LOCATED_IN...");
@@ -256,35 +324,54 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
 
     const companyProperties = new Map([
       ["name", PropertySchema.of("name", ValueType.STRING)],
-      ["founded", PropertySchema.of("founded", ValueType.LONG)]
+      ["founded", PropertySchema.of("founded", ValueType.LONG)],
     ]);
 
     schema2.nodeSchema().addLabel(NodeLabel.of("Company"), companyProperties);
-    schema2.relationshipSchema().addRelationshipType(RelationshipType.of("LOCATED_IN"), Direction.DIRECTED);
-    schema2.putGraphProperty("version", PropertySchema.of("version", ValueType.STRING));
+    schema2
+      .relationshipSchema()
+      .addRelationshipType(
+        RelationshipType.of("LOCATED_IN"),
+        Direction.DIRECTED
+      );
+    schema2.putGraphProperty(
+      "version",
+      PropertySchema.of("version", ValueType.STRING)
+    );
 
-    const schema2Nodes = schema2.nodeSchema().availableLabels().length;
-    const schema2Rels = schema2.relationshipSchema().availableTypes().length;
+    const schema2Nodes = schema2.nodeSchema().availableLabels().size;
+    const schema2Rels = schema2.relationshipSchema().availableTypes().size;
     const schema2Props = schema2.graphProperties().size;
 
-    console.log(`📊 Schema2 - Nodes: ${schema2Nodes}, Rels: ${schema2Rels}, Props: ${schema2Props}`);
+    console.log(
+      `📊 Schema2 - Nodes: ${schema2Nodes}, Rels: ${schema2Rels}, Props: ${schema2Props}`
+    );
 
     // 🔧 ACTION: Perform union
     console.log("\n🤝 Performing union...");
     const union = schema1.union(schema2);
 
     // ✅ VERIFY: Union results
-    const unionNodes = union.nodeSchema().availableLabels().length;
-    const unionRels = union.relationshipSchema().availableTypes().length;
+    const unionNodes = union.nodeSchema().availableLabels().size;
+    const unionRels = union.relationshipSchema().availableTypes().size;
     const unionProps = union.graphProperties().size;
 
-    const unionNodeNames = union.nodeSchema().availableLabels().map(l => l.name());
-    const unionRelNames = union.relationshipSchema().availableTypes().map(r => r.name());
+    const unionNodeNames = Array.from(union.nodeSchema().availableLabels()).map(
+      (l) => l.name()
+    );
+    const unionRelNames = Array.from(union
+      .relationshipSchema()
+      .availableTypes())
+      .map((r) => r.name());
     const unionPropNames = Array.from(union.graphProperties().keys());
 
-    console.log(`📊 Union - Nodes: ${unionNodes} (${unionNodeNames.join(", ")})`);
+    console.log(
+      `📊 Union - Nodes: ${unionNodes} (${unionNodeNames.join(", ")})`
+    );
     console.log(`📊 Union - Rels: ${unionRels} (${unionRelNames.join(", ")})`);
-    console.log(`📊 Union - Props: ${unionProps} (${unionPropNames.join(", ")})`);
+    console.log(
+      `📊 Union - Props: ${unionProps} (${unionPropNames.join(", ")})`
+    );
 
     expect(unionNodes).toBe(2);
     expect(unionRels).toBe(2);
@@ -310,18 +397,26 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
 
     // Schema1: Person with name only
     const person1Properties = new Map([
-      ["name", PropertySchema.of("name", ValueType.STRING)]
+      ["name", PropertySchema.of("name", ValueType.STRING)],
     ]);
     schema1.nodeSchema().addLabel(NodeLabel.of("Person"), person1Properties);
 
     // Schema2: Person with age only
     const person2Properties = new Map([
-      ["age", PropertySchema.of("age", ValueType.LONG)]
+      ["age", PropertySchema.of("age", ValueType.LONG)],
     ]);
     schema2.nodeSchema().addLabel(NodeLabel.of("Person"), person2Properties);
 
-    console.log(`📊 Schema1 Person properties: ${Array.from(person1Properties.keys()).join(", ")}`);
-    console.log(`📊 Schema2 Person properties: ${Array.from(person2Properties.keys()).join(", ")}`);
+    console.log(
+      `📊 Schema1 Person properties: ${Array.from(
+        person1Properties.keys()
+      ).join(", ")}`
+    );
+    console.log(
+      `📊 Schema2 Person properties: ${Array.from(
+        person2Properties.keys()
+      ).join(", ")}`
+    );
 
     // 🔧 ACTION: Perform union
     console.log("\n🤝 Performing overlapping union...");
@@ -329,9 +424,13 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
 
     // ✅ VERIFY: Property merging
     const unionLabels = union.nodeSchema().availableLabels();
-    const personLabel = unionLabels.find(l => l.name() === "Person");
+    const personLabel = Array.from(unionLabels).find((l) => l.name() === "Person");
 
-    console.log(`📊 Union labels: ${unionLabels.map(l => l.name()).join(", ")}`);
+    console.log(
+      `📊 Union labels: ${Array.from(unionLabels)
+        .map((l) => l.name())
+        .join(", ")}`
+    );
     console.log(`✅ Person label found: ${personLabel !== undefined}`);
 
     if (personLabel) {
@@ -340,11 +439,15 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
         const mergedProperties = personEntry.properties();
         const mergedPropNames = Array.from(mergedProperties.keys());
 
-        console.log(`📊 Merged Person properties: ${mergedPropNames.join(", ")} (${mergedProperties.size})`);
+        console.log(
+          `📊 Merged Person properties: ${mergedPropNames.join(", ")} (${
+            mergedProperties.size
+          })`
+        );
         console.log(`✅ Has name: ${mergedProperties.has("name")}`);
         console.log(`✅ Has age: ${mergedProperties.has("age")}`);
 
-        expect(unionLabels.length).toBe(1);
+        expect(unionLabels.size).toBe(1);
         expect(mergedProperties.size).toBe(2);
         expect(mergedProperties.has("name")).toBe(true);
         expect(mergedProperties.has("age")).toBe(true);
@@ -368,8 +471,14 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
     const schema1 = MutableGraphSchema.empty();
     const schema2 = MutableGraphSchema.empty();
 
-    schema1.putGraphProperty("version", PropertySchema.of("version", ValueType.STRING));
-    schema2.putGraphProperty("version", PropertySchema.of("version", ValueType.DOUBLE));
+    schema1.putGraphProperty(
+      "version",
+      PropertySchema.of("version", ValueType.STRING)
+    );
+    schema2.putGraphProperty(
+      "version",
+      PropertySchema.of("version", ValueType.DOUBLE)
+    );
 
     const version1Type = schema1.graphProperties().get("version")?.valueType();
     const version2Type = schema2.graphProperties().get("version")?.valueType();
@@ -394,12 +503,16 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
     // 🏗️ SETUP: Create components
     console.log("🔧 Preparing components for builder...");
     const nodeSchema = MutableNodeSchema.empty();
-    nodeSchema.addLabel(NodeLabel.of("Person"), new Map([
-      ["name", PropertySchema.of("name", ValueType.STRING)]
-    ]));
+    nodeSchema.addLabel(
+      NodeLabel.of("Person"),
+      new Map([["name", PropertySchema.of("name", ValueType.STRING)]])
+    );
 
     const relationshipSchema = MutableRelationshipSchema.empty();
-    relationshipSchema.addRelationshipType(RelationshipType.of("KNOWS"), Direction.UNDIRECTED);
+    relationshipSchema.addRelationshipType(
+      RelationshipType.of("KNOWS"),
+      Direction.UNDIRECTED
+    );
 
     console.log("   Node schema prepared with Person");
     console.log("   Relationship schema prepared with KNOWS");
@@ -410,16 +523,21 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
       .nodeSchema(nodeSchema)
       .relationshipSchema(relationshipSchema)
       .putGraphProperty("created", PropertySchema.of("created", ValueType.LONG))
-      .putGraphProperty("lastModified", PropertySchema.of("lastModified", ValueType.LONG))
+      .putGraphProperty(
+        "lastModified",
+        PropertySchema.of("lastModified", ValueType.LONG)
+      )
       .build();
 
     // ✅ VERIFY: Builder results
-    const builtNodes = schema.nodeSchema().availableLabels().length;
-    const builtRels = schema.relationshipSchema().availableTypes().length;
+    const builtNodes = schema.nodeSchema().availableLabels().size;
+    const builtRels = schema.relationshipSchema().availableTypes().size;
     const builtProps = schema.graphProperties().size;
     const propNames = Array.from(schema.graphProperties().keys());
 
-    console.log(`📊 Built schema - Nodes: ${builtNodes}, Rels: ${builtRels}, Props: ${builtProps}`);
+    console.log(
+      `📊 Built schema - Nodes: ${builtNodes}, Rels: ${builtRels}, Props: ${builtProps}`
+    );
     console.log(`📊 Graph properties: ${propNames.join(", ")}`);
 
     expect(builtNodes).toBe(1);
@@ -457,14 +575,21 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
 
     const personProperties = new Map([
       ["name", PropertySchema.of("name", ValueType.STRING)],
-      ["age", PropertySchema.of("age", ValueType.LONG)]
+      ["age", PropertySchema.of("age", ValueType.LONG)],
     ]);
 
     schema.nodeSchema().addLabel(NodeLabel.of("Person"), personProperties);
-    schema.relationshipSchema().addRelationshipType(RelationshipType.of("KNOWS"), Direction.UNDIRECTED);
-    schema.putGraphProperty("created", PropertySchema.of("created", ValueType.LONG));
+    schema
+      .relationshipSchema()
+      .addRelationshipType(RelationshipType.of("KNOWS"), Direction.UNDIRECTED);
+    schema.putGraphProperty(
+      "created",
+      PropertySchema.of("created", ValueType.LONG)
+    );
 
-    console.log("📊 Test schema created with Person, KNOWS, and created property");
+    console.log(
+      "📊 Test schema created with Person, KNOWS, and created property"
+    );
 
     // 🔧 ACTION: Test serialization
     console.log("\n📤 Testing serialization...");
@@ -473,8 +598,12 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
     const graphProps = schema.graphProperties();
 
     // ✅ VERIFY: Serialization results
-    console.log(`📋 Node serialization completed: ${typeof nodeMap === 'object'}`);
-    console.log(`📋 Relationship serialization completed: ${typeof relMap === 'object'}`);
+    console.log(
+      `📋 Node serialization completed: ${typeof nodeMap === "object"}`
+    );
+    console.log(
+      `📋 Relationship serialization completed: ${typeof relMap === "object"}`
+    );
     console.log(`📋 Graph properties available: ${graphProps.size > 0}`);
 
     expect(nodeMap).toBeDefined();
@@ -496,11 +625,14 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
     const original = MutableGraphSchema.empty();
 
     const properties = new Map([
-      ["name", PropertySchema.of("name", ValueType.STRING)]
+      ["name", PropertySchema.of("name", ValueType.STRING)],
     ]);
 
     original.nodeSchema().addLabel(NodeLabel.of("Person"), properties);
-    original.putGraphProperty("version", PropertySchema.of("version", ValueType.STRING));
+    original.putGraphProperty(
+      "version",
+      PropertySchema.of("version", ValueType.STRING)
+    );
 
     // 🔧 ACTION: Test copying
     console.log("\n📋 Testing schema copying...");
@@ -508,15 +640,20 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
 
     const copy = MutableGraphSchema.empty();
     copy.nodeSchema().addLabel(NodeLabel.of("Person"), new Map(properties));
-    copy.putGraphProperty("version", PropertySchema.of("version", ValueType.STRING));
+    copy.putGraphProperty(
+      "version",
+      PropertySchema.of("version", ValueType.STRING)
+    );
 
     // ✅ VERIFY: Independence
-    const originalNodes = original.nodeSchema().availableLabels().length;
-    const copyNodes = copy.nodeSchema().availableLabels().length;
+    const originalNodes = original.nodeSchema().availableLabels().size;
+    const copyNodes = copy.nodeSchema().availableLabels().size;
     const originalProps = original.graphProperties().size;
     const copyProps = copy.graphProperties().size;
 
-    console.log(`📊 Original - Nodes: ${originalNodes}, Props: ${originalProps}`);
+    console.log(
+      `📊 Original - Nodes: ${originalNodes}, Props: ${originalProps}`
+    );
     console.log(`📊 Copy - Nodes: ${copyNodes}, Props: ${copyProps}`);
 
     expect(copy).not.toBe(original);
@@ -525,12 +662,17 @@ describe("MutableGraphSchema - Best of Both Worlds", () => {
 
     // 🔧 ACTION: Test independence
     console.log("\n🔄 Testing mutation independence...");
-    copy.putGraphProperty("newProp", PropertySchema.of("newProp", ValueType.LONG));
+    copy.putGraphProperty(
+      "newProp",
+      PropertySchema.of("newProp", ValueType.LONG)
+    );
 
     const finalOriginalProps = original.graphProperties().size;
     const finalCopyProps = copy.graphProperties().size;
 
-    console.log(`📊 After mutation - Original props: ${finalOriginalProps}, Copy props: ${finalCopyProps}`);
+    console.log(
+      `📊 After mutation - Original props: ${finalOriginalProps}, Copy props: ${finalCopyProps}`
+    );
 
     expect(finalOriginalProps).toBe(1);
     expect(finalCopyProps).toBe(2);

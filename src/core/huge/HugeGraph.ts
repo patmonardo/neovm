@@ -1,33 +1,28 @@
 import { NodeLabel } from "@/projection";
 import { RelationshipType } from "@/projection";
-import { IdMap } from "@/api/IdMap";
-import { FilteredIdMap } from "@/api";
+import { Graph } from "@/api";
+import { CSRGraph } from "@/api";
 import { GraphCharacteristics } from "@/api";
-import { Topology, ImmutableTopology } from "@/api";
+import { IdMap } from "@/api";
+import { FilteredIdMap } from "@/api";
+import { Topology } from "@/api";
+import { ImmutableTopology } from "@/api";
 import { AdjacencyList } from "@/api";
 import { AdjacencyCursor } from "@/api";
 import { AdjacencyProperties } from "@/api";
+import { GraphSchema } from "@/api/schema";
+import { Properties } from "@/api/properties";
+import { PropertyCursor } from "@/api/properties";
+import { ImmutableProperties } from "@/api/properties";
+import { NodePropertyValues } from "@/api/properties";
+import { RelationshipConsumer } from "@/api/properties";
+import { RelationshipWithPropertyConsumer } from "@/api/properties";
+import { RelationshipCursor } from "@/api/properties";
 import { Concurrency } from "@/concurrency";
 import { PrimitiveLongIterable } from "@/collections";
 import { PrimitiveIterator } from "@/collections";
 import { LongPredicate } from "@/collections";
-import { CSRGraph } from "@/api/CSRGraph";
-import { Graph } from "@/api/Graph";
-import { GraphSchema } from "@/api/schema";
-import { NodePropertyValues } from "@/api/properties/nodes";
-import {
-  Properties,
-  PropertyCursor,
-  ImmutableProperties,
-} from "@/api/properties/relationships";
-import {
-  RelationshipConsumer,
-  RelationshipWithPropertyConsumer,
-  RelationshipCursor,
-} from "@/api/properties/relationships";
 import { AdjacencySpliterator } from "./AdjacencySpliterator";
-
-const NOT_FOUND = -1;
 
 export class HugeGraph implements CSRGraph {
   static readonly NO_PROPERTY_VALUE = Number.NaN;

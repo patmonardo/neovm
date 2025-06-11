@@ -75,7 +75,7 @@ export class GraphStoreCatalogService {
       databaseId!
     );
 
-    const graphStore = graphStoreCatalogEntry.graphStore();
+    const graphStore = graphStoreCatalogEntry.graphStore;
 
     // Run validation hooks if provided
     if (postGraphStoreLoadValidationHooks) {

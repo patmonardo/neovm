@@ -15,7 +15,7 @@ import { GraphStoreAddedEvent, GraphStoreAddedEventListener } from '@/api/graph'
 import { GraphStoreRemovedEvent, GraphStoreRemovedEventListener } from '@/api/graph';
 import { GraphNotFoundException } from './GraphNotFoundException';
 import { CatalogRequest } from './CatalogRequest';
-import { Log } from '@/logging/Log';
+import { Log } from '@/utils';
 
 export class GraphStoreCatalog {
   private static readonly userCatalogs = new Map<string, UserCatalog>();

@@ -56,7 +56,7 @@ import { NodeLabelTokenToPropertyKeys } from './NodeLabelTokenToPropertyKeys';
  */
 export abstract class NodesBuilderContext {
   /** Default value for properties that don't have explicit values */
-  private static readonly NO_PROPERTY_VALUE = DefaultValue.DEFAULT;
+  private static readonly NO_PROPERTY_VALUE = null; // DefaultValue.of(null);
 
   // THREAD-LOCAL SUPPLIERS: Each thread gets its own instances
   private readonly tokenToNodeLabelSupplier: () => TokenToNodeLabels;

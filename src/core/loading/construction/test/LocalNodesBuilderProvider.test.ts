@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { LocalNodesBuilderProvider } from "@/core/loading/construction/LocalNodesBuilderProvider";
-import { NodesBuilderContext, ThreadLocalContext } from "@/core/loading/construction/NodesBuilderContext";
-import { PropertyValues } from "@/core/loading/construction/PropertyValues";
-import { NodeLabelTokens } from "@/core/loading/construction/NodeLabelTokens";
-import { Concurrency } from "@/core/concurrency";
+import {
+  NodesBuilderContext,
+  ThreadLocalContext,
+} from "@/core/loading/construction";
+import { PropertyValues } from "@/core/loading/construction";
+import { NodeLabelTokens } from "@/core/loading/construction";
+import { Concurrency } from "@/concurrency";
 
 /**
  * 🎯 LocalNodesBuilderProvider - Thread-Local Resource Management
@@ -29,8 +31,16 @@ class MockLocalNodesBuilder {
   }
 
   addNode(originalId: number, nodeLabelToken: any): void;
-  addNode(originalId: number, nodeLabelToken: any, properties: PropertyValues): void;
-  addNode(originalId: number, nodeLabelToken: any, properties?: PropertyValues): void {
+  addNode(
+    originalId: number,
+    nodeLabelToken: any,
+    properties: PropertyValues
+  ): void;
+  addNode(
+    originalId: number,
+    nodeLabelToken: any,
+    properties?: PropertyValues
+  ): void {
     if (this._closed) {
       throw new Error("Cannot add nodes to closed builder");
     }
@@ -69,21 +79,19 @@ class MockLocalNodesBuilder {
   }
 }
 
-// ✅ MOCK LocalNodesBuilderConfig
-interface MockLocalNodesBuilderConfig {
-  threadLocalContext: ThreadLocalContext;
-  batchSize?: number;
-}
-
 // ✅ SIMPLIFIED LocalNodesBuilderProvider implementations
 abstract class TestableLocalNodesBuilderProvider {
   protected readonly context: NodesBuilderContext;
 
-  static pooled(context: NodesBuilderContext): TestableLocalNodesBuilderProvider {
+  static pooled(
+    context: NodesBuilderContext
+  ): TestableLocalNodesBuilderProvider {
     return new PooledProvider(context);
   }
 
-  static threadLocal(context: NodesBuilderContext): TestableLocalNodesBuilderProvider {
+  static threadLocal(
+    context: NodesBuilderContext
+  ): TestableLocalNodesBuilderProvider {
     return new ThreadLocalProvider(context);
   }
 
@@ -158,7 +166,6 @@ class ThreadLocalProvider extends TestableLocalNodesBuilderProvider {
 }
 
 describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
-
   function createTestContext(): NodesBuilderContext {
     return NodesBuilderContext.lazy(Concurrency.of(2));
   }
@@ -174,8 +181,11 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     expect(pooledProvider).toBeTruthy();
 
     // ✅ CREATE THREAD-LOCAL PROVIDER
-    const threadLocalProvider = TestableLocalNodesBuilderProvider.threadLocal(context);
-    console.log(`Thread-local provider created: ${threadLocalProvider.constructor.name}`);
+    const threadLocalProvider =
+      TestableLocalNodesBuilderProvider.threadLocal(context);
+    console.log(
+      `Thread-local provider created: ${threadLocalProvider.constructor.name}`
+    );
     expect(threadLocalProvider).toBeTruthy();
 
     console.log("✅ Provider construction works correctly");
@@ -185,7 +195,9 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     console.log("🏊 === POOLED STRATEGY TESTING ===");
 
     const context = createTestContext();
-    const pooledProvider = TestableLocalNodesBuilderProvider.pooled(context) as PooledProvider;
+    const pooledProvider = TestableLocalNodesBuilderProvider.pooled(
+      context
+    ) as PooledProvider;
 
     console.log(`Initial pool size: ${pooledProvider.getPoolSize()}`);
     expect(pooledProvider.getPoolSize()).toBe(0);
@@ -210,7 +222,9 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
 
     // ✅ GET SECOND BUILDER (should reuse)
     const builder2 = pooledProvider.get();
-    console.log(`Second builder acquired - same instance: ${builder2 === builder1}`);
+    console.log(
+      `Second builder acquired - same instance: ${builder2 === builder1}`
+    );
     expect(builder2).toBe(builder1); // Same instance
     expect(builder2.isClosed()).toBe(false); // Reset after reuse
     expect(builder2.nodeCount()).toBe(0); // State cleared
@@ -222,9 +236,13 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     console.log("🧵 === THREAD-LOCAL STRATEGY TESTING ===");
 
     const context = createTestContext();
-    const threadLocalProvider = TestableLocalNodesBuilderProvider.threadLocal(context) as ThreadLocalProvider;
+    const threadLocalProvider = TestableLocalNodesBuilderProvider.threadLocal(
+      context
+    ) as ThreadLocalProvider;
 
-    console.log(`Initial thread builders: ${threadLocalProvider.getThreadBuilderCount()}`);
+    console.log(
+      `Initial thread builders: ${threadLocalProvider.getThreadBuilderCount()}`
+    );
     expect(threadLocalProvider.getThreadBuilderCount()).toBe(0);
 
     // ✅ GET BUILDER FOR FIRST "THREAD"
@@ -252,7 +270,9 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     console.log("🔄 === RESOURCE LIFECYCLE ===");
 
     const context = createTestContext();
-    const pooledProvider = TestableLocalNodesBuilderProvider.pooled(context) as PooledProvider;
+    const pooledProvider = TestableLocalNodesBuilderProvider.pooled(
+      context
+    ) as PooledProvider;
 
     // ✅ SIMULATE try-with-resources PATTERN
     console.log("Simulating try-with-resources pattern...");
@@ -263,14 +283,16 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
       try {
         // Use the builder
         const token = NodeLabelTokens.of(["User", "Customer"]);
-        const props = PropertyValues.ofObject({ name: "Test User", active: true });
+        const props = PropertyValues.ofObject({
+          name: "Test User",
+          active: true,
+        });
 
         builder.addNode(301, token, props);
         builder.addNode(302, token);
 
         console.log(`Processed ${builder.nodeCount()} nodes`);
         return builder.nodeCount();
-
       } finally {
         // Simulate AutoCloseable cleanup
         pooledProvider.returnToPool(builder);
@@ -280,7 +302,9 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     const processedCount = processNodesWithResource();
     expect(processedCount).toBe(2);
 
-    console.log(`Pool size after auto-cleanup: ${pooledProvider.getPoolSize()}`);
+    console.log(
+      `Pool size after auto-cleanup: ${pooledProvider.getPoolSize()}`
+    );
     expect(pooledProvider.getPoolSize()).toBe(1); // Builder returned to pool
 
     console.log("✅ Resource lifecycle management works correctly");
@@ -290,8 +314,12 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     console.log("⚡ === PERFORMANCE COMPARISON ===");
 
     const context = createTestContext();
-    const pooledProvider = TestableLocalNodesBuilderProvider.pooled(context) as PooledProvider;
-    const threadLocalProvider = TestableLocalNodesBuilderProvider.threadLocal(context) as ThreadLocalProvider;
+    const pooledProvider = TestableLocalNodesBuilderProvider.pooled(
+      context
+    ) as PooledProvider;
+    const threadLocalProvider = TestableLocalNodesBuilderProvider.threadLocal(
+      context
+    ) as ThreadLocalProvider;
 
     // ✅ SIMULATE MULTIPLE SHORT OPERATIONS (favors pooling)
     console.log("Testing multiple short operations...");
@@ -305,7 +333,9 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     const pooledTime = Date.now() - startPooled;
 
     console.log(`Pooled strategy: 100 operations in ${pooledTime}ms`);
-    console.log(`Pool efficiency: ${pooledProvider.getPoolSize()} instances reused`);
+    console.log(
+      `Pool efficiency: ${pooledProvider.getPoolSize()} instances reused`
+    );
 
     // ✅ SIMULATE SINGLE LONG OPERATION (favors thread-local)
     const startThreadLocal = Date.now();
@@ -316,13 +346,19 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     }
 
     const threadLocalTime = Date.now() - startThreadLocal;
-    console.log(`Thread-local strategy: 100 operations in ${threadLocalTime}ms`);
-    console.log(`Thread builders created: ${threadLocalProvider.getThreadBuilderCount()}`);
+    console.log(
+      `Thread-local strategy: 100 operations in ${threadLocalTime}ms`
+    );
+    console.log(
+      `Thread builders created: ${threadLocalProvider.getThreadBuilderCount()}`
+    );
 
     expect(pooledProvider.getPoolSize()).toBeGreaterThan(0);
     expect(threadLocalProvider.getThreadBuilderCount()).toBe(1);
 
-    console.log("✅ Performance characteristics demonstrate strategy differences");
+    console.log(
+      "✅ Performance characteristics demonstrate strategy differences"
+    );
   });
 
   it("🎯 INTEGRATION: Context coordination", () => {
@@ -335,7 +371,9 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     const builder = provider.get();
     const threadLocalContext = builder.getThreadLocalContext();
 
-    console.log(`ThreadLocalContext integrated: ${threadLocalContext.constructor.name}`);
+    console.log(
+      `ThreadLocalContext integrated: ${threadLocalContext.constructor.name}`
+    );
     expect(threadLocalContext).toBeTruthy();
 
     // ✅ USE CONTEXT THROUGH BUILDER
@@ -343,7 +381,7 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     const properties = PropertyValues.ofObject({
       name: "Premium User",
       level: "GOLD",
-      verified: true
+      verified: true,
     });
 
     builder.addNode(401, userToken, properties);
@@ -382,12 +420,17 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     // ✅ DEMONSTRATE DECISION LOGIC
     const context = createTestContext();
 
-    function chooseProvider(operationType: "short" | "long", concurrency: number) {
+    function chooseProvider(
+      operationType: "short" | "long",
+      concurrency: number
+    ) {
       if (operationType === "short" || concurrency === 1) {
         console.log(`  → Choosing POOLED for ${operationType} operations`);
         return TestableLocalNodesBuilderProvider.pooled(context);
       } else {
-        console.log(`  → Choosing THREAD-LOCAL for ${operationType} operations`);
+        console.log(
+          `  → Choosing THREAD-LOCAL for ${operationType} operations`
+        );
         return TestableLocalNodesBuilderProvider.threadLocal(context);
       }
     }
@@ -408,20 +451,32 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
 
     // ✅ SIMULATE MULTIPLE WORKER THREADS
     const workers = [
-      { id: "worker-1", provider: TestableLocalNodesBuilderProvider.threadLocal(context) },
-      { id: "worker-2", provider: TestableLocalNodesBuilderProvider.threadLocal(context) },
-      { id: "worker-3", provider: TestableLocalNodesBuilderProvider.pooled(context) },
-      { id: "worker-4", provider: TestableLocalNodesBuilderProvider.pooled(context) }
+      {
+        id: "worker-1",
+        provider: TestableLocalNodesBuilderProvider.threadLocal(context),
+      },
+      {
+        id: "worker-2",
+        provider: TestableLocalNodesBuilderProvider.threadLocal(context),
+      },
+      {
+        id: "worker-3",
+        provider: TestableLocalNodesBuilderProvider.pooled(context),
+      },
+      {
+        id: "worker-4",
+        provider: TestableLocalNodesBuilderProvider.pooled(context),
+      },
     ];
 
     console.log(`Created ${workers.length} worker simulations`);
 
     // ✅ SIMULATE CONCURRENT PROCESSING
-    const results = workers.map(worker => {
+    const results = workers.map((worker) => {
       const builder = worker.provider.get();
 
       // Each worker processes different ID ranges
-      const startId = parseInt(worker.id.split('-')[1]) * 1000;
+      const startId = parseInt(worker.id.split("-")[1]) * 1000;
       const token = NodeLabelTokens.of(`${worker.id}-Node`);
 
       for (let i = 0; i < 10; i++) {
@@ -431,14 +486,16 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
       return {
         workerId: worker.id,
         providerType: worker.provider.constructor.name,
-        nodesProcessed: builder.nodeCount()
+        nodesProcessed: builder.nodeCount(),
       };
     });
 
     // ✅ VERIFY CONCURRENT RESULTS
     console.log("Worker results:");
-    results.forEach(result => {
-      console.log(`  ${result.workerId} (${result.providerType}): ${result.nodesProcessed} nodes`);
+    results.forEach((result) => {
+      console.log(
+        `  ${result.workerId} (${result.providerType}): ${result.nodesProcessed} nodes`
+      );
       expect(result.nodesProcessed).toBe(10);
     });
 
@@ -464,14 +521,17 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
     const csvConfig = {
       fileSize: "large", // large files → thread-local
       concurrency: 4,
-      batchSize: 1000
+      batchSize: 1000,
     };
 
-    const provider = csvConfig.fileSize === "large"
-      ? TestableLocalNodesBuilderProvider.threadLocal(context)
-      : TestableLocalNodesBuilderProvider.pooled(context);
+    const provider =
+      csvConfig.fileSize === "large"
+        ? TestableLocalNodesBuilderProvider.threadLocal(context)
+        : TestableLocalNodesBuilderProvider.pooled(context);
 
-    console.log(`Selected ${provider.constructor.name} for ${csvConfig.fileSize} CSV import`);
+    console.log(
+      `Selected ${provider.constructor.name} for ${csvConfig.fileSize} CSV import`
+    );
 
     // ✅ SIMULATE CSV CHUNK PROCESSING
     function processCsvChunk(chunkId: number, rows: any[]) {
@@ -490,32 +550,61 @@ describe("🏭 LocalNodesBuilderProvider - Resource Management", () => {
 
     // ✅ SIMULATE MULTIPLE CSV CHUNKS
     const csvChunks = [
-      { chunkId: 1, rows: [
-        { id: 1001, labels: ["User"], properties: { name: "Alice", dept: "Engineering" } },
-        { id: 1002, labels: ["User"], properties: { name: "Bob", dept: "Marketing" } }
-      ]},
-      { chunkId: 2, rows: [
-        { id: 2001, labels: ["Company"], properties: { name: "Tech Corp", industry: "Tech" } },
-        { id: 2002, labels: ["Company"], properties: { name: "Marketing Inc", industry: "Services" } }
-      ]}
+      {
+        chunkId: 1,
+        rows: [
+          {
+            id: 1001,
+            labels: ["User"],
+            properties: { name: "Alice", dept: "Engineering" },
+          },
+          {
+            id: 1002,
+            labels: ["User"],
+            properties: { name: "Bob", dept: "Marketing" },
+          },
+        ],
+      },
+      {
+        chunkId: 2,
+        rows: [
+          {
+            id: 2001,
+            labels: ["Company"],
+            properties: { name: "Tech Corp", industry: "Tech" },
+          },
+          {
+            id: 2002,
+            labels: ["Company"],
+            properties: { name: "Marketing Inc", industry: "Services" },
+          },
+        ],
+      },
     ];
 
-    const chunkResults = csvChunks.map(chunk =>
+    const chunkResults = csvChunks.map((chunk) =>
       processCsvChunk(chunk.chunkId, chunk.rows)
     );
 
-    console.log(`Chunk processing results: ${chunkResults.join(", ")} nodes per chunk`);
+    console.log(
+      `Chunk processing results: ${chunkResults.join(", ")} nodes per chunk`
+    );
     expect(chunkResults).toEqual([2, 2]);
 
     // ✅ VERIFY SCHEMA DISCOVERY
     const finalPropertyBuilders = context.nodePropertyBuilders();
-    console.log(`Properties discovered: ${Array.from(finalPropertyBuilders.keys()).join(", ")}`);
+    console.log(
+      `Properties discovered: ${Array.from(finalPropertyBuilders.keys()).join(
+        ", "
+      )}`
+    );
 
     expect(finalPropertyBuilders.has("name")).toBe(true);
     expect(finalPropertyBuilders.has("dept")).toBe(true);
     expect(finalPropertyBuilders.has("industry")).toBe(true);
 
-    console.log("✅ CSV import provider usage demonstrates real-world patterns");
+    console.log(
+      "✅ CSV import provider usage demonstrates real-world patterns"
+    );
   });
-
 });

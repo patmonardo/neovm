@@ -106,9 +106,9 @@ export class MutableGraphSchema extends GraphSchema {
    * @param labelsToKeep Set of node labels to include
    * @returns A new schema containing only the specified node labels
    */
-  public filterNodeLabels(labelsToKeep: Array<NodeLabel>): MutableGraphSchema {
+  public filterNodeLabels(labelsToKeep: Set<NodeLabel>): MutableGraphSchema {
     return new MutableGraphSchema(
-      this.nodeSchema().filter(labelsToKeep) as MutableNodeSchema,
+      this.nodeSchema().filter(labelsToKeep),
       this.relationshipSchema(),
       this.graphProperties()
     );
@@ -121,7 +121,7 @@ export class MutableGraphSchema extends GraphSchema {
    * @returns A new schema containing only the specified relationship types
    */
   public filterRelationshipTypes(
-    relationshipTypesToKeep: Array<RelationshipType>
+    relationshipTypesToKeep: Set<RelationshipType>
   ): MutableGraphSchema {
     return new MutableGraphSchema(
       this.nodeSchema(),

@@ -1,6 +1,6 @@
-import * as yaml from 'js-yaml';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
+import * as yaml from "js-yaml";
 
 /**
  * Global configuration structure that can be loaded from YAML files.
@@ -27,47 +27,32 @@ export interface GlobalConfig {
  */
 export class ConfigLoader {
   private static globalConfig: GlobalConfig = {};
-  private static currentProfile: string = 'default';
+  private static currentProfile: string = "default";
 
   /**
-   * Load configuration from YAML file.
+   * Load configuration from YAML file and return it.
    */
-  static loadFromFile(configPath: string): void {
+  static loadFromFile(configPath: string): GlobalConfig | null {
     try {
       if (fs.existsSync(configPath)) {
-        const content = fs.readFileSync(configPath, 'utf8');
+        const content = fs.readFileSync(configPath, "utf8");
         const parsed = yaml.load(content) as GlobalConfig;
-        this.globalConfig = this.mergeConfigs(this.globalConfig, parsed);
+        ConfigLoader.globalConfig = ConfigLoader.mergeConfigs(ConfigLoader.globalConfig, parsed);
+        return parsed;
       }
+      return null;
     } catch (error) {
       console.warn(`Could not load config from ${configPath}:`, error);
+      return null;
     }
   }
 
   /**
-   * Load configuration from multiple sources in order of precedence.
+   * Load from environment and return the config.
    */
-  static loadDefaults(): void {
-    // 1. Load from standard locations
-    const possiblePaths = [
-      '/etc/neovm/config.yaml',
-      path.join(process.cwd(), 'neovm.config.yaml'),
-      path.join(process.cwd(), 'config', 'neovm.yaml'),
-      path.join(process.env.HOME || '~', '.neovm', 'config.yaml')
-    ];
-
-    for (const configPath of possiblePaths) {
-      this.loadFromFile(configPath);
-    }
-
-    // 2. Load from environment variable path
-    const envConfigPath = process.env.NEOVM_CONFIG_PATH;
-    if (envConfigPath) {
-      this.loadFromFile(envConfigPath);
-    }
-
-    // 3. Override with environment variables
-    this.loadFromEnvironment();
+  static fromEnvironment(): GlobalConfig {
+    ConfigLoader.loadFromEnvironment();
+    return ConfigLoader.getCurrentConfig();
   }
 
   /**
@@ -89,22 +74,25 @@ export class ConfigLoader {
       }
     }
 
-    this.globalConfig = this.mergeConfigs(this.globalConfig, envConfig);
+    ConfigLoader.globalConfig = ConfigLoader.mergeConfigs(ConfigLoader.globalConfig, envConfig);
   }
 
   /**
    * Set active configuration profile.
    */
   static setProfile(profileName: string): void {
-    this.currentProfile = profileName;
+    ConfigLoader.currentProfile = profileName;
   }
 
   /**
    * Get configuration defaults for a specific config type.
    */
-  static getDefaults<T>(configType: 'export' | 'database' | 'generation' | 'algorithms'): Partial<T> {
-    const defaults = this.globalConfig.defaults?.[configType] || {};
-    const profileOverrides = this.globalConfig.profiles?.[this.currentProfile]?.[configType] || {};
+  static getDefaults<T>(
+    configType: "export" | "database" | "generation" | "algorithms"
+  ): Partial<T> {
+    const defaults = ConfigLoader.globalConfig.defaults?.[configType] || {};
+    const profileOverrides =
+      ConfigLoader.globalConfig.profiles?.[ConfigLoader.currentProfile]?.[configType] || {};
 
     return { ...defaults, ...profileOverrides } as Partial<T>;
   }
@@ -112,15 +100,27 @@ export class ConfigLoader {
   /**
    * Merge two configuration objects deeply.
    */
-  private static mergeConfigs(target: GlobalConfig, source: GlobalConfig): GlobalConfig {
+  private static mergeConfigs(
+    target: GlobalConfig,
+    source: GlobalConfig
+  ): GlobalConfig {
     return {
       defaults: {
         export: { ...target.defaults?.export, ...source.defaults?.export },
-        database: { ...target.defaults?.database, ...source.defaults?.database },
-        generation: { ...target.defaults?.generation, ...source.defaults?.generation },
-        algorithms: { ...target.defaults?.algorithms, ...source.defaults?.algorithms }
+        database: {
+          ...target.defaults?.database,
+          ...source.defaults?.database,
+        },
+        generation: {
+          ...target.defaults?.generation,
+          ...source.defaults?.generation,
+        },
+        algorithms: {
+          ...target.defaults?.algorithms,
+          ...source.defaults?.algorithms,
+        },
       },
-      profiles: { ...target.profiles, ...source.profiles }
+      profiles: { ...target.profiles, ...source.profiles },
     };
   }
 
@@ -128,15 +128,25 @@ export class ConfigLoader {
    * Reset configuration to empty state (useful for testing).
    */
   static reset(): void {
-    this.globalConfig = {};
-    this.currentProfile = 'default';
+    ConfigLoader.globalConfig = {};
+    ConfigLoader.currentProfile = "default";
   }
 
   /**
    * Get current configuration state (useful for debugging).
    */
   static getCurrentConfig(): GlobalConfig {
-    return JSON.parse(JSON.stringify(this.globalConfig));
+    return JSON.parse(JSON.stringify(ConfigLoader.globalConfig));
+  }
+
+  /**
+   * Load default configuration files if they exist.
+   */
+  static loadDefaults(): void {
+    const defaultConfigPath = path.join(process.cwd(), 'config', 'defaults.yaml');
+    if (fs.existsSync(defaultConfigPath)) {
+      ConfigLoader.loadFromFile(defaultConfigPath);
+    }
   }
 }
 
@@ -144,5 +154,5 @@ export class ConfigLoader {
 try {
   ConfigLoader.loadDefaults();
 } catch (error) {
-  console.warn('Could not load default configuration:', error);
+  console.warn("Could not load default configuration:", error);
 }

@@ -14,10 +14,10 @@ describe("MutableRelationshipSchema", () => {
     const knowsType = RelationshipType.of("KNOWS");
 
     console.log(`📋 Creating schema with relationship type: ${knowsType.name()}`);
-    console.log(`📊 Initial available types: ${schema.availableTypes().length}`);
+    console.log(`📊 Initial available types: ${schema.availableTypes().size}`);
 
     // ✅ VERIFY: Initial empty state
-    expect(schema.availableTypes().length).toBe(0);
+    expect(schema.availableTypes().size).toBe(0);
 
     // 🔧 ACTION: Add relationship type
     console.log("➕ Adding KNOWS relationship (UNDIRECTED)...");
@@ -25,12 +25,12 @@ describe("MutableRelationshipSchema", () => {
 
     // ✅ VERIFY: Type addition
     const availableTypes = schema.availableTypes();
-    console.log(`📊 Types after adding: ${availableTypes.length}`);
-    console.log(`🔍 Contains KNOWS: ${availableTypes.includes(knowsType)}`);
+    console.log(`📊 Types after adding: ${availableTypes.size}`);
+    console.log(`🔍 Contains KNOWS: ${availableTypes.has(knowsType)}`);
     console.log(`🧭 KNOWS is undirected: ${schema.isUndirected(knowsType)}`);
 
-    expect(availableTypes.length).toBe(1);
-    expect(availableTypes.includes(knowsType)).toBe(true);
+    expect(availableTypes.size).toBe(1);
+    expect(availableTypes.has(knowsType)).toBe(true);
     expect(schema.isUndirected(knowsType)).toBe(true);
 
     console.log("✅ Schema construction and type management working");
@@ -95,7 +95,7 @@ describe("MutableRelationshipSchema", () => {
     console.log(`🧭 FOLLOWS is undirected: ${schema.isUndirected(followsType)}`);
     console.log(`🧭 Schema globally undirected: ${schema.isUndirected()}`);
 
-    expect(schema.availableTypes().length).toBe(2);
+    expect(schema.availableTypes().size).toBe(2);
     expect(schema.isUndirected(friendsType)).toBe(true);
     expect(schema.isUndirected(followsType)).toBe(false);
     expect(schema.isUndirected()).toBe(false); // Mixed = not globally undirected
@@ -126,23 +126,23 @@ describe("MutableRelationshipSchema", () => {
     schema.addRelationshipType(worksAtType, Direction.DIRECTED);
     schema.addRelationshipType(livesInType, Direction.DIRECTED);
 
-    console.log(`📊 Original types: ${schema.availableTypes().length}`);
+    console.log(`📊 Original types: ${schema.availableTypes().size}`);
 
     // 🔧 ACTION: Filter to subset
     console.log("🔍 Filtering to keep only KNOWS and WORKS_AT...");
-    const filtered = schema.filter([knowsType, worksAtType]);
+    const filtered = schema.filter(new Set([knowsType, worksAtType]));
 
     // ✅ VERIFY: Filtered results
     const filteredTypes = filtered.availableTypes();
-    console.log(`📊 Filtered types: ${filteredTypes.length}`);
-    console.log(`✅ KNOWS kept: ${filteredTypes.includes(knowsType)}`);
-    console.log(`✅ WORKS_AT kept: ${filteredTypes.includes(worksAtType)}`);
-    console.log(`❌ LIVES_IN removed: ${!filteredTypes.includes(livesInType)}`);
+    console.log(`📊 Filtered types: ${filteredTypes.size}`);
+    console.log(`✅ KNOWS kept: ${filteredTypes.has(knowsType)}`);
+    console.log(`✅ WORKS_AT kept: ${filteredTypes.has(worksAtType)}`);
+    console.log(`❌ LIVES_IN removed: ${!filteredTypes.has(livesInType)}`);
 
-    expect(filteredTypes.length).toBe(2);
-    expect(filteredTypes.includes(knowsType)).toBe(true);
-    expect(filteredTypes.includes(worksAtType)).toBe(true);
-    expect(filteredTypes.includes(livesInType)).toBe(false);
+    expect(filteredTypes.size).toBe(2);
+    expect(filteredTypes.has(knowsType)).toBe(true);
+    expect(filteredTypes.has(worksAtType)).toBe(true);
+    expect(filteredTypes.has(livesInType)).toBe(false);
 
     console.log("✅ Schema filtering working correctly");
   });
@@ -163,8 +163,8 @@ describe("MutableRelationshipSchema", () => {
     schema2.addRelationshipType(worksAtType, Direction.DIRECTED);
     schema2.addProperty(worksAtType, Direction.DIRECTED, "startDate", ValueType.LONG);
 
-    console.log(`📊 Schema1 types: ${schema1.availableTypes().length}`);
-    console.log(`📊 Schema2 types: ${schema2.availableTypes().length}`);
+    console.log(`📊 Schema1 types: ${schema1.availableTypes().size}`);
+    console.log(`📊 Schema2 types: ${schema2.availableTypes().size}`);
 
     // 🔧 ACTION: Perform union
     console.log("🤝 Performing union...");
@@ -172,13 +172,13 @@ describe("MutableRelationshipSchema", () => {
 
     // ✅ VERIFY: Union contains both types
     const unionTypes = union.availableTypes();
-    console.log(`📊 Union types: ${unionTypes.length}`);
-    console.log(`✅ Contains KNOWS: ${unionTypes.includes(knowsType)}`);
-    console.log(`✅ Contains WORKS_AT: ${unionTypes.includes(worksAtType)}`);
+    console.log(`📊 Union types: ${unionTypes.size}`);
+    console.log(`✅ Contains KNOWS: ${unionTypes.has(knowsType)}`);
+    console.log(`✅ Contains WORKS_AT: ${unionTypes.has(worksAtType)}`);
 
-    expect(unionTypes.length).toBe(2);
-    expect(unionTypes.includes(knowsType)).toBe(true);
-    expect(unionTypes.includes(worksAtType)).toBe(true);
+    expect(unionTypes.size).toBe(2);
+    expect(unionTypes.has(knowsType)).toBe(true);
+    expect(unionTypes.has(worksAtType)).toBe(true);
 
     // ✅ VERIFY: Properties preserved using Map API
     const knowsEntry = union.get(knowsType);
@@ -277,7 +277,7 @@ describe("MutableRelationshipSchema", () => {
     original.addRelationshipType(worksAtType, Direction.DIRECTED);
     original.addProperty(worksAtType, Direction.DIRECTED, "startDate", ValueType.LONG);
 
-    console.log(`📊 Original types: ${original.availableTypes().length}`);
+    console.log(`📊 Original types: ${original.availableTypes().size}`);
 
     // 🔧 ACTION: Copy using from()
     console.log("📋 Creating copy using from()...");
@@ -285,7 +285,7 @@ describe("MutableRelationshipSchema", () => {
 
     // ✅ VERIFY: Copy is accurate but separate
     expect(copy).not.toBe(original); // Different instances
-    expect(copy.availableTypes().length).toBe(original.availableTypes().length);
+    expect(copy.availableTypes().size).toBe(original.availableTypes().size);
 
     const copyKnowsEntry = copy.get(knowsType);
     const copyWorksAtEntry = copy.get(worksAtType);

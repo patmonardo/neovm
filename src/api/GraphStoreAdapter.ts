@@ -252,6 +252,7 @@ export abstract class GraphStoreAdapter implements GraphStore {
   getUnion(): Graph {
     return this.graphStore.getUnion();
   }
+
   getCompositeRelationshipIterator(
     relationshipType: RelationshipType,
     propertyKeys: Array<string>

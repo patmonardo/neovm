@@ -23,7 +23,7 @@ export abstract class ElementSchema<
    * @param elementIdentifiersToKeep Array of element identifiers to include
    * @returns A new schema containing only the specified elements
    */
-  abstract filter(elementIdentifiersToKeep: Array<ELEMENT_IDENTIFIER>): SELF;
+  abstract filter(elementIdentifiersToKeep: Set<ELEMENT_IDENTIFIER>): SELF;
 
   /**
    * Combines this schema with another schema.
@@ -38,7 +38,7 @@ export abstract class ElementSchema<
    *
    * @returns Array of schema entries
    */
-  abstract entries(): ENTRY[];
+  abstract entries(): Array<ENTRY>;
 
   /**
    * Gets a schema entry by its identifier.

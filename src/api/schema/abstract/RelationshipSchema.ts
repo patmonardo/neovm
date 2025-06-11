@@ -30,7 +30,7 @@ export abstract class RelationshipSchema extends ElementSchema<
    * Creates a filtered version of this schema.
    */
   abstract filter(
-    relationshipTypesToKeep: Array<RelationshipType>
+    relationshipTypesToKeep: Set<RelationshipType>
   ): RelationshipSchema;
 
   /**
@@ -41,7 +41,7 @@ export abstract class RelationshipSchema extends ElementSchema<
   /**
    * Returns all available relationship types in this schema.
    */
-  abstract availableTypes(): Array<RelationshipType>;
+  abstract availableTypes(): Set<RelationshipType>;
 
   /**
    * Checks if the relationships in this schema are undirected.

@@ -1,0 +1,22 @@
+# /config/test/fixtures/test-config.yaml
+algorithms:
+  pagerank:
+    maxIterations: 25
+    dampingFactor: 0.90
+    tolerance: 0.0000005
+
+  louvain:
+    maxIterations: 15
+    tolerance: 0.0001
+
+graph:
+  nodesBuilder:
+    concurrency: 8
+    hasProperties: true
+    deduplicateIds: true
+    propertyState: "PERSISTENT"
+
+io:
+  fileExporter:
+    format: "csv"
+    includeMetaData: true

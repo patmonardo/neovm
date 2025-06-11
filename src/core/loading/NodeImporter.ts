@@ -1,9 +1,9 @@
-import { NodeLabel } from '@/projection';
-import { RawValues } from '@/core/utils';
-import { NodeLabelTokenSet } from './NodeLabelTokenSet';
-import { NodesBatchBuffer } from './NodesBatchBuffer';
-import { IdMapBuilder } from './IdMapBuilder';
-import { LabelInformation } from './LabelInformation';
+import { NodeLabel } from "@/projection";
+import { RawValues } from "@/core/utils";
+import { NodeLabelTokenSet } from "./NodeLabelTokenSet";
+import { NodesBatchBuffer } from "./NodesBatchBuffer";
+import { IdMapBuilder } from "./IdMapBuilder";
+import { LabelInformation } from "./LabelInformation";
 
 /**
  * Handles the import of nodes from batch buffers into the graph structure.
@@ -35,9 +35,13 @@ export class NodeImporter {
     reader: NodeImporter.PropertyReader<PROPERTY_REF>
   ): number {
     if (!this.labelTokenNodeLabelMapping) {
-      throw new Error('Missing Token-to-NodeLabel mapping');
+      throw new Error("Missing Token-to-NodeLabel mapping");
     }
-    return this.importNodesWithMapping(buffer, this.labelTokenNodeLabelMapping, reader);
+    return this.importNodesWithMapping(
+      buffer,
+      this.labelTokenNodeLabelMapping,
+      reader
+    );
   }
 
   /**
@@ -89,7 +93,13 @@ export class NodeImporter {
 
     // Import node properties
     const importedProperties = this.importProperties
-      ? NodeImporter.importProperties(reader, batch, properties, labelTokens, batchLength)
+      ? NodeImporter.importProperties(
+          reader,
+          batch,
+          properties,
+          labelTokens,
+          batchLength
+        )
       : 0;
 
     return RawValues.combineIntInt(batchLength, importedProperties);
@@ -151,7 +161,7 @@ export class NodeImporter {
       totalNodesProcessed: this.idMapBuilder.nodeCount(),
       labelsRegistered: this.labelInformationBuilder.labelCount(),
       propertiesImported: this.importProperties,
-      idMapType: this.idMapBuilder.typeId()
+      idMapType: this.idMapBuilder.typeId(),
     };
   }
 }
@@ -185,7 +195,7 @@ export namespace NodeImporter {
      */
     static noProperties<PROPERTY_REF>(): PropertyReader<PROPERTY_REF> {
       return {
-        readProperty: () => 0
+        readProperty: () => 0,
       };
     }
 
@@ -195,10 +205,8 @@ export namespace NodeImporter {
     static countingOnly<PROPERTY_REF>(): PropertyReader<PROPERTY_REF> {
       return {
         readProperty: (nodeRef, labelTokens, propRef) => {
-          // In a real implementation, this would count the properties
-          // in the property reference without importing them
           return propRef ? 1 : 0;
-        }
+        },
       };
     }
 
@@ -206,23 +214,17 @@ export namespace NodeImporter {
      * Create a property reader that delegates to a custom function.
      */
     static custom<PROPERTY_REF>(
-      readFunction: (nodeRef: number, labelTokens: NodeLabelTokenSet, propRef: PROPERTY_REF) => number
+      readFunction: (
+        nodeRef: number,
+        labelTokens: NodeLabelTokenSet,
+        propRef: PROPERTY_REF
+      ) => number
     ): PropertyReader<PROPERTY_REF> {
       return {
-        readProperty: readFunction
+        readProperty: readFunction,
       };
     }
   }
-}
-
-/**
- * Configuration for creating a NodeImporter.
- */
-export interface NodeImporterConfig {
-  idMapBuilder: IdMapBuilder;
-  labelInformationBuilder: LabelInformation.Builder;
-  labelTokenNodeLabelMapping?: Map<number, NodeLabel[]>;
-  importProperties?: boolean;
 }
 
 /**
@@ -251,7 +253,7 @@ export class NodeImporterFactory {
     return new NodeImporter({
       idMapBuilder,
       labelInformationBuilder: LabelInformation.builder(),
-      importProperties: false
+      importProperties: false,
     });
   }
 
@@ -266,7 +268,7 @@ export class NodeImporterFactory {
       idMapBuilder,
       labelInformationBuilder: LabelInformation.builder(),
       labelTokenNodeLabelMapping: labelMapping,
-      importProperties: false
+      importProperties: false,
     });
   }
 
@@ -281,7 +283,7 @@ export class NodeImporterFactory {
       idMapBuilder,
       labelInformationBuilder: LabelInformation.builder(),
       labelTokenNodeLabelMapping: labelMapping,
-      importProperties: true
+      importProperties: true,
     });
   }
 
@@ -300,7 +302,7 @@ export class NodeImporterFactory {
       idMapBuilder,
       labelInformationBuilder: LabelInformation.builder(),
       labelTokenNodeLabelMapping: labelMapping,
-      importProperties: true
+      importProperties: true,
     });
   }
 }

@@ -1,11 +1,11 @@
-import { RelationshipType } from '@/projection';
-import { ValueType } from '@/api';
-import { PropertyState } from '@/api';
-import { Direction } from '../Direction';
-import { RelationshipSchema } from '../abstract/RelationshipSchema';
-import { RelationshipSchemaEntry } from '../abstract/RelationshipSchemaEntry';
-import { RelationshipPropertySchema } from '../abstract/RelationshipPropertySchema';
-import { MutableRelationshipSchemaEntry } from './MutableRelationshipSchemaEntry';
+import { RelationshipType } from "@/projection";
+import { ValueType } from "@/api";
+import { PropertyState } from "@/api";
+import { Direction } from "../Direction";
+import { RelationshipSchema } from "../abstract/RelationshipSchema";
+import { RelationshipSchemaEntry } from "../abstract/RelationshipSchemaEntry";
+import { RelationshipPropertySchema } from "../abstract/RelationshipPropertySchema";
+import { MutableRelationshipSchemaEntry } from "./MutableRelationshipSchemaEntry";
 
 /**
  * Mutable implementation of RelationshipSchema.
@@ -46,8 +46,8 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   /**
    * Returns all available relationship types in this schema.
    */
-  availableTypes(): Array<RelationshipType> {
-    return Array.from(this._entries.keys());
+  availableTypes(): Set<RelationshipType> {
+    return new Set(this._entries.keys());
   }
 
   /**
@@ -99,14 +99,14 @@ export class MutableRelationshipSchema extends RelationshipSchema {
   /**
    * Creates a filtered version of this schema.
    */
-  filter(relationshipTypesToKeep: Array<RelationshipType>): RelationshipSchema {
+  filter(relationshipTypesToKeep: Set<RelationshipType>): RelationshipSchema {
     const filteredEntries = new Map<
       RelationshipType,
       MutableRelationshipSchemaEntry
     >();
 
     this._entries.forEach((entry, type) => {
-      if (relationshipTypesToKeep.includes(type)) {
+      if (relationshipTypesToKeep.has(type)) {
         filteredEntries.set(type, MutableRelationshipSchemaEntry.from(entry));
       }
     });

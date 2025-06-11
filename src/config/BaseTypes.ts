@@ -38,3 +38,14 @@ export interface EmbeddingDimensionConfig extends BaseConfig {
 export interface FeaturePropertiesConfig extends BaseConfig {
   featureProperties: string[];
 }
+
+export interface DeduplicationConfig extends BaseConfig {
+  deduplicateIds: boolean;
+  seenNodeIdPredicate?: (nodeId: number) => boolean;
+}
+
+export interface BuilderConfig extends BaseConfig {
+  usePooledBuilderProvider: boolean;
+  maxOriginalId: number;
+  maxIntermediateId: number;
+}

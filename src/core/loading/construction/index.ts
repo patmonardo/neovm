@@ -7,7 +7,7 @@ export * from "./NodeLabelTokens";
 export * from "./NodeLabelTokenToPropertyKeys";
 export * from "./NodeLabelToken";
 export * from "./NodesBuilder";
-// export * from "./NodesBuilderContext";
+export * from "./NodesBuilderContext";
 export * from "./TokenToNodeLabels";
 export * from "./PropertyValues";
 export * from "./RelationshipsBuilder";

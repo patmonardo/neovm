@@ -1,29 +1,26 @@
-import { ConfigLoader } from '../loader';
-import { ConfigValidation } from '../loader/ConfigValidation';
-import {
-  PageRankConfig,
-  LouvainConfig,
-  NodeSimilarityConfig,
- // ShortestPathConfig,
-  BetweennessCentralityConfig,
-  CommunityDetectionConfig
-} from '../interfaces';
-import { NodeLabel, RelationshipType } from '@/projection';
+import { ConfigLoader } from "./ConfigLoader";
+import { ConfigValidation } from "./ConfigValidation";
+import { PageRankConfig } from "./AlgoConfigs";
+import { LouvainConfig } from "./AlgoConfigs";
+import { NodeSimilarityConfig } from "./AlgoConfigs";
+import { BetweennessCentralityConfig } from "./AlgoConfigs";
+import { CommunityDetectionConfig } from "./AlgoConfigs";
+import { NodeLabel } from "@/projection";
+import { RelationshipType } from "@/projection";
 
 /**
  * Factory functions for algorithm configuration objects.
  */
 export class AlgoConfigFactory {
-
   static pageRank(params: Partial<PageRankConfig> = {}): PageRankConfig {
-    const fileDefaults = ConfigLoader.getDefaults<PageRankConfig>('algorithms');
+    const fileDefaults = ConfigLoader.getDefaults<PageRankConfig>("algorithms");
     const builtInDefaults: PageRankConfig = {
       concurrency: 4,
       nodeLabels: [NodeLabel.ALL_NODES],
       relationshipTypes: [RelationshipType.ALL_RELATIONSHIPS],
       maxIterations: 20,
       dampingFactor: 0.85,
-      tolerance: 0.0000001
+      tolerance: 0.0000001,
     };
 
     const config = { ...builtInDefaults, ...fileDefaults, ...params };
@@ -39,7 +36,7 @@ export class AlgoConfigFactory {
   }
 
   static louvain(params: Partial<LouvainConfig> = {}): LouvainConfig {
-    const fileDefaults = ConfigLoader.getDefaults<LouvainConfig>('algorithms');
+    const fileDefaults = ConfigLoader.getDefaults<LouvainConfig>("algorithms");
     const builtInDefaults: LouvainConfig = {
       concurrency: 4,
       nodeLabels: [NodeLabel.ALL_NODES],
@@ -48,7 +45,7 @@ export class AlgoConfigFactory {
       tolerance: 0.0001,
       includeIntermediateCommunities: false,
       gamma: 1.0,
-      theta: 0.01
+      theta: 0.01,
     };
 
     const config = { ...builtInDefaults, ...fileDefaults, ...params };
@@ -64,8 +61,11 @@ export class AlgoConfigFactory {
     return config;
   }
 
-  static nodeSimilarity(params: Partial<NodeSimilarityConfig> = {}): NodeSimilarityConfig {
-    const fileDefaults = ConfigLoader.getDefaults<NodeSimilarityConfig>('algorithms');
+  static nodeSimilarity(
+    params: Partial<NodeSimilarityConfig> = {}
+  ): NodeSimilarityConfig {
+    const fileDefaults =
+      ConfigLoader.getDefaults<NodeSimilarityConfig>("algorithms");
     const builtInDefaults: NodeSimilarityConfig = {
       concurrency: 4,
       nodeLabels: [NodeLabel.ALL_NODES],
@@ -73,13 +73,18 @@ export class AlgoConfigFactory {
       similarityCutoff: 0.0,
       degreeCutoff: 1,
       topK: 10,
-      bottomK: 10
+      bottomK: 10,
     };
 
     const config = { ...builtInDefaults, ...fileDefaults, ...params };
 
     ConfigValidation.validatePositive(config.concurrency, "concurrency");
-    ConfigValidation.validateRange(config.similarityCutoff, 0, 1, "similarityCutoff");
+    ConfigValidation.validateRange(
+      config.similarityCutoff,
+      0,
+      1,
+      "similarityCutoff"
+    );
     ConfigValidation.validatePositive(config.degreeCutoff, "degreeCutoff");
     ConfigValidation.validatePositive(config.topK, "topK");
     ConfigValidation.validatePositive(config.bottomK, "bottomK");
@@ -87,12 +92,15 @@ export class AlgoConfigFactory {
     return config;
   }
 
-  static betweennessCentrality(params: Partial<BetweennessCentralityConfig> = {}): BetweennessCentralityConfig {
-    const fileDefaults = ConfigLoader.getDefaults<BetweennessCentralityConfig>('algorithms');
+  static betweennessCentrality(
+    params: Partial<BetweennessCentralityConfig> = {}
+  ): BetweennessCentralityConfig {
+    const fileDefaults =
+      ConfigLoader.getDefaults<BetweennessCentralityConfig>("algorithms");
     const builtInDefaults: BetweennessCentralityConfig = {
       concurrency: 4,
       nodeLabels: [NodeLabel.ALL_NODES],
-      relationshipTypes: [RelationshipType.ALL_RELATIONSHIPS]
+      relationshipTypes: [RelationshipType.ALL_RELATIONSHIPS],
     };
 
     const config = { ...builtInDefaults, ...fileDefaults, ...params };
@@ -105,15 +113,18 @@ export class AlgoConfigFactory {
     return config;
   }
 
-  static communityDetection(params: Partial<CommunityDetectionConfig> = {}): CommunityDetectionConfig {
-    const fileDefaults = ConfigLoader.getDefaults<CommunityDetectionConfig>('algorithms');
+  static communityDetection(
+    params: Partial<CommunityDetectionConfig> = {}
+  ): CommunityDetectionConfig {
+    const fileDefaults =
+      ConfigLoader.getDefaults<CommunityDetectionConfig>("algorithms");
     const builtInDefaults: CommunityDetectionConfig = {
       concurrency: 4,
       nodeLabels: [NodeLabel.ALL_NODES],
       relationshipTypes: [RelationshipType.ALL_RELATIONSHIPS],
       maxIterations: 100,
       tolerance: 0.0001,
-      includeIntermediateCommunities: false
+      includeIntermediateCommunities: false,
     };
 
     const config = { ...builtInDefaults, ...fileDefaults, ...params };

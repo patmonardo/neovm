@@ -101,7 +101,7 @@ export interface IdMap extends PartialIdMap, NodeIterator, BatchNodeIterable {
    * @param mappedNodeId Mapped node ID
    * @returns List of node labels
    */
-  nodeLabels(mappedNodeId: number): NodeLabel[];
+  nodeLabels(mappedNodeId: number): Set<NodeLabel>;
 
   /**
    * Iterates through all labels of a node.
@@ -119,7 +119,7 @@ export interface IdMap extends PartialIdMap, NodeIterator, BatchNodeIterable {
    *
    * @returns Set of all node labels
    */
-  availableNodeLabels(): Array<NodeLabel>;
+  availableNodeLabels(): Set<NodeLabel>;
 
   /**
    * Checks if a node has a specific label.

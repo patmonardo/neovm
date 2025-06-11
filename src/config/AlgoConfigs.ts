@@ -1,4 +1,4 @@
-import { AlgoBaseConfig, IterationsConfig } from '../types';
+import { AlgoBaseConfig, IterationsConfig } from './BaseTypes';
 
 /**
  * Algorithm configuration interfaces.

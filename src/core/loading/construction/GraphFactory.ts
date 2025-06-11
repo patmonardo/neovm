@@ -1,109 +1,154 @@
 /**
- * GRAPH FACTORY - MAIN API FOR GRAPH CONSTRUCTION
+ * GRAPH FACTORY - Complete port of Java GraphFactory
  *
- * This is the primary entry point for building graphs from raw data.
- * It orchestrates the entire construction pipeline with sensible defaults
- * and comprehensive configuration options.
- *
- * CORE RESPONSIBILITIES:
- * 🏗️ ORCHESTRATION: Coordinates NodesBuilder and RelationshipsBuilder
- * ⚙️  CONFIGURATION: Provides builder patterns with smart defaults
- * 🔧 OPTIMIZATION: Handles concurrency, memory, and performance tuning
- * 📊 SCHEMA MANAGEMENT: Supports both schema discovery and validation
- * 🎯 SIMPLIFICATION: High-level API that hides complex construction details
- *
- * TWO CONSTRUCTION APPROACHES:
- *
- * 1. SCHEMA DISCOVERY (Lazy):
- *    - Learn node labels and properties from input data
- *    - Flexible but requires runtime coordination
- *    - Use when schema is unknown or varies by source
- *
- * 2. SCHEMA VALIDATION (Fixed):
- *    - Validate input against predefined schema
- *    - Faster and stricter but requires upfront schema
- *    - Use when schema is known and consistent
- *
- * USAGE PATTERNS:
- * ```typescript
- * // Simple node construction
- * const nodesBuilder = GraphFactory.initNodesBuilder()
- *   .maxOriginalId(100000)
- *   .concurrency(Concurrency.of(4))
- *   .build();
- *
- * // Relationship construction
- * const relsBuilder = GraphFactory.initRelationshipsBuilder()
- *   .nodes(idMap)
- *   .relationshipType(RelationshipType.of("FOLLOWS"))
- *   .orientation(Orientation.NATURAL)
- *   .build();
- *
- * // Final graph assembly
- * const graph = GraphFactory.create(idMap, relationships);
- * ```
- *
- * WHY THIS IS LARGE:
- * - Java uses @Builder.Factory (auto-generated code)
- * - Java uses @ValueClass (auto-generated interfaces)
- * - Java has implicit type inference
- * - TypeScript requires explicit interfaces and implementations
- * - More comprehensive documentation for unfamiliar codebase
+ * Provides factory methods for creating NodesBuilder, RelationshipsBuilder, and HugeGraph.
+ * Uses the @Builder.Factory pattern from Java with proper TypeScript builder patterns.
  */
 
-import { IdMap, GraphCharacteristics } from '@/api';
+import { IdMap, PartialIdMap, GraphCharacteristics, PropertyState, DefaultValue } from "@/api";
 import {
   GraphSchema,
+  NodeSchema,
   MutableGraphSchema,
   MutableNodeSchema,
   MutableRelationshipSchema,
-  NodeSchema,
-} from '@/api/schema';
-import { HugeGraph, HugeGraphBuilder } from '@/core/huge';
-import {
-  SingleTypeRelationships
-} from '@/core/loading';
-import { NodesBuilder } from '@/core/loading/construction';
-import { RelationshipsBuilder } from '@/core/loading/construction';
+  Direction
+} from "@/api/schema";
+import { HugeGraph } from "@/core/huge";
+import { SingleTypeRelationships } from "@/core/loading";
+import { NodesBuilder, RelationshipsBuilder } from "@/core/loading/construction";
+import { NodePropertyValues } from "@/api/properties";
+import { Concurrency } from "@/concurrency";
+import { RelationshipType, Orientation, Aggregation } from "@/api";
+
 
 /**
- * Main factory for graph construction with high-level, user-friendly APIs.
- *
- * DESIGN PATTERNS:
- * - Factory Pattern: Creates complex builders with sensible defaults
- * - Builder Pattern: Fluent configuration APIs for both nodes and relationships
- * - Template Method: Common construction flow with strategy variations
- * - Facade Pattern: Simplifies complex construction pipeline
+ * Main factory class - direct port of Java GraphFactory
  */
 export class GraphFactory {
-  private constructor() {} // Utility class - no instances
+  private constructor() {} // Utility class
 
   // =============================================================================
   // NODES BUILDER FACTORY METHODS
   // =============================================================================
 
   /**
-   * Initialize a nodes builder with schema discovery (most flexible).
-   *
-   * SCHEMA DISCOVERY:
-   * - Learns node labels and properties from input data
-   * - Thread-safe accumulation of schema information
-   * - Suitable when schema is unknown or varies by data source
+   * Initialize a nodes builder with schema discovery.
    */
-  static initNodesBuilder(): NodesBuilder.Builder {
-    return new NodesBuilder.Builder();
+  static initNodesBuilder(): NodesBuilderConfig {
+    return {};
   }
 
   /**
-   * Initialize a nodes builder with schema validation (fastest/strictest).
-   *
-   * SCHEMA VALIDATION:
-   * - Pre-creates all property builders from known schema
-   * - Validates input data matches expected schema
-   * - Throws errors for unexpected properties or incompatible types
+   * Initialize a nodes builder with predefined schema.
    */
-  static initNodesBuilderWithSchema(nodeSchema: NodeSchema): NodesBuilder.Builder {
-    return new NodesBuilder.Builder().nodeSchema(nodeSchema);
+  static initNodesBuilder(nodeSchema: NodeSchema): NodesBuilderConfig {
+    return { nodeSchema };
+  }
+
+  /**
+   * Factory method for creating NodesBuilder - direct port of Java @Builder.Factory
+   */
+  static nodesBuilder(config: NodesBuilderConfig): NodesBuilder {
+    const {
+      maxOriginalId,
+      nodeCount,
+      nodeSchema,
+      hasLabelInformation,
+      hasProperties,
+      deduplicateIds,
+      concurrency,
+      propertyState,
+      idMapBuilderType,
+      usePooledBuilderProvider
+    } = config;
+
+    // Determine if we have label information
+    const labelInformation = nodeSchema
+      ? !(nodeSchema.availableLabels().size === 0 || nodeSchema.containsOnlyAllNodesLabel())
+      : hasLabelInformation ?? false;
+
+    const threadCount = concurrency ?? new Concurrency(1);
+
+    // Make sure we don't pass negative values to id map builders
+    const validMaxOriginalId = maxOriginalId && maxOriginalId > 0 ? maxOriginalId : undefined;
+
+    // Create IdMap builder
+    const idMapType = idMapBuilderType ?? IdMap.NO_TYPE;
+    const idMapBuilder = IdMapBehaviorServiceProvider.idMapBehavior().create(
+      idMapType,
+      threadCount,
+      validMaxOriginalId,
+      nodeCount
+    );
+
+    const maxOriginalNodeId = validMaxOriginalId ?? NodesBuilder.UNKNOWN_MAX_ID;
+    const deduplicate = deduplicateIds ?? true;
+    const usePooled = usePooledBuilderProvider ?? false;
+    let maxIntermediateId = maxOriginalNodeId;
+
+    // Handle HighLimitIdMap special case
+    if (HighLimitIdMap.isHighLimitIdMap(idMapType)) {
+      maxIntermediateId = nodeCount ? nodeCount - 1 : NodesBuilder.UNKNOWN_MAX_ID;
+
+      if (deduplicate) {
+        throw new Error("Cannot use high limit id map with deduplication.");
+      }
+    }
+
+    // Create NodesBuilder with or without schema
+    if (nodeSchema) {
+      return GraphFactory.fromSchema(
+        maxOriginalNodeId,
+        maxIntermediateId,
+        idMapBuilder,
+        threadCount,
+        nodeSchema,
+        labelInformation,
+        deduplicate,
+        usePooled
+      );
+    } else {
+      return new NodesBuilder(
+        maxOriginalNodeId,
+        maxIntermediateId,
+        threadCount,
+        NodesBuilderContext.lazy(threadCount),
+        idMapBuilder,
+        labelInformation,
+        hasProperties ?? false,
+        deduplicate,
+        usePooled,
+        (_: string) => propertyState ?? PropertyState.PERSISTENT
+      );
+    }
+  }
+
+  /**
+   * Create NodesBuilder from schema - private helper
+   */
+  private static fromSchema(
+    maxOriginalId: number,
+    maxIntermediateId: number,
+    idMapBuilder: any, // IdMapBuilder
+    concurrency: Concurrency,
+    nodeSchema: NodeSchema,
+    hasLabelInformation: boolean,
+    deduplicateIds: boolean,
+    usePooledBuilderProvider: boolean
+  ): NodesBuilder {
+    return new NodesBuilder(
+      maxOriginalId,
+      maxIntermediateId,
+      concurrency,
+      NodesBuilderContext.fixed(nodeSchema, concurrency),
+      idMapBuilder,
+      hasLabelInformation,
+      nodeSchema.hasProperties(),
+      deduplicateIds,
+      usePooledBuilderProvider,
+      (propertyKey: string) => nodeSchema.unionProperties().get(propertyKey).state()
+    );
   }
 
   // =============================================================================
@@ -112,81 +157,183 @@ export class GraphFactory {
 
   /**
    * Initialize a relationships builder with default configuration.
-   *
-   * DEFAULTS:
-   * - Natural orientation (directed)
-   * - Skip dangling relationships (graceful error handling)
-   * - Single-threaded concurrency
-   * - No relationship properties
    */
-  static initRelationshipsBuilder(): RelationshipsBuilder.Builder {
-    return new RelationshipsBuilder.Builder();
+  static initRelationshipsBuilder(): RelationshipsBuilderConfig {
+    return {
+      nodes: undefined as any, // Must be provided
+      relationshipType: undefined as any, // Must be provided
+      propertyConfigs: []
+    };
+  }
+
+  /**
+   * Factory method for creating RelationshipsBuilder - direct port of Java @Builder.Factory
+   */
+  static relationshipsBuilder(config: RelationshipsBuilderConfig): RelationshipsBuilder {
+    const {
+      nodes,
+      relationshipType,
+      orientation,
+      propertyConfigs,
+      aggregation,
+      skipDanglingRelationships,
+      concurrency,
+      indexInverse,
+      executorService,
+      usePooledBuilderProvider
+    } = config;
+
+    const loadRelationshipProperties = propertyConfigs.length > 0;
+
+    // Build aggregations array
+    const aggregations = propertyConfigs.length === 0
+      ? [aggregation ?? Aggregation.DEFAULT]
+      : propertyConfigs.map(pc => Aggregation.resolve(pc.aggregation()));
+
+    const isMultiGraph = aggregations.every(agg => agg.equivalentToNone());
+
+    const actualOrientation = orientation ?? Orientation.NATURAL;
+
+    // Build RelationshipProjection
+    const projectionBuilder = RelationshipProjection.builder()
+      .type(relationshipType.name())
+      .orientation(actualOrientation)
+      .indexInverse(indexInverse ?? false);
+
+    propertyConfigs.forEach(propertyConfig => {
+      projectionBuilder.addProperty(
+        propertyConfig.propertyKey(),
+        propertyConfig.propertyKey(),
+        DefaultValue.of(propertyConfig.defaultValue()),
+        propertyConfig.aggregation()
+      );
+    });
+
+    const projection = projectionBuilder.build();
+
+    // Build property arrays
+    const propertyKeyIds = Array.from({ length: propertyConfigs.length }, (_, i) => i);
+    const defaultValues = propertyConfigs.map(c => c.defaultValue().doubleValue());
+
+    const finalConcurrency = concurrency ?? new Concurrency(1);
+    const maybeRootNodeCount = nodes.rootNodeCount();
+
+    const importSizing = maybeRootNodeCount
+      ? ImportSizing.of(finalConcurrency, maybeRootNodeCount)
+      : ImportSizing.of(finalConcurrency);
+
+    // Determine buffer size
+    let bufferSize = RecordsBatchBuffer.DEFAULT_BUFFER_SIZE;
+    if (maybeRootNodeCount && maybeRootNodeCount > 0 && maybeRootNodeCount < RecordsBatchBuffer.DEFAULT_BUFFER_SIZE) {
+      bufferSize = maybeRootNodeCount;
+    }
+
+    const skipDangling = skipDanglingRelationships ?? true;
+
+    // Build import metadata
+    const importMetaData = ImportMetaData.builder()
+      .projection(projection)
+      .aggregations(aggregations)
+      .propertyKeyIds(propertyKeyIds)
+      .defaultValues(defaultValues)
+      .typeTokenId(NO_SUCH_RELATIONSHIP_TYPE)
+      .skipDanglingRelationships(skipDangling)
+      .build();
+
+    // Create single type relationship importer
+    const singleTypeRelationshipImporter = new SingleTypeRelationshipImporterBuilder()
+      .importMetaData(importMetaData)
+      .nodeCountSupplier(() => nodes.rootNodeCount() ?? 0)
+      .importSizing(importSizing)
+      .build();
+
+    // Build SingleTypeRelationshipsBuilder
+    const singleTypeRelationshipsBuilderBuilder = new SingleTypeRelationshipsBuilderBuilder()
+      .idMap(nodes)
+      .importer(singleTypeRelationshipImporter)
+      .bufferSize(bufferSize)
+      .relationshipType(relationshipType)
+      .propertyConfigs(propertyConfigs)
+      .isMultiGraph(isMultiGraph)
+      .loadRelationshipProperty(loadRelationshipProperties)
+      .direction(Direction.fromOrientation(actualOrientation))
+      .executorService(executorService ?? DefaultPool.INSTANCE)
+      .concurrency(finalConcurrency);
+
+    // Handle inverse indexing
+    if (indexInverse ?? false) {
+      const inverseProjection = RelationshipProjection.builder()
+        .from(projection)
+        .orientation(projection.orientation().inverse())
+        .build();
+
+      const inverseImportMetaData = ImportMetaData.builder()
+        .from(importMetaData)
+        .projection(inverseProjection)
+        .skipDanglingRelationships(skipDangling)
+        .build();
+
+      const inverseImporter = new SingleTypeRelationshipImporterBuilder()
+        .importMetaData(inverseImportMetaData)
+        .nodeCountSupplier(() => nodes.rootNodeCount() ?? 0)
+        .importSizing(importSizing)
+        .build();
+
+      singleTypeRelationshipsBuilderBuilder.inverseImporter(inverseImporter);
+    }
+
+    const singleTypeRelationshipsBuilder = singleTypeRelationshipsBuilderBuilder.build();
+
+    // Create local builder provider
+    const localBuilderProvider = usePooledBuilderProvider ?? false
+      ? LocalRelationshipsBuilderProvider.pooled(
+          () => singleTypeRelationshipsBuilder.threadLocalRelationshipsBuilder(),
+          finalConcurrency
+        )
+      : LocalRelationshipsBuilderProvider.threadLocal(
+          () => singleTypeRelationshipsBuilder.threadLocalRelationshipsBuilder()
+        );
+
+    return new RelationshipsBuilder(singleTypeRelationshipsBuilder, localBuilderProvider, skipDangling);
   }
 
   // =============================================================================
-  // GRAPH ASSEMBLY METHODS
+  // HUGEGRAPH CREATION METHODS
   // =============================================================================
 
   /**
-   * Create a HugeGraph from IdMap and relationships with inferred schema.
-   *
-   * SCHEMA INFERENCE:
-   * - Node schema inferred from available node labels in IdMap
-   * - Relationship schema uses the provided relationship type
-   * - Property schema inferred from relationship properties (if any)
-   *
-   * CONSTRAINTS:
-   * - Only supports single relationship property (enforced by assertion)
-   * - All nodes get labels that exist in the IdMap
-   *
-   * @param idMap Node mapping with labels and properties
-   * @param relationships Single relationship type with topology and properties
-   * @returns Complete HugeGraph ready for algorithms
+   * Creates a HugeGraph from the given node and relationship data.
+   * Simple overload with schema inference.
    */
   static create(idMap: IdMap, relationships: SingleTypeRelationships): HugeGraph {
-    // Infer node schema from available labels
     const nodeSchema = MutableNodeSchema.empty();
     for (const nodeLabel of idMap.availableNodeLabels()) {
       nodeSchema.getOrCreateLabel(nodeLabel);
     }
 
     // Validate single relationship property constraint
-    if (relationships.properties()?.values().size !== 1) {
-      throw new Error("Cannot instantiate graph with more than one relationship property.");
+    if (relationships.properties()) {
+      const relationshipPropertyStore = relationships.properties()!;
+      if (relationshipPropertyStore.values().size !== 1) {
+        throw new Error("Cannot instantiate graph with more than one relationship property.");
+      }
     }
 
-    // Create relationship schema from relationship data
     const relationshipSchema = MutableRelationshipSchema.empty();
     relationshipSchema.set(relationships.relationshipSchemaEntry());
 
-    return this.createWithSchema(
+    return GraphFactory.create(
       MutableGraphSchema.of(nodeSchema, relationshipSchema, new Map()),
       idMap,
-      new Map(), // No node properties
+      new Map(),
       relationships
     );
   }
 
   /**
-   * Create a HugeGraph with explicit schema and node properties.
-   *
-   * EXPLICIT SCHEMA:
-   * - Complete control over node and relationship schemas
-   * - Support for multiple node properties
-   * - Support for complex relationship schemas
-   *
-   * ADVANCED FEATURES:
-   * - Bidirectional relationship support (if inverse topology provided)
-   * - Multiple relationship properties (with validation)
-   * - Graph characteristics inference (direction, inverse indexing)
-   *
-   * @param graphSchema Complete graph schema
-   * @param idMap Node mapping
-   * @param nodeProperties Map of node property values by property key
-   * @param relationships Relationship data with topology and properties
-   * @returns Complete HugeGraph with all specified features
+   * Creates a HugeGraph with explicit schema and node properties.
    */
-  static createWithSchema(
+  static create(
     graphSchema: GraphSchema,
     idMap: IdMap,
     nodeProperties: Map<string, NodePropertyValues>,
@@ -195,50 +342,44 @@ export class GraphFactory {
     const topology = relationships.topology();
     const inverseTopology = relationships.inverseTopology();
 
-    // Extract relationship properties (enforce single property constraint)
-    const properties = this.extractSingleProperty(relationships.properties(), "relationship");
-    const inverseProperties = this.extractSingleProperty(relationships.inverseProperties(), "inverse relationship");
+    // Extract relationship properties
+    let properties: any = undefined;
+    if (relationships.properties()) {
+      const relationshipPropertyStore = relationships.properties()!;
+      if (relationshipPropertyStore.values().size !== 1) {
+        throw new Error("Cannot instantiate graph with more than one relationship property.");
+      }
+      properties = Array.from(relationshipPropertyStore.values())[0].values();
+    }
 
-    // Build graph characteristics from schema and topology
-    const characteristicsBuilder = GraphCharacteristics
-      .builder()
+    // Extract inverse relationship properties
+    let inverseProperties: any = undefined;
+    if (relationships.inverseProperties()) {
+      const relationshipPropertyStore = relationships.inverseProperties()!;
+      if (relationshipPropertyStore.values().size !== 1) {
+        throw new Error("Cannot instantiate graph with more than one relationship property.");
+      }
+      inverseProperties = Array.from(relationshipPropertyStore.values())[0].values();
+    }
+
+    // Build characteristics
+    const characteristicsBuilder = GraphCharacteristics.builder()
       .withDirection(graphSchema.direction());
 
-    if (inverseTopology) {
+    if (relationships.inverseTopology()) {
       characteristicsBuilder.inverseIndexed();
     }
 
-    // Assemble final HugeGraph
-    return new HugeGraphBuilder()
-      .nodes(idMap)
-      .schema(graphSchema)
-      .characteristics(characteristicsBuilder.build())
-      .nodeProperties(nodeProperties)
-      .topology(topology)
-      .inverseTopology(inverseTopology || undefined)
-      .relationshipProperties(properties)
-      .inverseRelationshipProperties(inverseProperties)
-      .build();
-  }
-
-  /**
-   * Extract single property from property store (enforces constraint).
-   *
-   * SINGLE PROPERTY CONSTRAINT:
-   * - HugeGraph currently supports only one relationship property
-   * - Multiple properties require different graph representation
-   * - This constraint may be relaxed in future versions
-   */
-  private static extractSingleProperty(
-    propertyStore: any,
-    propertyType: string
-  ): any {
-    if (!propertyStore) return undefined;
-
-    if (propertyStore.values().size !== 1) {
-      throw new Error(`Cannot instantiate graph with more than one ${propertyType} property.`);
-    }
-
-    return Array.from(propertyStore.values())[0].values();
+    // Use HugeGraph.create instead of HugeGraphBuilder
+    return HugeGraph.create(
+      idMap,
+      graphSchema,
+      characteristicsBuilder.build(),
+      nodeProperties,
+      topology,
+      properties,
+      inverseTopology || undefined,
+      inverseProperties
+    );
   }
 }

@@ -2,18 +2,6 @@ import { ValueType } from "./ValueType";
 import { ValueConversion } from "./ValueConversion";
 import { DefaultValueUtil } from "./DefaultValueUtil";
 
-// Helper for simulating Java's Class.getSimpleName() for error messages
-function getClassName(value: any): string {
-  if (value === null) return "null";
-  if (value === undefined) return "undefined";
-  if (value.constructor && value.constructor.name) {
-    if (value.constructor.name === 'Number' && Number.isInteger(value)) return 'Long';
-    if (value.constructor.name === 'Number') return 'Double';
-    return value.constructor.name;
-  }
-  return typeof value;
-}
-
 export class DefaultValue {
   public static readonly INTEGER_DEFAULT_FALLBACK: number = -2147483648;
   public static readonly LONG_DEFAULT_FALLBACK: number = 0;
@@ -228,13 +216,64 @@ export class DefaultValue {
     return this._value === other._value;
   }
 
+  /**
+   * Validates that this DefaultValue can be converted to the expected ValueType.
+   * Throws descriptive error if not compatible.
+   */
+  public validateForType(expectedType: ValueType): void {
+    try {
+      switch (expectedType) {
+        case ValueType.LONG:
+          this.longValue();
+          break;
+        case ValueType.DOUBLE:
+          this.doubleValue();
+          break;
+        case ValueType.DOUBLE_ARRAY:
+          this.doubleArrayValue();
+          break;
+        case ValueType.FLOAT_ARRAY:
+          this.floatArrayValue();
+          break;
+        case ValueType.LONG_ARRAY:
+          this.longArrayValue();
+          break;
+        default:
+          throw new Error(`Unsupported ValueType: ${expectedType}`);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Expected type")) {
+        throw error; // Re-throw our formatted error
+      }
+      // Wrap unexpected errors
+      throw new Error(
+        `DefaultValue validation failed for type ${expectedType}: ${error}`
+      );
+    }
+  }
+
+  private getActualTypeName(): string {
+    if (this._value === null) return "null";
+    if (Array.isArray(this._value)) return "array";
+    if (this._value instanceof Float64Array) return "Float64Array";
+    if (this._value instanceof Float32Array) return "Float32Array";
+    if (typeof this._value === "number") {
+      if (Number.isInteger(this._value)) return "number (integer)";
+      return "number (float)";
+    }
+    if (typeof this._value === "boolean") return "boolean";
+    if (typeof this._value === "string") return "string";
+    if (typeof this._value === "object") return "object";
+    if (typeof this._value === "bigint") return "bigint";
+    return typeof this._value; // Fallback for other types
+  }
+
+  // Simplified error method - just show what we tried to convert to
   private getInvalidTypeException(expectedType: string): Error {
     return new Error(
-      ValueConversion.formatWithLocale(
-        "Expected type of default value to be `%s`. But got `%s`.",
-        expectedType,
-        getClassName(this._value)
-      )
+      `Cannot convert DefaultValue to ${expectedType}. ` +
+        `Value: ${JSON.stringify(this._value)}, ` +
+        `Type: ${this.getActualTypeName()}`
     );
   }
 
@@ -247,7 +286,10 @@ export class DefaultValue {
    * @param isUserDefined A boolean indicating if the default value was defined by the user.
    * @returns A new instance of DefaultValue.
    */
-  public static create(value: any | null, isUserDefined: boolean): DefaultValue {
+  public static create(
+    value: any | null,
+    isUserDefined: boolean
+  ): DefaultValue {
     return new DefaultValue(value, isUserDefined);
   }
 
@@ -284,46 +326,87 @@ export namespace DefaultValue {
 
   export function of(value: any): DefaultValue;
   export function of(value: any | null, isUserDefined: boolean): DefaultValue;
-  export function of(value: any | null, type: ValueType, isUserDefined: boolean): DefaultValue;
-  export function of(arg1: any, arg2?: ValueType | boolean, arg3?: boolean): DefaultValue {
-    if (arg1 instanceof DefaultValue) { // Check if arg1 is already a DefaultValue instance
+  export function of(
+    value: any | null,
+    type: ValueType,
+    isUserDefined: boolean
+  ): DefaultValue;
+  export function of(
+    arg1: any,
+    arg2?: ValueType | boolean,
+    arg3?: boolean
+  ): DefaultValue {
+    if (arg1 instanceof DefaultValue) {
+      // Check if arg1 is already a DefaultValue instance
       return arg1;
     }
     // Signature: of(value, isUserDefined)
-    if (typeof arg2 === 'boolean' && arg3 === undefined) {
-        const valToStore = Array.isArray(arg1) ? DefaultValueUtil.transformObjectToPrimitiveArray(arg1) : arg1;
-        return DefaultValue.create(valToStore, arg2);
+    if (typeof arg2 === "boolean" && arg3 === undefined) {
+      const valToStore = Array.isArray(arg1)
+        ? DefaultValueUtil.transformObjectToPrimitiveArray(arg1)
+        : arg1;
+      return DefaultValue.create(valToStore, arg2);
     }
     // Signature: of(value, type, isUserDefined)
-    else if (arg2 !== undefined && typeof arg2 !== 'boolean' && arg3 !== undefined) {
-        const value = arg1;
-        const type = arg2 as ValueType;
-        const isDef = arg3;
-        if (value === null || (typeof value === 'string' && value.trim() === '')) {
-            switch(type) {
-                case ValueType.LONG: return DefaultValue.forLong();
-                case ValueType.DOUBLE: return DefaultValue.forDouble();
-                case ValueType.FLOAT: return DefaultValue.forFloat();
-                case ValueType.DOUBLE_ARRAY: return DefaultValue.forDoubleArray();
-                case ValueType.FLOAT_ARRAY: return DefaultValue.forFloatArray();
-                case ValueType.LONG_ARRAY: return DefaultValue.forLongArray();
-                default: return DefaultValue.create(null, isDef);
-            }
-        }
-        let parsedValue = value;
+    else if (
+      arg2 !== undefined &&
+      typeof arg2 !== "boolean" &&
+      arg3 !== undefined
+    ) {
+      const value = arg1;
+      const type = arg2 as ValueType;
+      const isDef = arg3;
+      if (
+        value === null ||
+        (typeof value === "string" && value.trim() === "")
+      ) {
         switch (type) {
-            case ValueType.LONG: parsedValue = typeof value === 'string' ? parseInt(value, 10) : ValueConversion.exactDoubleToLong(Number(value)); break;
-            case ValueType.DOUBLE: parsedValue = typeof value === 'string' ? parseFloat(value) : Number(value); break;
-            case ValueType.DOUBLE_ARRAY: parsedValue = DefaultValueUtil.parseDoubleArrayValue(value, type); break;
-            case ValueType.FLOAT_ARRAY: parsedValue = DefaultValueUtil.parseFloatArrayValue(value, type); break;
-            case ValueType.LONG_ARRAY: parsedValue = DefaultValueUtil.parseLongArrayValue(value, type); break;
+          case ValueType.LONG:
+            return DefaultValue.forLong();
+          case ValueType.DOUBLE:
+            return DefaultValue.forDouble();
+          case ValueType.FLOAT:
+            return DefaultValue.forFloat();
+          case ValueType.DOUBLE_ARRAY:
+            return DefaultValue.forDoubleArray();
+          case ValueType.FLOAT_ARRAY:
+            return DefaultValue.forFloatArray();
+          case ValueType.LONG_ARRAY:
+            return DefaultValue.forLongArray();
+          default:
+            return DefaultValue.create(null, isDef);
         }
-        return DefaultValue.create(parsedValue, isDef);
+      }
+      let parsedValue = value;
+      switch (type) {
+        case ValueType.LONG:
+          parsedValue =
+            typeof value === "string"
+              ? parseInt(value, 10)
+              : ValueConversion.exactDoubleToLong(Number(value));
+          break;
+        case ValueType.DOUBLE:
+          parsedValue =
+            typeof value === "string" ? parseFloat(value) : Number(value);
+          break;
+        case ValueType.DOUBLE_ARRAY:
+          parsedValue = DefaultValueUtil.parseDoubleArrayValue(value, type);
+          break;
+        case ValueType.FLOAT_ARRAY:
+          parsedValue = DefaultValueUtil.parseFloatArrayValue(value, type);
+          break;
+        case ValueType.LONG_ARRAY:
+          parsedValue = DefaultValueUtil.parseLongArrayValue(value, type);
+          break;
+      }
+      return DefaultValue.create(parsedValue, isDef);
     }
     // Signature: of(value) -> isUserDefined = true
     else if (arg2 === undefined && arg3 === undefined) {
-        const valToStore = Array.isArray(arg1) ? DefaultValueUtil.transformObjectToPrimitiveArray(arg1) : arg1;
-        return DefaultValue.create(valToStore, true);
+      const valToStore = Array.isArray(arg1)
+        ? DefaultValueUtil.transformObjectToPrimitiveArray(arg1)
+        : arg1;
+      return DefaultValue.create(valToStore, true);
     }
     // Fallback or error for unexpected signature
     throw new Error("Invalid arguments for DefaultValue.of");
@@ -344,12 +427,12 @@ export namespace DefaultValue {
 
   export function forDoubleArray(): DefaultValue {
     // Access the private static member from the class directly
-    return ofFallBackValue(DefaultValue['DOUBLE_ARRAY_DEFAULT_FALLBACK']);
+    return ofFallBackValue(DefaultValue["DOUBLE_ARRAY_DEFAULT_FALLBACK"]);
   }
   export function forFloatArray(): DefaultValue {
-    return ofFallBackValue(DefaultValue['FLOAT_ARRAY_DEFAULT_FALLBACK']);
+    return ofFallBackValue(DefaultValue["FLOAT_ARRAY_DEFAULT_FALLBACK"]);
   }
   export function forLongArray(): DefaultValue {
-    return ofFallBackValue(DefaultValue['LONG_ARRAY_DEFAULT_FALLBACK']);
+    return ofFallBackValue(DefaultValue["LONG_ARRAY_DEFAULT_FALLBACK"]);
   }
 }

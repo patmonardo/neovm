@@ -26,12 +26,9 @@
 
 import { ParallelUtil } from "@/concurrency";
 import { RawValues } from "@/core/utils";
-import {
-  NodeImporter,
-  NodeLabelTokenSet,
-  NodesBatchBuffer,
-  NodesBatchBufferBuilder,
-} from "@/core/loading";
+import { NodeImporter } from "@/core/loading";
+import { NodeLabelTokenSet } from "@/core/loading";
+import { NodesBatchBuffer } from "@/core/loading";
 import { NodeLabelToken } from "./NodeLabelTokens";
 import { PropertyValues } from "./PropertyValues";
 
@@ -215,33 +212,5 @@ export class LocalNodesBuilder implements AutoCloseable {
   close(): void {
     this.flushBuffer();
   }
-}
-
-// =============================================================================
-// CONFIGURATION AND UTILITY TYPES
-// =============================================================================
-
-/**
- * Configuration for LocalNodesBuilder construction.
- * Encapsulates all dependencies needed for thread-local node processing.
- */
-export interface LocalNodesBuilderConfig {
-  /** Atomic counter for tracking total imported nodes across threads */
-  importedNodes: LongAdder;
-
-  /** Core importer that handles the actual node creation */
-  nodeImporter: NodeImporter;
-
-  /** Predicate for deduplication - returns true if node already seen */
-  seenNodeIdPredicate: LongPredicate;
-
-  /** Whether to track label information for nodes */
-  hasLabelInformation: boolean;
-
-  /** Whether nodes have properties to import */
-  hasProperties: boolean;
-
-  /** Thread-local context for coordination with other builders */
-  threadLocalContext: NodesBuilderContext.ThreadLocalContext;
 }
 

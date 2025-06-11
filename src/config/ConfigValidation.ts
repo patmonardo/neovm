@@ -11,13 +11,22 @@ export class ConfigValidation {
 
   static validatePositive(value: number, name: string): void {
     if (value <= 0) {
-      throw new Error(`Configuration parameter '${name}' must be positive, got: ${value}`);
+      throw new Error(
+        `Configuration parameter '${name}' must be positive, got: ${value}`
+      );
     }
   }
 
-  static validateRange(value: number, min: number, max: number, name: string): void {
+  static validateRange(
+    value: number,
+    min: number,
+    max: number,
+    name: string
+  ): void {
     if (value < min || value > max) {
-      throw new Error(`Configuration parameter '${name}' must be between ${min} and ${max}, got: ${value}`);
+      throw new Error(
+        `Configuration parameter '${name}' must be between ${min} and ${max}, got: ${value}`
+      );
     }
   }
 
@@ -32,7 +41,9 @@ export class ConfigValidation {
       throw new Error("Database name cannot be empty");
     }
     if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(name)) {
-      throw new Error("Database name must start with letter and contain only alphanumeric characters and underscores");
+      throw new Error(
+        "Database name must start with letter and contain only alphanumeric characters and underscores"
+      );
     }
   }
 
