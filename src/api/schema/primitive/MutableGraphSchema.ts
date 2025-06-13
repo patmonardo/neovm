@@ -1,9 +1,9 @@
-import { NodeLabel } from '@/projection';
-import { RelationshipType } from '@/projection';
-import { GraphSchema } from '../abstract/GraphSchema';
-import { PropertySchema } from '../abstract/PropertySchema';
-import { MutableNodeSchema } from './MutableNodeSchema';
-import { MutableRelationshipSchema } from './MutableRelationshipSchema';
+import { NodeLabel } from "@/projection";
+import { RelationshipType } from "@/projection";
+import { GraphSchema } from "../abstract/GraphSchema";
+import { PropertySchema } from "../abstract/PropertySchema";
+import { MutableNodeSchema } from "./MutableNodeSchema";
+import { MutableRelationshipSchema } from "./MutableRelationshipSchema";
 
 /**
  * A mutable implementation of GraphSchema that supports building and modifying graph schemas.
@@ -76,7 +76,11 @@ export class MutableGraphSchema extends GraphSchema {
     relationshipSchema: MutableRelationshipSchema,
     graphProperties: Map<string, PropertySchema>
   ): MutableGraphSchema {
-    return new MutableGraphSchema(nodeSchema, relationshipSchema, graphProperties);
+    return new MutableGraphSchema(
+      nodeSchema,
+      relationshipSchema,
+      graphProperties
+    );
   }
 
   /**
@@ -125,7 +129,9 @@ export class MutableGraphSchema extends GraphSchema {
   ): MutableGraphSchema {
     return new MutableGraphSchema(
       this.nodeSchema(),
-      this.relationshipSchema().filter(relationshipTypesToKeep) as MutableRelationshipSchema,
+      this.relationshipSchema().filter(
+        relationshipTypesToKeep
+      ) as MutableRelationshipSchema,
       this.graphProperties()
     );
   }
@@ -139,7 +145,9 @@ export class MutableGraphSchema extends GraphSchema {
   public union(other: GraphSchema): MutableGraphSchema {
     return new MutableGraphSchema(
       this.nodeSchema().union(other.nodeSchema()) as MutableNodeSchema,
-      this.relationshipSchema().union(other.relationshipSchema()) as MutableRelationshipSchema,
+      this.relationshipSchema().union(
+        other.relationshipSchema()
+      ) as MutableRelationshipSchema,
       this.mergeGraphProperties(other)
     );
   }
@@ -150,7 +158,9 @@ export class MutableGraphSchema extends GraphSchema {
    * @param other The other schema
    * @returns A new map containing the merged properties
    */
-  private mergeGraphProperties(other: GraphSchema): Map<string, PropertySchema> {
+  private mergeGraphProperties(
+    other: GraphSchema
+  ): Map<string, PropertySchema> {
     const result = new Map<string, PropertySchema>(this.graphProperties());
 
     other.graphProperties().forEach((schema, key) => {
@@ -177,7 +187,10 @@ export class MutableGraphSchema extends GraphSchema {
    * @param schema The property schema
    * @returns This schema for method chaining
    */
-  public putGraphProperty(key: string, schema: PropertySchema): MutableGraphSchema {
+  public putGraphProperty(
+    key: string,
+    schema: PropertySchema
+  ): MutableGraphSchema {
     this._graphProperties.set(key, schema);
     return this;
   }
@@ -203,7 +216,7 @@ export namespace MutableGraphSchema {
    *
    * @returns A new builder
    */
-  export function builder(): Builder {
+  export function builder():MutableGraphSchema.Builder {
     return new Builder();
   }
 
@@ -232,7 +245,9 @@ export namespace MutableGraphSchema {
      * @param relationshipSchema The relationship schema
      * @returns This builder for method chaining
      */
-    public relationshipSchema(relationshipSchema: MutableRelationshipSchema): Builder {
+    public relationshipSchema(
+      relationshipSchema: MutableRelationshipSchema
+    ): Builder {
       this._relationshipSchema = relationshipSchema;
       return this;
     }
@@ -243,7 +258,9 @@ export namespace MutableGraphSchema {
      * @param graphProperties The graph properties
      * @returns This builder for method chaining
      */
-    public graphProperties(graphProperties: Map<string, PropertySchema>): Builder {
+    public graphProperties(
+      graphProperties: Map<string, PropertySchema>
+    ): Builder {
       this._graphProperties = new Map(graphProperties);
       return this;
     }

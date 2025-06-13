@@ -12,7 +12,7 @@ import { FileHeader } from "@/core/io/file";
 import { NodeFileHeader } from "@/core/io/file";
 import { RelationshipFileHeader } from "@/core/io/file";
 import { GraphPropertyFileHeader } from "@/core/io/file";
-import { Capabilities } from "@/core/loading/Capabilities";
+import { Capabilities } from "@/core/loading";
 import { MappedListIterator } from "@/core/io/file";
 import { LastProgress } from "@/core/io/GraphStoreInput";
 import { UserInfoLoader } from "./UserInfoLoader";

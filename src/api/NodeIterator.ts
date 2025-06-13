@@ -28,6 +28,6 @@ export interface NodeIterator {
    * @param labels Set of node labels to filter by
    * @returns Iterator over filtered node IDs
    */
-  nodeIterator(labels: Array<NodeLabel>): PrimitiveIterator.OfLong;
+  nodeIterator(labels: Set<NodeLabel>): PrimitiveIterator.OfLong;
 }
 

@@ -8,17 +8,17 @@ import { NodeLabelTokenSet } from "./NodeLabelTokenSet";
  * @template PROPERTY_REF Type of property references stored for each node
  */
 export class NodesBatchBuffer<PROPERTY_REF> extends RecordsBatchBuffer {
-  private readonly hasLabelInformation: boolean;
-  private readonly labelTokens: (NodeLabelTokenSet | null)[];
-  private readonly propertyReferences: (PROPERTY_REF | null)[] | null;
+  private readonly _hasLabelInformation: boolean;
+  private readonly _labelTokens: (NodeLabelTokenSet | null)[];
+  private readonly _propertyReferences: (PROPERTY_REF | null)[] | null;
 
   constructor(config: NodesBatchBufferConfig<PROPERTY_REF>) {
     super(config.capacity);
-    this.hasLabelInformation = config.hasLabelInformation ?? false;
-    this.labelTokens = new Array<NodeLabelTokenSet | null>(
+    this._hasLabelInformation = config.hasLabelInformation ?? false;
+    this._labelTokens = new Array<NodeLabelTokenSet | null>(
       config.capacity
     ).fill(null);
-    this.propertyReferences = config.readProperty
+    this._propertyReferences = config.readProperty
       ? new Array<PROPERTY_REF | null>(config.capacity).fill(null)
       : null;
   }
@@ -38,12 +38,12 @@ export class NodesBatchBuffer<PROPERTY_REF> extends RecordsBatchBuffer {
     const len = this.length++;
     this.buffer[len] = nodeId;
 
-    if (this.propertyReferences && propertyReference !== null) {
-      this.propertyReferences[len] = propertyReference;
+    if (this._propertyReferences && propertyReference !== null) {
+      this._propertyReferences[len] = propertyReference;
     }
 
-    if (this.labelTokens && labelTokens !== null) {
-      this.labelTokens[len] = labelTokens;
+    if (this._labelTokens && labelTokens !== null) {
+      this._labelTokens[len] = labelTokens;
     }
   }
 
@@ -52,21 +52,21 @@ export class NodesBatchBuffer<PROPERTY_REF> extends RecordsBatchBuffer {
    * Returns null if property reading is disabled.
    */
   propertyReferences(): (PROPERTY_REF | null)[] | null {
-    return this.propertyReferences;
+    return this._propertyReferences;
   }
 
   /**
    * Check if this buffer contains label information.
    */
   hasLabelInformation(): boolean {
-    return this.hasLabelInformation;
+    return this._hasLabelInformation;
   }
 
   /**
    * Get the label tokens array.
    */
   labelTokens(): (NodeLabelTokenSet | null)[] {
-    return this.labelTokens;
+    return this._labelTokens;
   }
 
   /**
@@ -79,15 +79,15 @@ export class NodesBatchBuffer<PROPERTY_REF> extends RecordsBatchBuffer {
   /**
    * Clear the buffer for reuse while preserving capacity.
    */
-  override clear(): void {
-    super.clear();
+  clear(): void {
+    // super.clear();
 
     // Clear label tokens
-    this.labelTokens.fill(null);
+    this._labelTokens.fill(null);
 
     // Clear property references if they exist
-    if (this.propertyReferences) {
-      this.propertyReferences.fill(null);
+    if (this._propertyReferences) {
+      this._propertyReferences.fill(null);
     }
   }
 
@@ -101,22 +101,22 @@ export class NodesBatchBuffer<PROPERTY_REF> extends RecordsBatchBuffer {
       capacity: this.capacity(),
       length: this.length,
       utilizationRatio: this.length / this.capacity(),
-      hasLabelInformation: this.hasLabelInformation,
-      hasPropertyReferences: this.propertyReferences !== null,
+      hasLabelInformation: this._hasLabelInformation,
+      hasPropertyReferences: this._propertyReferences !== null,
       memoryUsageBytes: memoryUsage,
       memoryUsageMB: memoryUsage / (1024 * 1024),
     };
   }
 
   private calculateMemoryUsage(): number {
-    let usage = super.calculateMemoryUsage(); // Base buffer memory
+    // let usage = super.calculateMemoryUsage(); // Base buffer memory
 
     // Add label tokens memory (estimate)
-    usage += this.labelTokens.length * 32; // Rough estimate per label token set
+    let usage = this._labelTokens.length * 32; // Rough estimate per label token set
 
     // Add property references memory (estimate)
-    if (this.propertyReferences) {
-      usage += this.propertyReferences.length * 8; // Pointer size
+    if (this._propertyReferences) {
+      usage += this._propertyReferences.length * 8; // Pointer size
     }
 
     return usage;
@@ -130,37 +130,37 @@ export class NodesBatchBuffer<PROPERTY_REF> extends RecordsBatchBuffer {
 
     try {
       // Check array lengths match capacity
-      if (this.labelTokens.length !== this.capacity()) {
+      if (this._labelTokens.length !== this.capacity()) {
         issues.push(
           `Label tokens array length (${
-            this.labelTokens.length
+            this._labelTokens.length
           }) does not match capacity (${this.capacity()})`
         );
       }
 
       if (
-        this.propertyReferences &&
-        this.propertyReferences.length !== this.capacity()
+        this._propertyReferences &&
+        this._propertyReferences.length !== this.capacity()
       ) {
         issues.push(
           `Property references array length (${
-            this.propertyReferences.length
+            this._propertyReferences.length
           }) does not match capacity (${this.capacity()})`
         );
       }
 
       // Check that data exists for all entries up to length
       for (let i = 0; i < this.length; i++) {
-        if (this.hasLabelInformation && !this.labelTokens[i]) {
+        if (this._hasLabelInformation && !this._labelTokens[i]) {
           issues.push(`Missing label tokens at index ${i}`);
         }
 
-        if (this.propertyReferences && !this.propertyReferences[i]) {
+        if (this._propertyReferences && !this._propertyReferences[i]) {
           issues.push(`Missing property reference at index ${i}`);
         }
       }
     } catch (error) {
-      issues.push(`Validation error: ${error.message}`);
+      issues.push(`Validation error: ${(error as Error).message}`);
     }
 
     return {

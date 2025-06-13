@@ -37,19 +37,6 @@ export class GraphStoreBuilder {
   /**
    * Creates a GraphStoreBuilder factory builder.
    *
-   * Example usage:
-   * ```typescript
-   * new GraphStoreBuilder()
-   *   .databaseInfo(databaseInfo)
-   *   .capabilities(capabilities)
-   *   .schema(schema)
-   *   .nodes(nodes)
-   *   .relationshipImportResult(relationshipImportResult)
-   *   .graphProperties(graphProperties) // optional
-   *   .concurrency(concurrency)
-   *   .zoneId(zoneId) // optional
-   *   .build();
-   * ```
    */
   constructor() {}
 

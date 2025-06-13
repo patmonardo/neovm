@@ -1,9 +1,5 @@
 import { NodeLabel } from "@/projection";
 import { RelationshipType } from "@/projection";
-import { NodePropertyValues } from "./properties/nodes";
-import { RelationshipCursor } from "./properties/relationships";
-import { RelationshipConsumer } from "./properties/relationships";
-import { RelationshipWithPropertyConsumer } from "./properties/relationships";
 import { PrimitiveLongIterable } from "@/collections";
 import { PrimitiveIterator } from "@/collections";
 import { LongPredicate } from "@/collections";
@@ -11,6 +7,10 @@ import { Concurrency } from "@/concurrency";
 import { GraphSchema } from "./schema";
 import { IdMap } from "./IdMap";
 import { FilteredIdMap } from "./FilteredIdMap";
+import { NodePropertyValues } from "./properties/nodes";
+import { RelationshipCursor } from "./properties/relationships";
+import { RelationshipConsumer } from "./properties/relationships";
+import { RelationshipWithPropertyConsumer } from "./properties/relationships";
 import { GraphCharacteristics } from "./GraphCharacteristics";
 import { Graph } from "./Graph";
 
@@ -20,6 +20,10 @@ export abstract class GraphAdapter implements Graph {
   constructor(graph: Graph) {
     this.graph = graph;
   }
+
+  // ====================================================================
+  // CORE GRAPH METHODS - Direct Graph interface methods
+  // ====================================================================
 
   getGraph(): Graph {
     return this.graph;
@@ -37,28 +41,54 @@ export abstract class GraphAdapter implements Graph {
     return this.graph.hasRelationshipProperty();
   }
 
+  schema(): GraphSchema {
+    return this.graph.schema();
+  }
+
+  characteristics(): GraphCharacteristics {
+    return this.graph.characteristics();
+  }
+
+  isEmpty(): boolean {
+    return this.graph.isEmpty();
+  }
+
+  isMultiGraph(): boolean {
+    return this.graph.isMultiGraph();
+  }
+
+  relationshipTypeFilteredGraph(
+    relationshipTypes: Set<RelationshipType>
+  ): Graph {
+    return this.graph.relationshipTypeFilteredGraph(relationshipTypes);
+  }
+
+  concurrentCopy(): Graph {
+    return this.graph.concurrentCopy();
+  }
+
   asNodeFilteredGraph(): FilteredIdMap | undefined {
     return this.graph.asNodeFilteredGraph();
   }
 
-  batchIterables(batchSize: number): Array<PrimitiveLongIterable> {
-    return this.graph.batchIterables(batchSize);
+  nthTarget(nodeId: number, offset: number): number {
+    return this.graph.nthTarget(nodeId, offset);
   }
 
-  degree(nodeId: number): number {
-    return this.graph.degree(nodeId);
+  exists(sourceNodeId: number, targetNodeId: number): boolean {
+    return this.graph.exists(sourceNodeId, targetNodeId);
   }
 
-  degreeInverse(nodeId: number): number {
-    return this.graph.degreeInverse(nodeId);
-  }
-
-  degreeWithoutParallelRelationships(nodeId: number): number {
-    return this.graph.degreeWithoutParallelRelationships(nodeId);
-  }
+  // ====================================================================
+  // IDMAP INTERFACE - Node ID mapping and management
+  // ====================================================================
 
   toMappedNodeId(originalNodeId: number): number {
     return this.graph.toMappedNodeId(originalNodeId);
+  }
+
+  safeToMappedNodeId(originalNodeId: number): number {
+    return this.graph.safeToMappedNodeId(originalNodeId);
   }
 
   toOriginalNodeId(mappedNodeId: number): number {
@@ -98,22 +128,18 @@ export abstract class GraphAdapter implements Graph {
   }
 
   nodeIterator(): PrimitiveIterator.OfLong;
-  //nodeIterator(labels: Array<NodeLabel>): PrimitiveIterator.OfLong;
-  nodeIterator(labels?: Array<NodeLabel>): PrimitiveIterator.OfLong {
+  nodeIterator(labels?: Set<NodeLabel>): PrimitiveIterator.OfLong {
     return labels !== undefined
       ? this.graph.nodeIterator(labels)
       : this.graph.nodeIterator();
   }
 
-  schema(): GraphSchema {
-    return this.graph.schema();
+  batchIterables(batchSize: number): Set<PrimitiveLongIterable> {
+    return this.graph.batchIterables(batchSize);
   }
 
-  characteristics(): GraphCharacteristics {
-    return this.graph.characteristics();
-  }
-
-  nodeLabels(mappedNodeId: number): NodeLabel[] {
+  // Node Label Management (IdMap interface)
+  nodeLabels(mappedNodeId: number): Set<NodeLabel> {
     return this.graph.nodeLabels(mappedNodeId);
   }
 
@@ -124,7 +150,7 @@ export abstract class GraphAdapter implements Graph {
     this.graph.forEachNodeLabel(mappedNodeId, consumer);
   }
 
-  availableNodeLabels(): Array<NodeLabel> {
+  availableNodeLabels(): Set<NodeLabel> {
     return this.graph.availableNodeLabels();
   }
 
@@ -133,19 +159,51 @@ export abstract class GraphAdapter implements Graph {
   }
 
   withFilteredLabels(
-    nodeLabels: Array<NodeLabel>,
+    nodeLabels: Set<NodeLabel>,
     concurrency: Concurrency
   ): FilteredIdMap | undefined {
     return this.graph.withFilteredLabels(nodeLabels, concurrency);
   }
 
+  addNodeLabel(nodeLabel: NodeLabel): void {
+    this.graph.addNodeLabel(nodeLabel);
+  }
+
+  addNodeIdToLabel(nodeId: number, nodeLabel: NodeLabel): void {
+    this.graph.addNodeIdToLabel(nodeId, nodeLabel);
+  }
+
+  // ====================================================================
+  // NODE PROPERTY CONTAINER INTERFACE - Node property access
+  // ====================================================================
+
   nodeProperties(propertyKey: string): NodePropertyValues {
     return this.graph.nodeProperties(propertyKey);
   }
 
-  availableNodeProperties(): Array<string> {
+  availableNodeProperties(): Set<string> {
     return this.graph.availableNodeProperties();
   }
+
+  // ====================================================================
+  // DEGREES INTERFACE - Node degree calculations
+  // ====================================================================
+
+  degree(nodeId: number): number {
+    return this.graph.degree(nodeId);
+  }
+
+  degreeInverse(nodeId: number): number {
+    return this.graph.degreeInverse(nodeId);
+  }
+
+  degreeWithoutParallelRelationships(nodeId: number): number {
+    return this.graph.degreeWithoutParallelRelationships(nodeId);
+  }
+
+  // ====================================================================
+  // RELATIONSHIP ITERATOR INTERFACE - Relationship traversal
+  // ====================================================================
 
   forEachRelationship(nodeId: number, consumer: RelationshipConsumer): void;
   forEachRelationship(
@@ -190,6 +248,10 @@ export abstract class GraphAdapter implements Graph {
     }
   }
 
+  // ====================================================================
+  // RELATIONSHIP PROPERTIES INTERFACE - Relationship property access
+  // ====================================================================
+
   relationshipProperty(sourceNodeId: number, targetNodeId: number): number;
   relationshipProperty(
     sourceNodeId: number,
@@ -215,43 +277,5 @@ export abstract class GraphAdapter implements Graph {
     fallbackValue: number
   ): Iterable<RelationshipCursor> {
     return this.graph.streamRelationships(nodeId, fallbackValue);
-  }
-
-  relationshipTypeFilteredGraph(
-    relationshipTypes: Array<RelationshipType>
-  ): Graph {
-    return this.graph.relationshipTypeFilteredGraph(relationshipTypes);
-  }
-
-  exists(sourceNodeId: number, targetNodeId: number): boolean {
-    return this.graph.exists(sourceNodeId, targetNodeId);
-  }
-
-  nthTarget(nodeId: number, offset: number): number {
-    return this.graph.nthTarget(nodeId, offset);
-  }
-
-  isMultiGraph(): boolean {
-    return this.graph.isMultiGraph();
-  }
-
-  addNodeLabel(nodeLabel: NodeLabel): void {
-    this.graph.addNodeLabel(nodeLabel);
-  }
-
-  addNodeIdToLabel(nodeId: number, nodeLabel: NodeLabel): void {
-    this.graph.addNodeIdToLabel(nodeId, nodeLabel);
-  }
-
-  isEmpty(): boolean {
-    return this.graph.isEmpty();
-  }
-
-  concurrentCopy(): Graph {
-    return this.graph.concurrentCopy();
-  }
-
-  safeToMappedNodeId(originalNodeId: number): number {
-    return this.graph.safeToMappedNodeId(originalNodeId);
   }
 }

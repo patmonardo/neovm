@@ -48,7 +48,7 @@ export abstract class LabeledIdMap implements IdMap {
   abstract containsOriginalId(originalNodeId: number): boolean;
   abstract highestOriginalId(): number;
   abstract withFilteredLabels(
-    nodeLabels: Array<NodeLabel>,
+    nodeLabels: Set<NodeLabel>,
     concurrency: any
   ): any;
 
@@ -115,13 +115,11 @@ export abstract class LabeledIdMap implements IdMap {
   //     (start: number, end: number) => new BatchNodeIterable.IdIterable(start, end)
   //   );
   // }
-  // TODO: CRITICAL for WASM - needs proper lazy batch collection
-  // For now, simple array implementation
-  batchIterables(batchSize: number): Array<PrimitiveLongIterable> {
-    const batches: Array<PrimitiveLongIterable> = [];
+  batchIterables(batchSize: number): Set<PrimitiveLongIterable> {
+    const batches: Set<PrimitiveLongIterable> = new Set<PrimitiveLongIterable>();
     for (let start = 0; start < this._nodeCount; start += batchSize) {
       const end = Math.min(start + batchSize, this._nodeCount);
-      batches.push(new BatchNodeIterable.IdIterable(start, end));
+      batches.add(new BatchNodeIterable.IdIterable(start, end));
     }
     return batches;
   }
@@ -129,7 +127,7 @@ export abstract class LabeledIdMap implements IdMap {
   /**
    * Returns the available node labels.
    */
-  availableNodeLabels(): Array<NodeLabel> {
+  availableNodeLabels(): Set<NodeLabel> {
     return this.labelInformation.availableNodeLabels();
   }
 
@@ -138,7 +136,7 @@ export abstract class LabeledIdMap implements IdMap {
    *
    * @param mappedNodeId The node ID
    */
-  nodeLabels(mappedNodeId: number): NodeLabel[] {
+  nodeLabels(mappedNodeId: number): Set<NodeLabel> {
     return this.labelInformation.nodeLabelsForNodeId(mappedNodeId);
   }
 

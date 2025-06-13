@@ -1,5 +1,6 @@
 import { GraphProjectConfig } from "@/config";
 import { GraphStoreFactorySupplier } from "./GraphStoreFactory";
+
 /**
  * Provides a GraphStoreFactory.Supplier based on a given GraphProjectConfig.
  * The `@Service` annotation from Java indicates this is likely a component

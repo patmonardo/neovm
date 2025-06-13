@@ -66,7 +66,7 @@ export interface PropertyMappingOptions {
 /**
  * Implementation of PropertyMapping.
  */
-class PropertyMappingImpl implements PropertyMapping {
+class DefaultPropertyMapping implements PropertyMapping {
   constructor(
     private readonly _propertyKey: string | null,
     private readonly _neoPropertyKey: string | null,
@@ -124,7 +124,7 @@ class PropertyMappingImpl implements PropertyMapping {
       return this;
     }
 
-    return new PropertyMappingImpl(
+    return new DefaultPropertyMapping(
       this._propertyKey,
       this._neoPropertyKey,
       this._defaultValue,
@@ -267,7 +267,7 @@ export namespace PropertyMapping {
 
     const aggregation = opts.aggregation ?? Aggregation.DEFAULT;
 
-    return new PropertyMappingImpl(
+    return new DefaultPropertyMapping(
       propertyKey,
       neoPropertyKey,
       defaultValue as DefaultValue,

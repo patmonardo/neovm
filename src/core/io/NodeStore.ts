@@ -1,7 +1,7 @@
 import { NodeLabel } from '@/projection';
 import { GraphStore } from '@/api';
 import { IdMap } from '@/api';
-import { NodePropertyValues } from '@/api/properties/nodes';
+import { NodePropertyValues } from '@/api/properties';
 import { HugeIntArray } from '@/collections';
 import { IdentifierMapper } from './IdentifierMapper';
 
@@ -18,7 +18,7 @@ export class NodeStore {
   private readonly _idMap: IdMap;
   private readonly _nodeProperties: Map<string, Map<string, NodePropertyValues>> | null;
   private readonly _additionalProperties: Map<string, (nodeId: number) => any>;
-  private readonly _availableNodeLabels: Array<NodeLabel>;
+  private readonly _availableNodeLabels: Set<NodeLabel>;
   private readonly _hasLabelsFlag: boolean;
   private readonly _nodeLabelMapping: IdentifierMapper<NodeLabel>;
 
@@ -152,7 +152,7 @@ export class NodeStore {
    * Returns the number of distinct node labels.
    */
   labelCount(): number {
-    return !this.hasLabels() ? 0 : this._idMap.availableNodeLabels().length;
+    return !this.hasLabels() ? 0 : this._idMap.availableNodeLabels().size;
   }
 
   /**

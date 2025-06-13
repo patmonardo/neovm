@@ -1,10 +1,10 @@
-import { GraphPropertyValues } from './GraphPropertyValues';
-import { GraphProperty } from './GraphProperty';
-import { GraphPropertyStore } from './GraphPropertyStore';
-import { DefaultGraphPropertyStore } from './primitive/DefaultGraphPropertyStore';
+import { GraphPropertyValues } from "./GraphPropertyValues";
+import { GraphProperty } from "./GraphProperty";
+import { GraphPropertyStore } from "./GraphPropertyStore";
+import { DefaultGraphPropertyStore } from "./primitive/DefaultGraphPropertyStore";
 
 /**
- * Builder for GraphPropertyStoreImpl that follows the fluent interface pattern.
+ * Builder for DefaultGraphPropertyStore that follows the fluent interface pattern.
  */
 export class GraphPropertyStoreBuilder {
   private _properties: Map<string, GraphProperty>;
@@ -14,6 +14,24 @@ export class GraphPropertyStoreBuilder {
    */
   constructor(properties: Map<string, GraphProperty> = new Map()) {
     this._properties = new Map(properties);
+  }
+
+  /**
+   * Returns the properties map.
+   */
+  properties(): Map<string, GraphProperty> {
+    return this._properties;
+  }
+
+  /**
+   * Adds all properties from the given property store, replacing any existing ones.
+   */
+  public from(propertyStore: GraphPropertyStore): GraphPropertyStoreBuilder {
+    this._properties.clear();
+    propertyStore.properties().forEach((value, key) => {
+      this._properties.set(key, value);
+    });
+    return this;
   }
 
   /**

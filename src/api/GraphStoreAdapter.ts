@@ -26,53 +26,68 @@ export abstract class GraphStoreAdapter implements GraphStore {
   }
 
   // --- Graph Properties ---
+
   databaseInfo(): DatabaseInfo {
     return this.graphStore.databaseInfo();
   }
+
   capabilities(): Capabilities {
     return this.graphStore.capabilities();
   }
+
   schema(): GraphSchema {
     return this.graphStore.schema();
   }
+
   creationTime(): Date {
     return this.graphStore.creationTime();
   }
+
   modificationTime(): Date {
     return this.graphStore.modificationTime();
   }
+
   graphPropertyKeys(): Set<string> {
     return this.graphStore.graphPropertyKeys();
   }
+
   hasGraphProperty(propertyKey: string): boolean {
     return this.graphStore.hasGraphProperty(propertyKey);
   }
+
   graphProperty(propertyKey: string): GraphProperty {
     return this.graphStore.graphProperty(propertyKey);
   }
+
   graphPropertyValues(propertyKey: string): GraphPropertyValues {
     return this.graphStore.graphPropertyValues(propertyKey);
   }
+
   addGraphProperty(
     propertyKey: string,
     propertyValues: GraphPropertyValues
   ): void {
     this.graphStore.addGraphProperty(propertyKey, propertyValues);
   }
+
   removeGraphProperty(propertyKey: string): void {
     this.graphStore.removeGraphProperty(propertyKey);
   }
 
   // --- Nodes ---
+
   nodeCount(): number {
     return this.graphStore.nodeCount();
   }
+
   nodes(): IdMap {
     return this.graphStore.nodes();
   }
+
   nodeLabels(): Set<NodeLabel> {
     return this.graphStore.nodeLabels();
   }
+
   addNodeLabel(nodeLabel: NodeLabel): void {
     this.graphStore.addNodeLabel(nodeLabel);
   }
@@ -82,23 +97,14 @@ export abstract class GraphStoreAdapter implements GraphStore {
   // Overloads
   nodePropertyKeys(): Set<string>;
   nodePropertyKeys(label: NodeLabel): Set<string>;
-  nodePropertyKeys(labels: Array<NodeLabel>): string[];
+  nodePropertyKeys(labels: Set<NodeLabel>): string[];
 
   // Implementation
   nodePropertyKeys(
-    labelOrLabels?: NodeLabel | Array<NodeLabel>
+    labelOrLabels?: NodeLabel | Set<NodeLabel>
   ): Set<string> | string[] {
     if (labelOrLabels === undefined) {
       return this.graphStore.nodePropertyKeys();
-    }
-    if (isArray(labelOrLabels)) {
-      // Accept Set, Array, or Iterable
-      // Convert to Set if needed
-      // const set =
-      //   labelOrLabels instanceof Set
-      //     ? labelOrLabels
-      //     : new Array(labelOrLabels as Iterable<NodeLabel>);
-      return this.graphStore.nodePropertyKeys(labelOrLabels);
     }
     // Single label
     return this.graphStore.nodePropertyKeys(labelOrLabels as NodeLabel);
@@ -106,23 +112,15 @@ export abstract class GraphStoreAdapter implements GraphStore {
 
   hasNodeProperty(propertyKey: string): boolean;
   hasNodeProperty(label: NodeLabel, propertyKey: string): boolean;
-  hasNodeProperty(labels: Array<NodeLabel>, propertyKey: string): boolean;
+  hasNodeProperty(labels: Set<NodeLabel>, propertyKey: string): boolean;
   hasNodeProperty(
-    labelOrLabelsOrKey: NodeLabel | Array<NodeLabel> | string,
+    labelOrLabelsOrKey: NodeLabel | Set<NodeLabel> | string,
     propertyKey?: string
   ): boolean {
     if (propertyKey === undefined) {
       // Only propertyKey provided
       return this.graphStore.hasNodeProperty(labelOrLabelsOrKey as string);
     }
-    if (isArray(labelOrLabelsOrKey)) {
-      // const set =
-      //   labelOrLabelsOrKey instanceof Set
-      //     ? labelOrLabelsOrKey
-      //     : new Set(labelOrLabelsOrKey as Iterable<NodeLabel>);
-      return this.graphStore.hasNodeProperty(labelOrLabelsOrKey, propertyKey);
-    }
-    // Single label
     return this.graphStore.hasNodeProperty(
       labelOrLabelsOrKey as NodeLabel,
       propertyKey
@@ -132,6 +130,7 @@ export abstract class GraphStoreAdapter implements GraphStore {
   nodeProperty(propertyKey: string): NodeProperty {
     return this.graphStore.nodeProperty(propertyKey);
   }
+
   addNodeProperty(
     nodeLabels: Set<NodeLabel>,
     propertyKey: string,
@@ -139,11 +138,13 @@ export abstract class GraphStoreAdapter implements GraphStore {
   ): void {
     this.graphStore.addNodeProperty(nodeLabels, propertyKey, propertyValues);
   }
+
   removeNodeProperty(propertyKey: string): void {
     this.graphStore.removeNodeProperty(propertyKey);
   }
 
   // --- Relationships ---
+
   relationshipCount(): number;
   relationshipCount(relationshipType: RelationshipType): number;
   relationshipCount(relationshipType?: RelationshipType): number {
@@ -152,15 +153,19 @@ export abstract class GraphStoreAdapter implements GraphStore {
     }
     return this.graphStore.relationshipCount();
   }
+
   relationshipTypes(): Set<RelationshipType> {
     return this.graphStore.relationshipTypes();
   }
+
   hasRelationshipType(relationshipType: RelationshipType): boolean {
     return this.graphStore.hasRelationshipType(relationshipType);
   }
+
   inverseIndexedRelationshipTypes(): Set<RelationshipType> {
     return this.graphStore.inverseIndexedRelationshipTypes();
   }
+
   hasRelationshipProperty(
     relType: RelationshipType,
     propertyKey: string
@@ -168,23 +173,15 @@ export abstract class GraphStoreAdapter implements GraphStore {
     return this.graphStore.hasRelationshipProperty(relType, propertyKey);
   }
 
-  // Overloads
   relationshipPropertyKeys(): Set<string>;
   relationshipPropertyKeys(relationshipType: RelationshipType): Set<string>;
-  relationshipPropertyKeys(relTypes: Array<RelationshipType>): string[];
+  relationshipPropertyKeys(relTypes: Set<RelationshipType>): Set<string>;
 
   relationshipPropertyKeys(
-    relTypesOrType?: RelationshipType | Array<RelationshipType>
+    relTypesOrType?: RelationshipType | Set<RelationshipType>
   ): Set<string> | string[] {
     if (relTypesOrType === undefined) {
       return this.graphStore.relationshipPropertyKeys();
-    }
-    if (isArray(relTypesOrType)) {
-      // const set =
-      //   relTypesOrType instanceof Set
-      //     ? relTypesOrType
-      //     : new Set(relTypesOrType as Iterable<RelationshipType>);
-      return this.graphStore.relationshipPropertyKeys(relTypesOrType);
     }
     return this.graphStore.relationshipPropertyKeys(
       relTypesOrType as RelationshipType
@@ -203,9 +200,11 @@ export abstract class GraphStoreAdapter implements GraphStore {
       propertyKey
     );
   }
+
   addRelationshipType(relationships: SingleTypeRelationships): void {
     this.graphStore.addRelationshipType(relationships);
   }
+
   addInverseIndex(
     relationshipType: RelationshipType,
     topology: Topology,
@@ -218,6 +217,7 @@ export abstract class GraphStoreAdapter implements GraphStore {
   }
 
   // --- Graph Retrieval (getGraph) ---
+
   getGraph(nodeLabel: NodeLabel): Graph;
   getGraph(nodeLabels: Array<NodeLabel>): Graph;
   getGraph(relationshipTypes: Array<RelationshipType>): Graph;
@@ -262,13 +262,4 @@ export abstract class GraphStoreAdapter implements GraphStore {
       propertyKeys
     );
   }
-}
-
-// Helper to check if something is a Array (Set, Array, or Iterable but not string)
-function isArray<T>(obj: any): obj is Array<T> {
-  return (
-    (Array.isArray(obj) && typeof obj !== "string") ||
-    obj instanceof Set ||
-    (typeof obj === "object" && obj !== null && Symbol.iterator in obj)
-  );
 }

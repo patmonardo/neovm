@@ -2,26 +2,28 @@ import { RelationshipType } from "@/projection";
 import { GraphStore } from "@/api";
 import { IdMap } from "@/api";
 import { Topology } from "@/api";
-import { RelationshipPropertyStore } from "@/api/properties";
+import { MutableGraphSchema } from "@/api/schema";
 import { MutableNodeSchema } from "@/api/schema";
-import { Concurrency } from "@/concurrency";
-import { DefaultPool } from "@/concurrency";
-import { ParallelUtil } from "@/concurrency/";
+import { RelationshipPropertyStore } from "@/api/properties";
 import { GraphStoreGraphPropertyVisitor } from "@/core/io";
 import { GraphStoreRelationshipVisitor } from "@/core/io";
-import { WriteMode } from "@/core/loading/Capabilities";
-import { ImmutableStaticCapabilities } from "@/core/loading";
+import { WriteMode } from "@/core/loading";
+import { StaticCapabilities } from "@/core/loading";
 import { GraphStoreBuilder } from "@/core/loading";
-import { Nodes } from "@/core/loading";
-import { RelationshipImportResult } from "@/core/loading";
 import { GraphFactory } from "@/core/loading";
 import { RelationshipsBuilder } from "@/core/loading";
-import { ProgressTracker } from "@/core/utils/progress";
+import { RelationshipImportResult } from "@/core/loading";
+import { Nodes } from "@/core/loading";
 import { Log } from "@/utils";
+import { Runnable } from "@/concurrency";
 import { Tasks } from "@/core/utils/progress";
 import { Task } from "@/core/utils/progress";
 import { TaskProgressTracker } from "@/core/utils/progress";
 import { TaskRegistryFactory } from "@/core/utils/progress";
+import { ProgressTracker } from "@/core/utils/progress";
+import { Concurrency } from "@/concurrency";
+import { DefaultPool } from "@/concurrency";
+import { ParallelUtil } from "@/concurrency/";
 import { GraphStoreNodeVisitor } from "./GraphStoreNodeVisitor";
 import { ElementImportRunner } from "./ElementImportRunner";
 import { FileInput } from "./FileInput";
@@ -87,9 +89,6 @@ export interface RelationshipTopologyAndProperties {
  * - Comprehensive logging and debugging
  */
 export abstract class FileToGraphStoreImporter {
-  private readonly nodeVisitorBuilder: GraphStoreNodeVisitor.Builder;
-  private readonly relationshipVisitorBuilder: GraphStoreRelationshipVisitor.Builder;
-  private readonly graphPropertyVisitorBuilder: GraphStoreGraphPropertyVisitor.Builder;
   private readonly importPath: string;
   private readonly concurrency: Concurrency;
 
@@ -110,17 +109,12 @@ export abstract class FileToGraphStoreImporter {
     log: Log,
     taskRegistryFactory: TaskRegistryFactory
   ) {
-    this.nodeVisitorBuilder = new GraphStoreNodeVisitor.Builder();
-    this.relationshipVisitorBuilder =
-      new GraphStoreRelationshipVisitor.Builder();
-    this.graphPropertyVisitorBuilder =
-      new GraphStoreGraphPropertyVisitor.Builder();
-    this.concurrency = concurrency;
     this.importPath = importPath;
+    this.concurrency = concurrency;
     this.graphSchemaBuilder = MutableGraphSchema.builder();
     this.graphStoreBuilder = new GraphStoreBuilder()
       .concurrency(concurrency)
-      .capabilities(ImmutableStaticCapabilities.of(WriteMode.LOCAL));
+      .capabilities(StaticCapabilities.of(WriteMode.LOCAL));
     this.log = log;
     this.taskRegistryFactory = taskRegistryFactory;
 
@@ -166,7 +160,6 @@ export abstract class FileToGraphStoreImporter {
       const fileInput = this.fileInput(this.importPath);
       this.progressTracker = this.createProgressTracker(fileInput);
 
-      // ✅ ENHANCED: Validate input before processing
       this.validateFileInput(fileInput);
 
       this.progressTracker.beginSubTask();
@@ -223,7 +216,7 @@ export abstract class FileToGraphStoreImporter {
     this.log.info("🔍 Validating file input...");
 
     const graphInfo = fileInput.graphInfo();
-    if (graphInfo.nodeCount < 0) {
+    if (graphInfo.nodeCount() < 0) {
       throw new Error(`Invalid node count: ${graphInfo.nodeCount}`);
     }
 
@@ -265,7 +258,7 @@ export abstract class FileToGraphStoreImporter {
   private importGraphStore(fileInput: FileInput): void {
     this.log.info("📊 Starting graph store import...");
 
-    this.graphStoreBuilder.databaseInfo(fileInput.graphInfo().databaseInfo);
+    this.graphStoreBuilder.databaseInfo(fileInput.graphInfo().databaseInfo());
     this.graphStoreBuilder.capabilities(fileInput.capabilities());
 
     const nodes = this.importNodes(fileInput);
@@ -280,23 +273,21 @@ export abstract class FileToGraphStoreImporter {
    */
   private createProgressTracker(fileInput: FileInput): ProgressTracker {
     const graphInfo = fileInput.graphInfo();
-    const nodeCount = graphInfo.nodeCount;
+    const nodeCount = graphInfo.nodeCount();
 
     this.log.info(`📋 Creating progress tracker for ${nodeCount} nodes`);
 
     const importTasks: Task[] = [];
-    importTasks.push(Tasks.leaf("Import nodes", nodeCount));
+    importTasks.push(Tasks.leaf("Import nodes"));
 
     const relationshipTaskVolume =
-      graphInfo.relationshipTypeCounts.size === 0
+      graphInfo.relationshipTypeCounts().size === 0
         ? Task.UNKNOWN_VOLUME
-        : Array.from(graphInfo.relationshipTypeCounts.values()).reduce(
+        : Array.from(graphInfo.relationshipTypeCounts().values()).reduce(
             (sum, count) => sum + count,
             0
           );
-    importTasks.push(
-      Tasks.leaf("Import relationships", relationshipTaskVolume)
-    );
+    importTasks.push(Tasks.leaf("Import relationships"));
 
     if (fileInput.graphPropertySchema().size > 0) {
       importTasks.push(Tasks.leaf("Import graph properties"));
@@ -306,9 +297,9 @@ export abstract class FileToGraphStoreImporter {
 
     return new TaskProgressTracker(
       task,
-      this.jobId(),
       this.log,
       this.taskRegistryFactory,
+      this.log,
       this.importPath
     );
   }
@@ -319,10 +310,8 @@ export abstract class FileToGraphStoreImporter {
   private importNodes(fileInput: FileInput): Nodes {
     this.log.info("👥 Starting node import...");
     this.progressTracker.beginSubTask();
-
     const nodeImportStart = Date.now();
     const nodeSchema: MutableNodeSchema = fileInput.nodeSchema();
-    this.graphSchemaBuilder.nodeSchema(nodeSchema);
 
     // Log schema information
     const nodeLabels = Array.from(nodeSchema.availableLabels());
@@ -350,7 +339,7 @@ export abstract class FileToGraphStoreImporter {
     }
 
     // Build nodes
-    const nodesBuilder = GraphFactory.initNodesBuilder(nodeSchema)
+    const nodesBuilder = GraphFactory.initNodesBuilder()
       .maxOriginalId(fileInput.graphInfo().maxOriginalId)
       .concurrency(this.concurrency)
       .nodeCount(fileInput.graphInfo().nodeCount)
@@ -358,16 +347,19 @@ export abstract class FileToGraphStoreImporter {
       .idMapBuilderType(fileInput.graphInfo().idMapBuilderType)
       .build();
 
-    this.nodeVisitorBuilder.withNodeSchema(nodeSchema);
-    this.nodeVisitorBuilder.withNodesBuilder(nodesBuilder);
+    const createNodeVisitor = () => {
+      return new GraphStoreNodeVisitor.Builder()
+        .withNodeSchema(nodeSchema)
+        .withNodesBuilder(nodesBuilder)
+        .build();
+    };
 
-    // Parallel processing with error handling
     const nodesIterator = fileInput.nodes().iterator();
-    const tasks: Runnable[] = ParallelUtil.tasks(
+    const tasks: Runnable<void>[] = ParallelUtil.tasks(
       this.concurrency,
-      (index: number) =>
+      () =>
         new ElementImportRunner(
-          this.nodeVisitorBuilder.build(),
+          createNodeVisitor(),
           nodesIterator,
           this.progressTracker
         )
@@ -384,9 +376,8 @@ export abstract class FileToGraphStoreImporter {
     const nodes = nodesBuilder.build();
     this.graphStoreBuilder.nodes(nodes);
 
-    // ✅ NEW: Update statistics
     const nodeImportTime = Date.now() - nodeImportStart;
-    this.importStatistics.nodesImported = fileInput.graphInfo().nodeCount;
+    this.importStatistics.nodesImported = fileInput.graphInfo().nodeCount();
     this.importStatistics.nodeFilesProcessed = 1; // Could be enhanced to count actual files
 
     this.log.info(
@@ -407,7 +398,6 @@ export abstract class FileToGraphStoreImporter {
     const relationshipImportStart = Date.now();
     const relationshipBuildersByType = new Map<string, RelationshipsBuilder>();
     const relationshipSchema = fileInput.relationshipSchema();
-    this.graphSchemaBuilder.relationshipSchema(relationshipSchema);
 
     // Log relationship schema information
     const relationshipTypes = Array.from(relationshipSchema.availableTypes());
@@ -417,23 +407,25 @@ export abstract class FileToGraphStoreImporter {
         .join(", ")}`
     );
 
-    this.relationshipVisitorBuilder
-      .withRelationshipSchema(relationshipSchema)
-      .withNodes(nodes)
-      .withConcurrency(this.concurrency)
-      .withAllocationTracker()
-      .withRelationshipBuildersToTypeResultMap(relationshipBuildersByType)
-      .withInverseIndexedRelationshipTypes(
-        fileInput.graphInfo().inverseIndexedRelationshipTypes
-      );
+    const createRelationshipVisitor = () => {
+      return new GraphStoreRelationshipVisitor.Builder()
+        .withRelationshipSchema(relationshipSchema)
+        .withNodes(nodes)
+        .withConcurrency(this.concurrency)
+        .withAllocationTracker()
+        .withRelationshipBuildersToTypeResultMap(relationshipBuildersByType)
+        .withInverseIndexedRelationshipTypes(
+          fileInput.graphInfo().inverseIndexedRelationshipTypes
+        )
+        .build();
+    };
 
-    // ✅ ENHANCED: Parallel processing with error handling
     const relationshipsIterator = fileInput.relationships().iterator();
-    const tasks: Runnable[] = ParallelUtil.tasks(
+    const tasks: Runnable<void>[] = ParallelUtil.tasks(
       this.concurrency,
-      (index: number) =>
+      () =>
         new ElementImportRunner(
-          this.relationshipVisitorBuilder.build(),
+          createRelationshipVisitor(),
           relationshipsIterator,
           this.progressTracker
         )
@@ -455,10 +447,9 @@ export abstract class FileToGraphStoreImporter {
       );
     this.graphStoreBuilder.relationshipImportResult(relationshipImportResult);
 
-    // ✅ NEW: Update statistics
     const relationshipImportTime = Date.now() - relationshipImportStart;
     const totalRelationships = Array.from(
-      fileInput.graphInfo().relationshipTypeCounts.values()
+      fileInput.graphInfo().relationshipTypeCounts().values()
     ).reduce((sum, count) => sum + count, 0);
     this.importStatistics.relationshipsImported = totalRelationships;
     this.importStatistics.relationshipFilesProcessed =
@@ -471,7 +462,7 @@ export abstract class FileToGraphStoreImporter {
   }
 
   /**
-   * ✅ ENHANCED: Imports graph properties from file input.
+   * Imports graph properties from file input.
    */
   private importGraphProperties(fileInput: FileInput): void {
     if (fileInput.graphPropertySchema().size > 0) {
@@ -485,21 +476,18 @@ export abstract class FileToGraphStoreImporter {
         ).join(", ")}`
       );
 
-      this.graphSchemaBuilder.graphProperties(graphPropertySchema);
-      this.graphPropertyVisitorBuilder.withGraphPropertySchema(
-        graphPropertySchema
-      );
-
-      const graphStoreGraphPropertyVisitor =
-        this.graphPropertyVisitorBuilder.build();
+      const createGraphPropertyVisitor = () => {
+        return new GraphStoreGraphPropertyVisitor.Builder()
+          .withGraphPropertySchema(graphPropertySchema)
+          .build();
+      };
 
       const graphPropertiesIterator = fileInput.graphProperties().iterator();
-
-      const tasks = ParallelUtil.tasks(
+      const tasks: Runnable<void>[] = ParallelUtil.tasks(
         this.concurrency,
-        (index: number) =>
+        () =>
           new ElementImportRunner(
-            graphStoreGraphPropertyVisitor,
+            createGraphPropertyVisitor(),
             graphPropertiesIterator,
             this.progressTracker
           )
@@ -507,12 +495,9 @@ export abstract class FileToGraphStoreImporter {
 
       try {
         ParallelUtil.run(tasks, DefaultPool.INSTANCE);
-        graphStoreGraphPropertyVisitor.close?.();
       } catch (error) {
         this.errorCount++;
-        this.log.error(
-          `❌ Graph properties import failed: ${(error as Error).message}`
-        );
+        this.log.error(`❌ Node import failed: ${(error as Error).message}`);
         throw error;
       }
 
@@ -523,7 +508,6 @@ export abstract class FileToGraphStoreImporter {
         )
       );
 
-      // ✅ NEW: Update statistics
       this.importStatistics.graphPropertiesImported = graphPropertySchema.size;
       this.importStatistics.graphPropertyFilesProcessed = 1;
 
@@ -537,7 +521,7 @@ export abstract class FileToGraphStoreImporter {
   }
 
   /**
-   * ✅ NEW: Calculate rate per second.
+   * Calculate rate per second.
    */
   private calculateRate(count: number, durationMs: number): number {
     return durationMs > 0 ? Math.round((count * 1000) / durationMs) : 0;

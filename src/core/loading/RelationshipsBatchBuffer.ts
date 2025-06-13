@@ -1,5 +1,5 @@
-import { RadixSort } from '@/core/utils/RadixSort';
-import { PropertyReader } from '@/core/loading/PropertyReader';
+import { PropertyReader } from "@/core/loading";
+import { RadixSort } from "./RadixSort";
 
 /**
  * High-performance relationship batching system with radix sorting capabilities.
@@ -48,15 +48,14 @@ import { PropertyReader } from '@/core/loading/PropertyReader';
  * @template PROPERTY_REF The type of property references (e.g., PropertyBlock[], PropertyReference)
  */
 export class RelationshipsBatchBuffer<PROPERTY_REF> {
-
   /**
    * Each relationship is stored as 2 consecutive longs: [source, target]
    */
-  private static readonly ENTRIES_PER_RELATIONSHIP = 2;
+  public static readonly ENTRIES_PER_RELATIONSHIP = 2;
 
   // Core storage arrays
-  private readonly buffer: number[];           // [src₀, tgt₀, src₁, tgt₁, ...] - node pairs
-  private readonly relationshipReferences: number[];  // [ref₀, ref₁, ref₂, ...] - relationship refs
+  private readonly buffer: number[]; // [src₀, tgt₀, src₁, tgt₁, ...] - node pairs
+  private readonly relationshipReferences: number[]; // [ref₀, ref₁, ref₂, ...] - relationship refs
   private readonly propertyReferences: PROPERTY_REF[]; // [prop₀, prop₁, prop₂, ...] - property refs
 
   // Working arrays for radix sort (pre-allocated for performance)
@@ -76,16 +75,20 @@ export class RelationshipsBatchBuffer<PROPERTY_REF> {
    */
   constructor(
     private readonly capacity: number,
-    private readonly propertyReferenceClass?: new() => PROPERTY_REF
+    public readonly propertyReferenceClass?: new () => PROPERTY_REF
   ) {
     // Main storage arrays
-    this.buffer = new Array<number>(capacity * RelationshipsBatchBuffer.ENTRIES_PER_RELATIONSHIP);
+    this.buffer = new Array<number>(
+      capacity * RelationshipsBatchBuffer.ENTRIES_PER_RELATIONSHIP
+    );
     this.relationshipReferences = new Array<number>(capacity);
     this.propertyReferences = new Array<PROPERTY_REF>(capacity);
 
     // Working arrays for radix sort (same size as main arrays)
     this.bufferCopy = RadixSort.newCopy(this.buffer);
-    this.relationshipReferencesCopy = RadixSort.newCopy(this.relationshipReferences);
+    this.relationshipReferencesCopy = RadixSort.newCopy(
+      this.relationshipReferences
+    );
     this.propertyReferencesCopy = RadixSort.newCopy(this.propertyReferences);
     this.histogram = RadixSort.newHistogram(capacity);
   }
@@ -102,7 +105,7 @@ export class RelationshipsBatchBuffer<PROPERTY_REF> {
    */
   static create<PROPERTY_REF>(
     capacity: number,
-    propertyReferenceClass?: new() => PROPERTY_REF
+    propertyReferenceClass?: new () => PROPERTY_REF
   ): RelationshipsBatchBuffer<PROPERTY_REF> {
     return new RelationshipsBatchBuffer(capacity, propertyReferenceClass);
   }
@@ -123,7 +126,7 @@ export class RelationshipsBatchBuffer<PROPERTY_REF> {
    */
   add(sourceId: number, targetId: number): void {
     if (this.length >= this.buffer.length - 1) {
-      throw new Error('Buffer capacity exceeded');
+      throw new Error("Buffer capacity exceeded");
     }
 
     const position = this.length;
@@ -159,7 +162,7 @@ export class RelationshipsBatchBuffer<PROPERTY_REF> {
     propertyReference: PROPERTY_REF
   ): void {
     if (this.length >= this.buffer.length - 1) {
-      throw new Error('Buffer capacity exceeded');
+      throw new Error("Buffer capacity exceeded");
     }
 
     const position = this.length;
@@ -249,14 +252,14 @@ export class RelationshipsBatchBuffer<PROPERTY_REF> {
    */
   private sortBySource(): void {
     RadixSort.radixSort(
-      this.buffer,                    // Primary array to sort (by first element of each pair)
-      this.bufferCopy,               // Working space for sorting
-      this.relationshipReferences,   // Secondary array (follows primary sort order)
+      this.buffer, // Primary array to sort (by first element of each pair)
+      this.bufferCopy, // Working space for sorting
+      this.relationshipReferences, // Secondary array (follows primary sort order)
       this.relationshipReferencesCopy, // Working space
-      this.propertyReferences,       // Tertiary array (follows primary sort order)
-      this.propertyReferencesCopy,   // Working space
-      this.histogram,                // Working space for counting sort
-      this.length                    // Number of elements to sort
+      this.propertyReferences, // Tertiary array (follows primary sort order)
+      this.propertyReferencesCopy, // Working space
+      this.histogram, // Working space for counting sort
+      this.length // Number of elements to sort
     );
   }
 
@@ -271,14 +274,14 @@ export class RelationshipsBatchBuffer<PROPERTY_REF> {
    */
   private sortByTarget(): void {
     RadixSort.radixSort2(
-      this.buffer,                    // Primary array to sort (by second element of each pair)
-      this.bufferCopy,               // Working space for sorting
-      this.relationshipReferences,   // Secondary array (follows primary sort order)
+      this.buffer, // Primary array to sort (by second element of each pair)
+      this.bufferCopy, // Working space for sorting
+      this.relationshipReferences, // Secondary array (follows primary sort order)
       this.relationshipReferencesCopy, // Working space
-      this.propertyReferences,       // Tertiary array (follows primary sort order)
-      this.propertyReferencesCopy,   // Working space
-      this.histogram,                // Working space for counting sort
-      this.length                    // Number of elements to sort
+      this.propertyReferences, // Tertiary array (follows primary sort order)
+      this.propertyReferencesCopy, // Working space
+      this.histogram, // Working space for counting sort
+      this.length // Number of elements to sort
     );
   }
 
@@ -325,20 +328,28 @@ export class RelationshipsBatchBuffer<PROPERTY_REF> {
     const bufferBytes = this.buffer.length * 8; // 8 bytes per number
     const relationshipRefBytes = this.relationshipReferences.length * 8;
     const propertyRefBytes = this.propertyReferences.length * 8; // Approximate
-    const workingArrayBytes = this.bufferCopy.length * 8 +
-                             this.relationshipReferencesCopy.length * 8 +
-                             this.propertyReferencesCopy.length * 8 +
-                             this.histogram.length * 4; // 4 bytes per int
+    const workingArrayBytes =
+      this.bufferCopy.length * 8 +
+      this.relationshipReferencesCopy.length * 8 +
+      this.propertyReferencesCopy.length * 8 +
+      this.histogram.length * 4; // 4 bytes per int
 
     return {
       relationshipCount,
       capacity: this.capacity,
       utilizationRatio: relationshipCount / this.capacity,
-      totalMemoryBytes: bufferBytes + relationshipRefBytes + propertyRefBytes + workingArrayBytes,
+      totalMemoryBytes:
+        bufferBytes +
+        relationshipRefBytes +
+        propertyRefBytes +
+        workingArrayBytes,
       bufferMemoryBytes: bufferBytes,
       referenceMemoryBytes: relationshipRefBytes + propertyRefBytes,
       workingMemoryBytes: workingArrayBytes,
-      memoryEfficiency: relationshipCount > 0 ? (relationshipCount * 24) / (bufferBytes + relationshipRefBytes) : 0
+      memoryEfficiency:
+        relationshipCount > 0
+          ? (relationshipCount * 24) / (bufferBytes + relationshipRefBytes)
+          : 0,
     };
   }
 }
@@ -362,15 +373,16 @@ export class RelationshipsBatchBuffer<PROPERTY_REF> {
  * [Collection]                       [Sorted View]                   [Final Processing]
  * ```
  */
-export class RelationshipsBatchBufferView<PROPERTY_REF> implements PropertyReader.Producer<PROPERTY_REF> {
-
+export class RelationshipsBatchBufferView<PROPERTY_REF>
+  implements PropertyReader.Producer<PROPERTY_REF>
+{
   constructor(
-    private readonly nodePairs: number[],              // [src₀, tgt₀, src₁, tgt₁, ...]
-    private readonly nodePairsLength: number,          // Number of elements used in nodePairs
+    private readonly nodePairs: number[], // [src₀, tgt₀, src₁, tgt₁, ...]
+    private readonly nodePairsLength: number, // Number of elements used in nodePairs
     private readonly relationshipReferences: number[], // [ref₀, ref₁, ref₂, ...]
     private readonly propertyReferences: PROPERTY_REF[], // [prop₀, prop₁, prop₂, ...]
-    private readonly spareLongs: number[],             // Working space for downstream processing
-    private readonly spareInts: number[]               // Working space for downstream processing
+    private readonly spareLongs: number[], // Working space for downstream processing
+    private readonly spareInts: number[] // Working space for downstream processing
   ) {}
 
   /**
@@ -379,7 +391,9 @@ export class RelationshipsBatchBufferView<PROPERTY_REF> implements PropertyReade
    * @returns Number of relationships (not array elements)
    */
   numberOfElements(): number {
-    return this.nodePairsLength / RelationshipsBatchBuffer.ENTRIES_PER_RELATIONSHIP;
+    return (
+      this.nodePairsLength / RelationshipsBatchBuffer.ENTRIES_PER_RELATIONSHIP
+    );
   }
 
   /**
@@ -402,11 +416,11 @@ export class RelationshipsBatchBufferView<PROPERTY_REF> implements PropertyReade
       const pairIndex = i << 1; // Multiply by 2 efficiently
 
       consumer.accept(
-        i,                                    // relationship index
-        this.nodePairs[pairIndex],           // source ID
-        this.nodePairs[pairIndex + 1],       // target ID
-        this.relationshipReferences[i],      // relationship reference
-        this.propertyReferences[i]           // property reference
+        i, // relationship index
+        this.nodePairs[pairIndex], // source ID
+        this.nodePairs[pairIndex + 1], // target ID
+        this.relationshipReferences[i], // relationship reference
+        this.propertyReferences[i] // property reference
       );
     }
   }
@@ -434,8 +448,15 @@ export class RelationshipsBatchBufferView<PROPERTY_REF> implements PropertyReade
   ): void {
     const totalRelationships = this.numberOfElements();
 
-    for (let startIndex = 0; startIndex < totalRelationships; startIndex += batchSize) {
-      const actualBatchSize = Math.min(batchSize, totalRelationships - startIndex);
+    for (
+      let startIndex = 0;
+      startIndex < totalRelationships;
+      startIndex += batchSize
+    ) {
+      const actualBatchSize = Math.min(
+        batchSize,
+        totalRelationships - startIndex
+      );
 
       // Extract batch data into temporary arrays for better cache locality
       const batchSources = new Array<number>(actualBatchSize);
@@ -453,7 +474,14 @@ export class RelationshipsBatchBufferView<PROPERTY_REF> implements PropertyReade
         batchPropRefs[i] = this.propertyReferences[relationshipIndex];
       }
 
-      batchConsumer(startIndex, actualBatchSize, batchSources, batchTargets, batchRelRefs, batchPropRefs);
+      batchConsumer(
+        startIndex,
+        actualBatchSize,
+        batchSources,
+        batchTargets,
+        batchRelRefs,
+        batchPropRefs
+      );
     }
   }
 
@@ -510,17 +538,32 @@ export class RelationshipsBatchBufferView<PROPERTY_REF> implements PropertyReade
    * @param endIndex Ending relationship index (exclusive)
    * @returns New view containing only the specified range
    */
-  subView(startIndex: number, endIndex: number): RelationshipsBatchBufferView<PROPERTY_REF> {
-    if (startIndex < 0 || endIndex > this.numberOfElements() || startIndex >= endIndex) {
-      throw new Error(`Invalid range: [${startIndex}, ${endIndex}) for ${this.numberOfElements()} relationships`);
+  subView(
+    startIndex: number,
+    endIndex: number
+  ): RelationshipsBatchBufferView<PROPERTY_REF> {
+    if (
+      startIndex < 0 ||
+      endIndex > this.numberOfElements() ||
+      startIndex >= endIndex
+    ) {
+      throw new Error(
+        `Invalid range: [${startIndex}, ${endIndex}) for ${this.numberOfElements()} relationships`
+      );
     }
 
     const startPairIndex = startIndex << 1;
     const length = (endIndex - startIndex) << 1;
 
     // Create sub-arrays (these share the underlying data, just different views)
-    const subNodePairs = this.nodePairs.slice(startPairIndex, startPairIndex + length);
-    const subRelationshipRefs = this.relationshipReferences.slice(startIndex, endIndex);
+    const subNodePairs = this.nodePairs.slice(
+      startPairIndex,
+      startPairIndex + length
+    );
+    const subRelationshipRefs = this.relationshipReferences.slice(
+      startIndex,
+      endIndex
+    );
     const subPropertyRefs = this.propertyReferences.slice(startIndex, endIndex);
 
     return new RelationshipsBatchBufferView(
@@ -529,7 +572,7 @@ export class RelationshipsBatchBufferView<PROPERTY_REF> implements PropertyReade
       subRelationshipRefs,
       subPropertyRefs,
       this.spareLongs, // Shared working space
-      this.spareInts   // Shared working space
+      this.spareInts // Shared working space
     );
   }
 
@@ -582,7 +625,7 @@ export class RelationshipsBatchBufferView<PROPERTY_REF> implements PropertyReade
         uniqueTargetCount: 0,
         sourceSpread: 0,
         targetSpread: 0,
-        avgDegree: 0
+        avgDegree: 0,
       };
     }
 
@@ -604,7 +647,7 @@ export class RelationshipsBatchBufferView<PROPERTY_REF> implements PropertyReade
       uniqueTargetCount: uniqueTargets,
       sourceSpread: maxSource - minSource + 1,
       targetSpread: maxTarget - minTarget + 1,
-      avgDegree: relationshipCount / uniqueSources
+      avgDegree: relationshipCount / uniqueSources,
     };
   }
 }

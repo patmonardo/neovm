@@ -111,8 +111,8 @@ export abstract class NodeVisitor extends ElementVisitor<PropertySchema> {
   protected getPropertySchema(): PropertySchema[] {
     const nodeLabels =
       this.currentLabels.length === 0
-        ? NodeVisitor.DEFAULT_LABELS // Default to ALL_NODES for unlabeled nodes
-        : this.currentLabels.map((label) => NodeLabel.of(label));
+        ? new Set(NodeVisitor.DEFAULT_LABELS) // Convert to Set for consistency
+        : new Set(this.currentLabels.map((label) => NodeLabel.of(label))); // Create Set from mapped labels
 
     const propertySchemaForLabels = this.nodeSchema.filter(nodeLabels);
     return Array.from(propertySchemaForLabels.unionProperties().values());

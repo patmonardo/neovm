@@ -72,7 +72,7 @@ export class MutableRelationshipSchema extends RelationshipSchema {
 
   /**
    * Returns a map of relationship types to their directions.
-   * @deprecated To be removed
+   * @ deprecated To be removed
    */
   directions(): Map<RelationshipType, Direction> {
     const result = new Map<RelationshipType, Direction>();

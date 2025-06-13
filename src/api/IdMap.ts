@@ -162,7 +162,7 @@ export interface IdMap extends PartialIdMap, NodeIterator, BatchNodeIterable {
    * @returns Optional filtered ID map
    */
   withFilteredLabels(
-    nodeLabels: Array<NodeLabel>,
+    nodeLabels: Set<NodeLabel>,
     concurrency: Concurrency
   ): FilteredIdMap | undefined;
 }

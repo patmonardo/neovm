@@ -1,24 +1,32 @@
-import { GraphStore } from "@/api";
-import { DatabaseInfo } from "@/api";
-import { Capabilities } from "@/core/loading";
-import { MutableGraphSchema } from "@/api/schema";
-import { IdMap } from "@/api";
-import { NodePropertyStore } from "@/api/properties";
-import { GraphPropertyStore } from "@/api/properties";
-import { Nodes } from "@/core/loading";
-import { SingleTypeRelationships } from "@//core/loading";
-import { RelationshipImportResult } from "@/core/loading";
-import { RelationshipType } from "@/projection";
 import { NodeLabel } from "@/projection";
+import { RelationshipType } from "@/projection";
+import { ValueType } from "@/api";
+import { DefaultValue } from "@/api";
+import { DatabaseInfo } from "@/api";
+import { IdMap } from "@/api";
+import { CompositeRelationshipIterator } from "@/api";
+import { PropertyState } from "@/api";
+import { Graph } from "@/api";
+import { Topology } from "@/api";
+import { GraphStore } from "@/api";
+import { GraphSchema } from "@/api/schema";
+import { MutableGraphSchema } from "@/api/schema";
+import { PropertySchema } from "@/api/schema";
+import { GraphPropertyStore } from "@/api/properties";
 import { GraphProperty } from "@/api/properties";
 import { GraphPropertyValues } from "@/api/properties";
+import { NodePropertyStore } from "@/api/properties";
 import { NodeProperty } from "@/api/properties/nodes";
-import { NodePropertyValues } from "@/api/properties/nodes";
-import { PropertySchema } from "@/api/schema";
+import { NodePropertyValues } from "@/api/properties";
+import { RelationshipPropertyStore } from "@/api/properties";
+import { RelationshipProperty } from "@/api/properties";
+import { Nodes } from "@/core/loading";
+import { Capabilities } from "@/core/loading";
+import { SingleTypeRelationships } from "@//core/loading";
+import { RelationshipImportResult } from "@/core/loading";
 import { formatWithLocale } from "@/utils";
 import { Concurrency } from "@/concurrency";
-import { PropertyState } from "@/api";
-import { GraphSchema } from "@/api/schema";
+import { DeletionResult } from "@/core/loading";
 
 /**
  * CSR GRAPH STORE - COMPRESSED SPARSE ROW GRAPH STORAGE
@@ -102,9 +110,9 @@ export class CSRGraphStore implements GraphStore {
     this._capabilities = capabilities;
     this._schema = schema;
     this._nodes = nodes;
+    this._graphProperties = graphProperties;
     this._nodeProperties = nodeProperties;
     this._relationships = new Map(relationships); // Defensive copy for mutation safety
-    this._graphProperties = graphProperties;
     this._concurrency = concurrency;
     this._zoneId = zoneId ?? "UTC";
     this._creationTime = new Date();
@@ -142,9 +150,9 @@ export class CSRGraphStore implements GraphStore {
       databaseInfo,
       capabilities,
       schema,
-      nodes.idMap(), // Extract IdMap from import result
-      nodes.properties(), // Extract NodePropertyStore from import result
-      relationshipImportResult.importResults(), // Get Map<RelationshipType, SingleTypeRelationships>
+      nodes.idMap(),
+      nodes.properties(),
+      relationshipImportResult.importResults,
       graphProperties ?? GraphPropertyStore.empty(),
       concurrency ?? Concurrency.of(1),
       zoneId
@@ -239,7 +247,7 @@ export class CSRGraphStore implements GraphStore {
       // Update property store (immutable pattern)
       this._graphProperties = GraphPropertyStore.builder()
         .from(this._graphProperties) // Copy existing properties
-        .putIfAbsent(propertyKey, GraphProperty.of(propertyKey, propertyValues)) // Add new property
+        .putIfAbsent(propertyKey, GraphProperty.of(propertyKey, propertyValues))
         .build(); // Build new immutable store
 
       // Update schema to include new property definition
@@ -323,63 +331,68 @@ export class CSRGraphStore implements GraphStore {
     });
   }
 
+  // ====================================================================
+  // NODE PROPERTY OPERATIONS - Clean Single/Set pattern
+  // ====================================================================
+
   /**
-   * NODE PROPERTY KEYS - Label-specific vs global
+   * NODE PROPERTY KEYS - Single or Set, no Arrays
    */
   nodePropertyKeys(): Set<string>;
   nodePropertyKeys(label: NodeLabel): Set<string>;
-  nodePropertyKeys(labels: NodeLabel[]): Set<string>;
-  nodePropertyKeys(labelOrLabels?: NodeLabel | NodeLabel[]): Set<string> {
-    if (!labelOrLabels) {
+  nodePropertyKeys(labels: Set<NodeLabel>): Set<string>;
+  nodePropertyKeys(labelParam?: NodeLabel | Set<NodeLabel>): Set<string> {
+    if (labelParam === undefined) {
       // nodePropertyKeys(): Set<string> - all properties globally
       return new Set(this._nodeProperties.properties().keys());
     }
 
-    if (Array.isArray(labelOrLabels)) {
-      // nodePropertyKeys(labels: NodeLabel[]): Set<string> - intersection of label properties
-      if (labelOrLabels.length === 0) {
+    if (labelParam instanceof Set) {
+      // nodePropertyKeys(labels: Set<NodeLabel>): Set<string> - intersection of label properties
+      if (labelParam.size === 0) {
         return new Set();
       }
 
-      let result = this._schema.nodeSchema().allProperties(labelOrLabels[0]);
-      for (let i = 1; i < labelOrLabels.length; i++) {
+      const labelArray = Array.from(labelParam);
+      let result = this._schema.nodeSchema().allProperties(labelArray[0]);
+      for (let i = 1; i < labelArray.length; i++) {
         const labelProps = this._schema
           .nodeSchema()
-          .allProperties(labelOrLabels[i]);
+          .allProperties(labelArray[i]);
         result = new Set([...result].filter((prop) => labelProps.has(prop)));
       }
       return result;
     }
 
-    // nodePropertyKeys(label: NodeLabel): Set<string> - properties for specific label
-    return this._schema.nodeSchema().allProperties(labelOrLabels);
+    // nodePropertyKeys(label: NodeLabel): Set<string> - properties for single label
+    return this._schema.nodeSchema().allProperties(labelParam);
   }
 
   /**
-   * HAS NODE PROPERTY - Multiple validation patterns
+   * HAS NODE PROPERTY - Single or Set patterns
    */
   hasNodeProperty(propertyKey: string): boolean;
   hasNodeProperty(label: NodeLabel, propertyKey: string): boolean;
-  hasNodeProperty(labels: NodeLabel[], propertyKey: string): boolean;
+  hasNodeProperty(labels: Set<NodeLabel>, propertyKey: string): boolean;
   hasNodeProperty(
-    labelOrPropertyKey: NodeLabel | NodeLabel[] | string,
+    labelOrPropertyKey: NodeLabel | Set<NodeLabel> | string,
     propertyKey?: string
   ): boolean {
     if (typeof labelOrPropertyKey === "string") {
       // hasNodeProperty(propertyKey: string): boolean - global property existence
-      return this._nodeProperties.hasNodeProperty(labelOrPropertyKey);
+      return this._nodeProperties.properties().has(labelOrPropertyKey);
     }
 
-    if (Array.isArray(labelOrPropertyKey)) {
-      // hasNodeProperty(labels: NodeLabel[], propertyKey: string): boolean - all labels have property
-      return labelOrPropertyKey.every(
+    if (labelOrPropertyKey instanceof Set) {
+      // hasNodeProperty(labels: Set<NodeLabel>, propertyKey: string): boolean
+      return Array.from(labelOrPropertyKey).every(
         (label) =>
           this._schema.nodeSchema().hasProperty(label, propertyKey!) &&
           this.hasNodeProperty(propertyKey!)
       );
     }
 
-    // hasNodeProperty(label: NodeLabel, propertyKey: string): boolean - specific label has property
+    // hasNodeProperty(label: NodeLabel, propertyKey: string): boolean
     return (
       this._schema.nodeSchema().hasProperty(labelOrPropertyKey, propertyKey!) &&
       this.hasNodeProperty(propertyKey!)
@@ -416,16 +429,19 @@ export class CSRGraphStore implements GraphStore {
         .build();
 
       // Update schema for each label
+      const valueType = propertyValues.valueType();
+      const defaultValues = DefaultValue.of(valueType);
       labels.forEach((label) => {
         this._schema
           .nodeSchema()
-          .get(label)
-          .addProperty(
+          .get(label)!
+          .properties()
+          .set(
             propertyKey,
             PropertySchema.of(
               propertyKey,
-              propertyValues.valueType(),
-              propertyValues.valueType().fallbackValue(),
+              valueType,
+              defaultValues,
               PropertyState.TRANSIENT
             )
           );
@@ -448,7 +464,7 @@ export class CSRGraphStore implements GraphStore {
       this._schema
         .nodeSchema()
         .entries()
-        .forEach((entry) => entry.removeProperty(propertyKey));
+        .forEach((entry) => entry.properties().delete(propertyKey));
     });
   }
 
@@ -457,7 +473,7 @@ export class CSRGraphStore implements GraphStore {
    * DELEGATION: Forwards to NodePropertyStore.
    */
   nodeProperty(propertyKey: string): NodeProperty {
-    return this._nodeProperties.get(propertyKey);
+    return this._nodeProperties.properties().get(propertyKey)!;
   }
 
   // ====================================================================
@@ -481,15 +497,56 @@ export class CSRGraphStore implements GraphStore {
   }
 
   /**
-   * RELATIONSHIP COUNT - Multiple overload patterns
+   * Returns the value type of a relationship property.
+   * DELEGATION: Checks across all relationship types.
+   */
+  relationshipPropertyType(propertyKey: string): ValueType {
+    for (const relationship of this._relationships.values()) {
+      const properties = relationship.properties();
+      if (properties?.containsKey(propertyKey)) {
+        return properties?.get(propertyKey)?.valueType()!;
+      }
+    }
+    throw new Error(`Relationship property '${propertyKey}' not found`);
+  }
+
+  /**
+   * Returns relationship property values for a specific type.
+   * DELEGATION: Forwards to SingleTypeRelationships.
+   */
+  relationshipPropertyValues(
+    relationshipType: RelationshipType,
+    propertyKey: string
+  ): RelationshipProperty {
+    const relationship = this._relationships.get(relationshipType);
+    if (!relationship) {
+      throw new Error(`Relationship type '${relationshipType.name}' not found`);
+    }
+
+    const properties = relationship.properties();
+    if (!properties?.get(propertyKey)) {
+      throw new Error(
+        `Property '${propertyKey}' not found for relationship type '${relationshipType.name}'`
+      );
+    }
+
+    return properties.get(propertyKey)!;
+  }
+
+  // ====================================================================
+  // RELATIONSHIP PROPERTY OPERATIONS - Clean Single/Set pattern
+  // ====================================================================
+
+  /**
+   * RELATIONSHIP COUNT - Single or Set, no Arrays
    */
   relationshipCount(): number;
   relationshipCount(relationshipType: RelationshipType): number;
-  relationshipCount(relationshipTypes: RelationshipType[]): number;
+  relationshipCount(relationshipTypes: Set<RelationshipType>): number;
   relationshipCount(
-    relationshipType?: RelationshipType | RelationshipType[]
+    relationshipParam?: RelationshipType | Set<RelationshipType>
   ): number {
-    if (!relationshipType) {
+    if (relationshipParam === undefined) {
       // relationshipCount(): number - total across all types
       let sum = 0;
       for (const relationship of this._relationships.values()) {
@@ -498,10 +555,10 @@ export class CSRGraphStore implements GraphStore {
       return sum;
     }
 
-    if (Array.isArray(relationshipType)) {
-      // relationshipCount(relationshipTypes: RelationshipType[]): number
+    if (relationshipParam instanceof Set) {
+      // relationshipCount(relationshipTypes: Set<RelationshipType>): number
       let sum = 0;
-      for (const type of relationshipType) {
+      for (const type of relationshipParam) {
         const relationship = this._relationships.get(type);
         if (relationship) {
           sum += relationship.topology().elementCount();
@@ -511,20 +568,22 @@ export class CSRGraphStore implements GraphStore {
     }
 
     // relationshipCount(relationshipType: RelationshipType): number
-    const relationship = this._relationships.get(relationshipType);
+    const relationship = this._relationships.get(relationshipParam);
     return relationship ? relationship.topology().elementCount() : 0;
   }
 
   /**
-   * RELATIONSHIP PROPERTY KEYS - Type-specific patterns
+   * RELATIONSHIP PROPERTY KEYS - Single or Set patterns
    */
   relationshipPropertyKeys(): Set<string>;
   relationshipPropertyKeys(relationshipType: RelationshipType): Set<string>;
-  relationshipPropertyKeys(relationshipTypes: RelationshipType[]): Set<string>;
   relationshipPropertyKeys(
-    relationshipType?: RelationshipType | RelationshipType[]
+    relationshipTypes: Set<RelationshipType>
+  ): Set<string>;
+  relationshipPropertyKeys(
+    relationshipParam?: RelationshipType | Set<RelationshipType>
   ): Set<string> {
-    if (!relationshipType) {
+    if (relationshipParam === undefined) {
       // relationshipPropertyKeys(): Set<string> - all relationship properties globally
       const allKeys = new Set<string>();
       for (const relationship of this._relationships.values()) {
@@ -537,10 +596,10 @@ export class CSRGraphStore implements GraphStore {
       return allKeys;
     }
 
-    if (Array.isArray(relationshipType)) {
-      // relationshipPropertyKeys(relationshipTypes: RelationshipType[]): Set<string> - union of properties
+    if (relationshipParam instanceof Set) {
+      // relationshipPropertyKeys(relationshipTypes: Set<RelationshipType>): Set<string>
       const allKeys = new Set<string>();
-      for (const type of relationshipType) {
+      for (const type of relationshipParam) {
         const relationship = this._relationships.get(type);
         if (relationship?.properties()) {
           for (const key of relationship.properties()!.keySet()) {
@@ -551,13 +610,13 @@ export class CSRGraphStore implements GraphStore {
       return allKeys;
     }
 
-    // relationshipPropertyKeys(relationshipType: RelationshipType): Set<string> - specific type
-    const relationship = this._relationships.get(relationshipType);
+    // relationshipPropertyKeys(relationshipType: RelationshipType): Set<string>
+    const relationship = this._relationships.get(relationshipParam);
     return relationship?.properties()?.keySet() || new Set();
   }
 
   /**
-   * HAS RELATIONSHIP PROPERTY - Type-specific validation
+   * HAS RELATIONSHIP PROPERTY - Single or Set patterns
    */
   hasRelationshipProperty(propertyKey: string): boolean;
   hasRelationshipProperty(
@@ -565,13 +624,13 @@ export class CSRGraphStore implements GraphStore {
     propertyKey: string
   ): boolean;
   hasRelationshipProperty(
-    relationshipTypes: RelationshipType[],
+    relationshipTypes: Set<RelationshipType>,
     propertyKey: string
   ): boolean;
   hasRelationshipProperty(
     relationshipTypeOrPropertyKey:
       | RelationshipType
-      | RelationshipType[]
+      | Set<RelationshipType>
       | string,
     propertyKey?: string
   ): boolean {
@@ -579,7 +638,7 @@ export class CSRGraphStore implements GraphStore {
       // hasRelationshipProperty(propertyKey: string): boolean - global property existence
       for (const relationship of this._relationships.values()) {
         if (
-          relationship.properties()?.hasProperty(relationshipTypeOrPropertyKey)
+          relationship.properties()?.containsKey(relationshipTypeOrPropertyKey)
         ) {
           return true;
         }
@@ -587,41 +646,22 @@ export class CSRGraphStore implements GraphStore {
       return false;
     }
 
-    if (Array.isArray(relationshipTypeOrPropertyKey)) {
-      // hasRelationshipProperty(relationshipTypes: RelationshipType[], propertyKey: string): boolean
-      return relationshipTypeOrPropertyKey.every((type) => {
+    if (relationshipTypeOrPropertyKey instanceof Set) {
+      // hasRelationshipProperty(relationshipTypes: Set<RelationshipType>, propertyKey: string): boolean
+      return Array.from(relationshipTypeOrPropertyKey).every((type) => {
         const relationship = this._relationships.get(type);
-        return relationship?.properties()?.hasProperty(propertyKey!) || false;
+        return relationship?.properties()?.containsKey(propertyKey!) || false;
       });
     }
 
     // hasRelationshipProperty(relationshipType: RelationshipType, propertyKey: string): boolean
     const relationship = this._relationships.get(relationshipTypeOrPropertyKey);
-    return relationship?.properties()?.hasProperty(propertyKey!) || false;
-  }
-
-  /**
-   * GET RELATIONSHIP PROPERTY - Type-specific access
-   */
-  relationshipProperty(
-    relationshipType: RelationshipType,
-    propertyKey: string
-  ): RelationshipProperty {
-    const relationship = this._relationships.get(relationshipType);
-    if (!relationship?.properties()) {
-      throw new Error(
-        formatWithLocale(
-          "No properties found for relationship type %s",
-          relationshipType.name()
-        )
-      );
-    }
-    return relationship.properties()!.get(propertyKey);
+    return relationship?.properties()?.containsKey(propertyKey!) || false;
   }
 
   /**
    * Returns relationship types that have inverse indexes.
-   * FILTERING: Checks which relationships have inverseTopology.
+   * DELEGATION: Filters relationships with inverse topology.
    */
   inverseIndexedRelationshipTypes(): Set<RelationshipType> {
     const result = new Set<RelationshipType>();
@@ -631,6 +671,168 @@ export class CSRGraphStore implements GraphStore {
       }
     }
     return result;
+  }
+
+  /**
+   * Adds a relationship type to the store.
+   * MUTATION: Updates relationships map and triggers store update.
+   */
+  addRelationshipType(relationships: SingleTypeRelationships): void {
+    this.updateGraphStore(() => {
+      this._relationships.set(
+        relationships.relationshipSchemaEntry().identifier(),
+        relationships
+      );
+    });
+  }
+
+  /**
+   * Adds an inverse index for a relationship type.
+   * MUTATION: Updates the relationship's inverse topology.
+   */
+  addInverseIndex(
+    relationshipType: RelationshipType,
+    topology: Topology,
+    properties?: RelationshipPropertyStore
+  ): void {
+    this.updateGraphStore(() => {
+      const relationship = this._relationships.get(relationshipType);
+      if (!relationship) {
+        throw new Error(
+          `Relationship type '${relationshipType.name}' not found`
+        );
+      }
+
+      // This would need the actual inverse index building logic
+      // For now, stub it:
+      throw new Error(
+        "addInverseIndex() not yet implemented - complex inverse topology building needed"
+      );
+    });
+  }
+
+  deleteRelationships(relationshipType: RelationshipType): DeletionResult {
+    const relationship = this._relationships.get(relationshipType);
+    if (!relationship) {
+      return DeletionResult.of(0, { relationshipType: 0 });
+    }
+
+    // Calculate what will be deleted
+    const deletedCount = relationship.topology().elementCount();
+
+    // Perform mutation
+    this.updateGraphStore(() => {
+      this._relationships.delete(relationshipType);
+
+      // Update schema
+      this._schema.relationshipSchema().remove(relationshipType);
+
+      this._schema = MutableGraphSchema.of(
+        this._schema.nodeSchema(),
+        this._schema.relationshipSchema(),
+        this._schema.graphProperties()
+      );
+    });
+
+    // Return deletion statistics
+    return DeletionResult.of(deletedCount, { relationshipType: deletedCount } );
+  }
+
+  /**
+   * Returns a graph filtered by relationship property.
+   */
+  getGraph(relationshipProperty: string): Graph;
+
+  /**
+   * Returns a graph filtered by relationship type and optional property.
+   */
+  getGraph(
+    relationshipType: RelationshipType,
+    relationshipProperty?: string
+  ): Graph;
+
+  /**
+   * Returns a graph filtered by relationship types and optional property.
+   */
+  getGraph(
+    relationshipTypes: Set<RelationshipType>,
+    relationshipProperty?: string
+  ): Graph;
+
+  /**
+   * Returns a graph filtered by node label, relationship type, and optional property.
+   */
+  getGraph(
+    nodeLabel: string,
+    relationshipType: string,
+    relationshipProperty?: string
+  ): Graph;
+
+  /**
+   * Returns a graph containing only nodes with the given node label.
+   */
+  getGraph(nodeLabel: NodeLabel): Graph;
+
+  /**
+   * Returns a graph containing only nodes with the given node labels.
+   */
+  getGraph(nodeLabels: Set<NodeLabel>): Graph;
+
+  /**
+   * Returns a graph filtered by node label, relationship type, and optional property.
+   */
+  getGraph(
+    nodeLabel: NodeLabel,
+    relationshipType: RelationshipType,
+    relationshipProperty?: string
+  ): Graph;
+
+  /**
+   * Returns a graph filtered by node labels, relationship types, and optional property.
+   */
+  getGraph(
+    nodeLabels: Set<NodeLabel>,
+    relationshipTypes: Set<RelationshipType>,
+    relationshipProperty?: string
+  ): Graph;
+
+  /**
+   * MASTER IMPLEMENTATION - Catchall with error
+   * Satisfies all overloads but doesn't actually implement graph projection
+   */
+  getGraph(...args: any[]): Graph {
+    throw new Error(
+      `getGraph() not implemented yet. ` +
+        `Args: ${JSON.stringify(args)}. ` +
+        `Use direct CRUD operations for graph data access.`
+    );
+  }
+
+  /**
+   * Returns a union of all graphs in the store.
+   */
+  getUnion(): Graph {
+    // This should return a graph with all node labels and relationship types
+    return this.getGraph(this.nodeLabels(), this.relationshipTypes());
+  }
+  /**
+   * Returns a composite relationship iterator.
+   * DELEGATION: Creates iterator from relationship type and properties.
+   */
+  getCompositeRelationshipIterator(
+    relationshipType: RelationshipType,
+    propertyKeys: Set<string>
+  ): CompositeRelationshipIterator {
+    const relationship = this._relationships.get(relationshipType);
+    if (!relationship) {
+      throw new Error(`Relationship type '${relationshipType.name}' not found`);
+    }
+
+    // This would need complex iterator building logic
+    // For now, stub it:
+    throw new Error(
+      "getCompositeRelationshipIterator() not yet implemented - complex iterator construction needed"
+    );
   }
 
   // ====================================================================

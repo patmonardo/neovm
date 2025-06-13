@@ -1,2 +1,1 @@
-databaseName,databaseLocation,idMapBuilderType,nodeCount,maxOriginalId,relTypeCounts,inverseIndexedRelTypes
-myGraph,LOCAL,unsupported,1000,999,,
+just,one,line

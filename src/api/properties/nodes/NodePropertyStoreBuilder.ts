@@ -36,6 +36,17 @@ export class NodePropertyStoreBuilder {
   }
 
   /**
+   * Adds all properties from the given property store, replacing any existing ones.
+   */
+  public from(propertyStore: NodePropertyStore): NodePropertyStoreBuilder {
+    this._properties.clear();
+    propertyStore.properties().forEach((value, key) => {
+      this._properties.set(key, value);
+    });
+    return this;
+  }
+
+  /**
    * Adds a property if the key is not already present.
    */
   public putIfAbsent(
@@ -71,14 +82,14 @@ export class NodePropertyStoreBuilder {
    * Builds and returns a new NodePropertyStore instance.
    */
   public build(): NodePropertyStore {
-    return new NodePropertyStoreImpl(new Map(this._properties));
+    return new DefaultNodePropertyStore(new Map(this._properties));
   }
 }
 
 /**
  * Private implementation class - not exported
  */
-class NodePropertyStoreImpl implements NodePropertyStore {
+class DefaultNodePropertyStore implements NodePropertyStore {
   private readonly _properties: Map<string, NodeProperty>;
 
   constructor(properties: Map<string, NodeProperty>) {
@@ -109,7 +120,7 @@ class NodePropertyStoreImpl implements NodePropertyStore {
   memoryEstimation(): any {
     // Simplified implementation
     return {
-      estimate: () => this._properties.size * 16, // Simple placeholder
+      estimate: () => this._properties.size * 16,
     };
   }
 

@@ -46,57 +46,6 @@ import { MutableNodeSchema } from '@/api/schema';
  * - **Default value handling**: Manages default values for missing properties
  * - **Efficient storage**: Optimized storage formats for different value types
  * - **Random access**: Fast lookup of property values by internal node ID
- *
- * **Usage Patterns:**
- *
- * **Graph Loading:**
- * ```typescript
- * // Load nodes from external source with property mappings
- * const propertyMappings = new Map([
- *   [NodeLabel.of('Person'), PropertyMappings.of(['name', 'age', 'city'])],
- *   [NodeLabel.of('Company'), PropertyMappings.of(['name', 'industry'])]
- * ]);
- *
- * const propertyValues = new Map([
- *   [PropertyMapping.of('name'), stringPropertyValues],
- *   [PropertyMapping.of('age'), longPropertyValues],
- *   [PropertyMapping.of('city'), stringPropertyValues],
- *   [PropertyMapping.of('industry'), stringPropertyValues]
- * ]);
- *
- * const nodes = Nodes.of(idMap, propertyMappings, propertyValues, PropertyState.PERSISTENT);
- * ```
- *
- * **Algorithm Integration:**
- * ```typescript
- * // Use nodes in graph algorithms
- * const algorithm = new PageRank(graph);
- * const results = algorithm.compute();
- *
- * // Access node properties during processing
- * for (let nodeId = 0; nodeId < nodes.idMap().nodeCount(); nodeId++) {
- *   const originalId = nodes.idMap().toOriginalNodeId(nodeId);
- *   const name = nodes.properties().get('name').values().stringValue(nodeId);
- *   const pageRank = results.get(nodeId);
- *   console.log(`Node ${originalId} (${name}): PageRank = ${pageRank}`);
- * }
- * ```
- *
- * **Property Access:**
- * ```typescript
- * // Type-safe property access
- * const personAge = nodes.properties().get('age');
- * if (personAge && personAge.values().valueType() === ValueType.LONG) {
- *   const age = personAge.values().longValue(internalNodeId);
- *   // Process age value...
- * }
- * ```
- *
- * **Performance Characteristics:**
- * - **ID mapping**: O(1) for both directions (internal ↔ original)
- * - **Property access**: O(1) lookup by property key and internal node ID
- * - **Memory usage**: Linear in number of nodes and properties, with compact storage
- * - **Schema queries**: O(1) for checking label/property existence
  */
 export interface Nodes {
   /**
@@ -113,29 +62,6 @@ export interface Nodes {
    * - **Type information**: The ValueType for each property
    * - **Default values**: What value to use when a property is missing
    * - **Property state**: Whether properties are persistent, computed, etc.
-   *
-   * **Schema Evolution:**
-   * ```typescript
-   * const schema = MutableNodeSchema.empty();
-   *
-   * // Add labels without properties
-   * schema.addLabel(NodeLabel.of('EmptyLabel'));
-   *
-   * // Add labels with properties
-   * schema.addProperty(
-   *   NodeLabel.of('Person'),
-   *   'name',
-   *   PropertySchema.of('name', ValueType.STRING, DefaultValue.of('Unknown'))
-   * );
-   * ```
-   *
-   * **Query Usage:**
-   * ```typescript
-   * // Check what's available in the schema
-   * const hasPersonLabel = nodes.schema().hasLabel(NodeLabel.of('Person'));
-   * const nameProperty = nodes.schema().get(NodeLabel.of('Person')).get('name');
-   * const nameType = nameProperty.valueType(); // ValueType.STRING
-   * ```
    *
    * @returns The mutable node schema containing label and property definitions
    */
@@ -270,28 +196,6 @@ export interface Nodes {
  *    - Add property to schema under the label
  *    - Store property values in the property store
  * 5. **Build and return immutable Nodes instance**
- *
- * **Property Mapping Structure:**
- * ```typescript
- * // Define what properties each label should have
- * const propertyMappings = new Map([
- *   // Person nodes have name, age, and city properties
- *   [NodeLabel.of('Person'), PropertyMappings.of([
- *     PropertyMapping.of('name', 'user_name', ValueType.STRING),
- *     PropertyMapping.of('age', 'user_age', ValueType.LONG),
- *     PropertyMapping.of('city', 'location', ValueType.STRING)
- *   ])],
- *
- *   // Company nodes have different properties
- *   [NodeLabel.of('Company'), PropertyMappings.of([
- *     PropertyMapping.of('name', 'company_name', ValueType.STRING),
- *     PropertyMapping.of('industry', 'sector', ValueType.STRING)
- *   ])],
- *
- *   // Some labels might have no properties
- *   [NodeLabel.of('EmptyLabel'), PropertyMappings.empty()]
- * ]);
- * ```
  *
  * **Property Values Structure:**
  * ```typescript
