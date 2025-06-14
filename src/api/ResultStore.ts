@@ -1,4 +1,4 @@
-import { JobId } from '../core/utils/progress/JobId';
+import { JobId } from '@/core/utils/progress';
 import { ResultStoreEntry } from './ResultStoreEntry';
 
 /**

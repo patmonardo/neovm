@@ -1,10 +1,9 @@
-import { IdMap } from '@/api/graph';
-import { Concurrency } from '@/core/concurrency';
+import { IdMap } from '@/api';
+import { Concurrency } from '@/concurrency';
 import { ShardedLongLongMap } from '@/core/utils/paged';
 import { CloseableThreadLocal } from '@/utils';
 import { IdMapBuilder } from './IdMapBuilder';
 import { IdMapAllocator } from './IdMapAllocator';
-import { LabelInformation } from './LabelInformation';
 import { HighLimitIdMap } from './HighLimitIdMap';
 
 /**

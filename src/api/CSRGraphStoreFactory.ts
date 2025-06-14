@@ -3,35 +3,31 @@ import { Orientation } from "@/projection";
 import { RelationshipProjection } from "@/projection";
 import { RelationshipProjections } from "@/projection";
 import { RelationshipType } from "@/projection";
-import {
-  DatabaseInfo,
-  DatabaseLocation,
-  ImmutableDatabaseInfo,
-} from "./DatabaseInfo";
-import { GraphStoreFactory } from "./GraphStoreFactory";
-import { GraphLoaderContext } from "./GraphLoaderContext";
-import { MutableGraphSchema } from "./schema/primitive/MutableGraphSchema";
-import { HugeIntArray } from "../collections/ha/HugeIntArray";
-import { HugeLongArray } from "../collections/ha/HugeLongArray";
-import { GraphProjectConfig } from "../config/GraphProjectConfig";
-import { GraphDimensions } from "../core/GraphDimensions";
-import { IdMapBehaviorServiceProvider } from "../core/IdMapBehaviorServiceProvider";
-import { HugeGraph } from "../core/huge/HugeGraph";
-import { AdjacencyBuffer } from "../core/AdjacencyBuffer";
-import { AdjacencyListBehavior } from "../core/loading/AdjacencyListBehavior";
-import { CSRGraphStore } from "../core/loading/CSRGraphStore";
-import { Capabilities } from "../core/loading/Capabilities";
-import { GraphStoreBuilder } from "../core/loading/GraphStoreBuilder";
-import { Nodes } from "../core/loading/Nodes";
-import { RelationshipImportResult } from "../core/loading/RelationshipImportResult";
-import { NodePropertiesFromStoreBuilder } from "../core/loading/nodeproperties/NodePropertiesFromStoreBuilder";
-import { ProgressTracker } from "../core/utils/progress/tasks/ProgressTracker";
-import { Estimate } from "../mem/Estimate";
-import { MemoryEstimation } from "../mem/MemoryEstimation";
-import { MemoryEstimations } from "../mem/MemoryEstimations";
-import { MemoryUsage } from "../mem/MemoryUsage";
-import { formatWithLocale } from "../utils/StringFormatting";
-import { ResolvedPropertyMapping } from "../RelationshipProjection"; // Assuming it's part of RelationshipProjection or similar
+import { DatabaseLocation } from "@/api";
+import { DatabaseInfo } from "@/api";
+import { GraphStoreFactory } from "@/api";
+import { GraphLoaderContext } from "@/api";
+import { MutableGraphSchema } from "@/api/schema";
+import { HugeIntArray } from "../collections";
+import { HugeLongArray } from "../collections";
+import { GraphProjectConfig } from "@/config";
+import { GraphDimensions } from "../core";
+import { IdMapBehaviorServiceProvider } from "@/core";
+import { AdjacencyBuffer } from "@/core/loading";
+import { AdjacencyListBehavior } from "@/core/loading";
+import { CSRGraphStore } from "@/core/loading";
+import { Capabilities } from "@/core/loading";
+import { GraphStoreBuilder } from "@/core/loading";
+import { Nodes } from "@/core/loading";
+import { RelationshipImportResult } from "@/core/loading";
+import { NodePropertiesFromStoreBuilder } from "@/core/loading/nodeproperties";
+import { ProgressTracker } from "../core/utils/progress";
+import { Estimate } from "../mem";
+import { MemoryEstimation } from "@/mem";
+import { MemoryEstimations } from "@/mem";
+import { MemoryUsage } from "@/mem";
+import { formatWithLocale } from "@/utils";
+import { ResolvedPropertyMapping } from "../RelationshipProjection";
 
 export abstract class CSRGraphStoreFactory<
   CONFIG extends GraphProjectConfig
@@ -52,22 +48,22 @@ export abstract class CSRGraphStoreFactory<
     const schema = MutableGraphSchema.of(
       nodes.schema(),
       relationshipImportResult.relationshipSchema(),
-      new Map() // Assuming Map.of() translates to an empty map or a map from a specific structure
+      new Map()
     );
 
-    const databaseInfo = ImmutableDatabaseInfo.builder()
+    const databaseInfo = DatabaseInfo.builder()
       .databaseId(this.loadingContext.databaseId())
       .databaseLocation(DatabaseLocation.LOCAL)
       .build();
 
-    return new GraphStoreBuilder() // Assuming GraphStoreBuilder can build CSRGraphStore
+    return new GraphStoreBuilder()
       .databaseInfo(databaseInfo)
       .capabilities(this.capabilities)
       .schema(schema)
       .nodes(nodes)
       .relationshipImportResult(relationshipImportResult)
       .concurrency(this.graphProjectConfig.readConcurrency())
-      .build() as CSRGraphStore; // Cast if build() returns a more generic GraphStore
+      .build() as CSRGraphStore;
   }
 
   protected logLoadingSummary(graphStore: CSRGraphStore): void {
@@ -94,21 +90,20 @@ export abstract class CSRGraphStoreFactory<
   ): MemoryEstimation {
     const builder = MemoryEstimations.builder("graph projection");
 
-    // node information
     builder.add(
       "nodeIdMap",
       IdMapBehaviorServiceProvider.getIdMapBehavior().memoryEstimation()
     );
 
-    // nodeProperties
-    nodeProjections.allProperties().forEach((property) =>
-      builder.add(
-        property.propertyKey, // Assuming property has a key
-        NodePropertiesFromStoreBuilder.memoryEstimation()
-      )
-    );
+    nodeProjections
+      .allProperties()
+      .forEach((property) =>
+        builder.add(
+          property.propertyKey,
+          NodePropertiesFromStoreBuilder.memoryEstimation()
+        )
+      );
 
-    // relationships
     relationshipProjections
       .projections()
       .forEach((relationshipProjection, relationshipType) => {
@@ -116,7 +111,6 @@ export abstract class CSRGraphStoreFactory<
           relationshipProjection.orientation() === Orientation.UNDIRECTED;
         if (isLoading) {
           builder.max([
-            // Max of a list of estimations
             CSRGraphStoreFactory.relationshipEstimationDuringLoading(
               relationshipType,
               relationshipProjection,
@@ -129,10 +123,7 @@ export abstract class CSRGraphStoreFactory<
             ),
           ]);
         } else {
-          // In Java: builder.add(MemoryEstimations.builder(HugeGraph.class).build());
-          // This might be a placeholder or a specific type token.
-          // For now, creating a generic builder for HugeGraph.
-          builder.add(MemoryEstimations.builder("HugeGraph").build()); // Or pass HugeGraph constructor if API supports
+          builder.add(MemoryEstimations.builder("HugeGraph").build());
           builder.add(
             CSRGraphStoreFactory.relationshipEstimationAfterLoading(
               relationshipType,
@@ -181,19 +172,19 @@ export abstract class CSRGraphStoreFactory<
     relationshipProjection: RelationshipProjection,
     undirected: boolean,
     printIndexSuffix: boolean,
-    estimationBuilder: MemoryEstimations.Builder // Assuming Builder type from MemoryEstimations
+    estimationBuilder: MemoryEstimations.Builder
   ): void {
     const indexSuffix = printIndexSuffix ? " (inverse index)" : "";
 
     estimationBuilder.add(
       formatWithLocale(
         "adjacency loading buffer for '%s'%s",
-        relationshipType.name, // Assuming RelationshipType has a name property
+        relationshipType.name,
         indexSuffix
       ),
       AdjacencyBuffer.memoryEstimation(
         relationshipType,
-        relationshipProjection.properties().mappings().length, // Count of properties
+        relationshipProjection.properties().mappings().length,
         undirected
       )
     );
@@ -204,7 +195,7 @@ export abstract class CSRGraphStoreFactory<
         relationshipType.name,
         indexSuffix
       ),
-      HugeLongArray.memoryEstimation // Pass the static method itself
+      HugeLongArray.memoryEstimation
     );
     estimationBuilder.perNode(
       formatWithLocale(
@@ -212,7 +203,7 @@ export abstract class CSRGraphStoreFactory<
         relationshipType.name,
         indexSuffix
       ),
-      HugeIntArray.memoryEstimation // Pass the static method itself
+      HugeIntArray.memoryEstimation
     );
 
     relationshipProjection
@@ -226,7 +217,7 @@ export abstract class CSRGraphStoreFactory<
             resolvedPropertyMapping.propertyKey(),
             indexSuffix
           ),
-          HugeLongArray.memoryEstimation // Assuming properties also use HugeLongArray
+          HugeLongArray.memoryEstimation
         )
       );
   }
@@ -264,14 +255,14 @@ export abstract class CSRGraphStoreFactory<
     relationshipProjection: RelationshipProjection,
     undirected: boolean,
     printIndexSuffix: boolean,
-    afterLoadingEstimation: MemoryEstimations.Builder // Assuming Builder type
+    afterLoadingEstimation: MemoryEstimations.Builder
   ): void {
     const indexSuffix = printIndexSuffix ? " (inverse index)" : "";
 
     afterLoadingEstimation.add(
       formatWithLocale(
         "adjacency list for '%s'%s",
-        relationshipType.name, // Assuming RelationshipType has a name property
+        relationshipType.name,
         indexSuffix
       ),
       AdjacencyListBehavior.adjacencyListEstimation(
@@ -286,16 +277,14 @@ export abstract class CSRGraphStoreFactory<
       .forEach((resolvedPropertyMapping: ResolvedPropertyMapping) => {
         afterLoadingEstimation.add(
           formatWithLocale(
-            "property '%s.%s%s", // Original had a missing ' before %s
+            "property '%s.%s'%s",
             relationshipType.name,
             resolvedPropertyMapping.propertyKey(),
             indexSuffix
           ),
           AdjacencyListBehavior.adjacencyPropertiesEstimation(
-            // Assuming this estimates a single property
             relationshipType,
             undirected
-            // May need property type or specific details if estimation varies per property
           )
         );
       });

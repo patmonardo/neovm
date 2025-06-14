@@ -8,7 +8,7 @@ export * from "./ArrayIdMapBuilderOps";
 export * from "./ArrayIdMapBuilder";
 export * from "./ArrayIdMap";
 export * from "./ChunkedAdjacencyLists";
-// export * from "./CSRGraphStore";
+export * from "./CSRGraphStore";
 // export * from "./CSRGraphStoreUtil";
 export * from "./DegreeDistribution";
 export * from "./DeletionResult";

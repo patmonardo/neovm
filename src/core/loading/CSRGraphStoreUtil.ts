@@ -37,7 +37,6 @@ import { formatWithLocale } from "@/utils";
 
 export class CSRGraphStoreUtil {
   private constructor() {
-    // Static utility class
   }
 
   /**

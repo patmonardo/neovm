@@ -25,8 +25,8 @@
  * - Derived Properties: Computed properties from base data
  */
 
-import { NodeLabel, RelationshipType, ElementProjection } from '@/projection';
-import { DimensionsMap } from './DimensionsMap';
+import { NodeLabel, RelationshipType, ElementProjection } from "@/projection";
+import { DimensionsMap } from "./DimensionsMap";
 
 /**
  * Abstract base class for graph dimensions with complete functionality.
@@ -57,7 +57,10 @@ export abstract class GraphDimensions {
   abstract tokenNodeLabelMapping(): Map<number, NodeLabel[]> | null;
 
   /** Mapping from tokens to relationship types */
-  abstract tokenRelationshipTypeMapping(): Map<number, RelationshipType[]> | null;
+  abstract tokenRelationshipTypeMapping(): Map<
+    number,
+    RelationshipType[]
+  > | null;
 
   // =============================================================================
   // CONCRETE PROPERTIES WITH DEFAULTS (Can be overridden)
@@ -153,7 +156,9 @@ export abstract class GraphDimensions {
    */
   averageDegree(): number {
     const nodeCount = this.nodeCount();
-    return nodeCount === 0 ? 0 : Math.floor(this.relCountUpperBound() / nodeCount);
+    return nodeCount === 0
+      ? 0
+      : Math.floor(this.relCountUpperBound() / nodeCount);
   }
 
   /**
@@ -204,7 +209,7 @@ export abstract class GraphDimensions {
 
     // Filter out ALL_NODES labels for estimation purposes
     const nonUniversalLabels = Array.from(nodeLabels).filter(
-      label => !label.equals(NodeLabel.ALL_NODES)
+      (label) => !label.equals(NodeLabel.ALL_NODES)
     );
 
     return nonUniversalLabels.length;
@@ -232,14 +237,16 @@ export abstract class GraphDimensions {
     }
 
     const relCounts = this.relationshipCounts();
-    const requestedTypes = relationshipTypeNames.map(name => RelationshipType.of(name));
+    const requestedTypes = relationshipTypeNames.map((name) =>
+      RelationshipType.of(name)
+    );
 
     // Check if we have exact counts for all requested types
-    const hasAllCounts = requestedTypes.every(type => relCounts.has(type));
+    const hasAllCounts = requestedTypes.every((type) => relCounts.has(type));
 
     if (hasAllCounts) {
       return requestedTypes
-        .map(type => relCounts.get(type) || 0)
+        .map((type) => relCounts.get(type) || 0)
         .reduce((sum, count) => sum + count, 0);
     }
 
@@ -264,7 +271,9 @@ export abstract class GraphDimensions {
   static of(nodeCount: number, relationshipCount: number = 0): GraphDimensions {
     return new GraphDimensionsBuilder()
       .nodeCount(nodeCount)
-      .relationshipCounts(new Map([[RelationshipType.ALL_RELATIONSHIPS, relationshipCount]]))
+      .relationshipCounts(
+        new Map([[RelationshipType.ALL_RELATIONSHIPS, relationshipCount]])
+      )
       .relCountUpperBound(relationshipCount)
       .build();
   }
@@ -290,7 +299,10 @@ class ConcreteGraphDimensions extends GraphDimensions {
   private readonly _nodeLabelTokens: Set<number> | null;
   private readonly _relationshipTypeTokens: Set<number> | null;
   private readonly _tokenNodeLabelMapping: Map<number, NodeLabel[]> | null;
-  private readonly _tokenRelationshipTypeMapping: Map<number, RelationshipType[]> | null;
+  private readonly _tokenRelationshipTypeMapping: Map<
+    number,
+    RelationshipType[]
+  > | null;
   private readonly _nodePropertyTokens: Map<string, number>;
   private readonly _nodePropertyDimensions: DimensionsMap;
   private readonly _relationshipPropertyTokens: Map<string, number>;
@@ -298,31 +310,60 @@ class ConcreteGraphDimensions extends GraphDimensions {
   constructor(builder: GraphDimensionsBuilder) {
     super();
     this._nodeCount = builder._nodeCount;
-    this._highestPossibleNodeCount = builder._highestPossibleNodeCount ?? this._nodeCount;
+    this._highestPossibleNodeCount =
+      builder._highestPossibleNodeCount ?? this._nodeCount;
     this._relCountUpperBound = builder._relCountUpperBound ?? 0;
     this._relationshipCounts = builder._relationshipCounts ?? new Map();
-    this._highestRelationshipId = builder._highestRelationshipId ?? this._relCountUpperBound;
+    this._highestRelationshipId =
+      builder._highestRelationshipId ?? this._relCountUpperBound;
     this._nodeLabelTokens = builder._nodeLabelTokens ?? null;
     this._relationshipTypeTokens = builder._relationshipTypeTokens ?? null;
     this._tokenNodeLabelMapping = builder._tokenNodeLabelMapping ?? null;
-    this._tokenRelationshipTypeMapping = builder._tokenRelationshipTypeMapping ?? null;
+    this._tokenRelationshipTypeMapping =
+      builder._tokenRelationshipTypeMapping ?? null;
     this._nodePropertyTokens = builder._nodePropertyTokens ?? new Map();
-    this._nodePropertyDimensions = builder._nodePropertyDimensions ?? new DimensionsMap(new Map());
-    this._relationshipPropertyTokens = builder._relationshipPropertyTokens ?? new Map();
+    this._nodePropertyDimensions =
+      builder._nodePropertyDimensions ?? new DimensionsMap(new Map());
+    this._relationshipPropertyTokens =
+      builder._relationshipPropertyTokens ?? new Map();
   }
 
-  nodeCount(): number { return this._nodeCount; }
-  highestPossibleNodeCount(): number { return this._highestPossibleNodeCount; }
-  relCountUpperBound(): number { return this._relCountUpperBound; }
-  relationshipCounts(): Map<RelationshipType, number> { return this._relationshipCounts; }
-  highestRelationshipId(): number { return this._highestRelationshipId; }
-  nodeLabelTokens(): Set<number> | null { return this._nodeLabelTokens; }
-  relationshipTypeTokens(): Set<number> | null { return this._relationshipTypeTokens; }
-  tokenNodeLabelMapping(): Map<number, NodeLabel[]> | null { return this._tokenNodeLabelMapping; }
-  tokenRelationshipTypeMapping(): Map<number, RelationshipType[]> | null { return this._tokenRelationshipTypeMapping; }
-  nodePropertyTokens(): Map<string, number> { return this._nodePropertyTokens; }
-  nodePropertyDimensions(): DimensionsMap { return this._nodePropertyDimensions; }
-  relationshipPropertyTokens(): Map<string, number> { return this._relationshipPropertyTokens; }
+  nodeCount(): number {
+    return this._nodeCount;
+  }
+  highestPossibleNodeCount(): number {
+    return this._highestPossibleNodeCount;
+  }
+  relCountUpperBound(): number {
+    return this._relCountUpperBound;
+  }
+  relationshipCounts(): Map<RelationshipType, number> {
+    return this._relationshipCounts;
+  }
+  highestRelationshipId(): number {
+    return this._highestRelationshipId;
+  }
+  nodeLabelTokens(): Set<number> | null {
+    return this._nodeLabelTokens;
+  }
+  relationshipTypeTokens(): Set<number> | null {
+    return this._relationshipTypeTokens;
+  }
+  tokenNodeLabelMapping(): Map<number, NodeLabel[]> | null {
+    return this._tokenNodeLabelMapping;
+  }
+  tokenRelationshipTypeMapping(): Map<number, RelationshipType[]> | null {
+    return this._tokenRelationshipTypeMapping;
+  }
+  nodePropertyTokens(): Map<string, number> {
+    return this._nodePropertyTokens;
+  }
+  nodePropertyDimensions(): DimensionsMap {
+    return this._nodePropertyDimensions;
+  }
+  relationshipPropertyTokens(): Map<string, number> {
+    return this._relationshipPropertyTokens;
+  }
 }
 
 /**
@@ -404,7 +445,7 @@ export class GraphDimensionsBuilder {
 
   build(): GraphDimensions {
     if (this._nodeCount < 0) {
-      throw new Error('Node count cannot be negative');
+      throw new Error("Node count cannot be negative");
     }
 
     return new ConcreteGraphDimensions(this);

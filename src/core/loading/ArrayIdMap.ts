@@ -17,6 +17,8 @@
 // import { LabelInformation } from "./LabelInformation";
 // import { FilteredLabeledIdMap } from "./FilteredLabeledIdMap"; // Assuming this class exists
 
+export class ArrayIdMap {};
+
 // export class ArrayIdMap extends LabeledIdMap {
 //   private static readonly ESTIMATION: MemoryEstimation =
 //     MemoryEstimations.builder(ArrayIdMap) // In TS, passing the class itself is for informational purposes

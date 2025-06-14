@@ -4,6 +4,9 @@
 // import { Concurrency } from '@/concurrency';
 // import { ShardedLongLongMap } from '@/collections';
 // import { HighLimitIdMapBuilder } from './HighLimitIdMapBuilder';
+
+export class HighLimitIdMap {}
+
 // /**
 //  * Two-level ID mapping implementation for handling very large node ID spaces.
 //  *

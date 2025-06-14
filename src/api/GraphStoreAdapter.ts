@@ -219,15 +219,15 @@ export abstract class GraphStoreAdapter implements GraphStore {
   // --- Graph Retrieval (getGraph) ---
 
   getGraph(nodeLabel: NodeLabel): Graph;
-  getGraph(nodeLabels: Array<NodeLabel>): Graph;
-  getGraph(relationshipTypes: Array<RelationshipType>): Graph;
+  getGraph(nodeLabels: Set<NodeLabel>): Graph;
+  getGraph(relationshipTypes: Set<RelationshipType>): Graph;
   getGraph(relationshipProperty: string): Graph;
   getGraph(
     relationshipType: RelationshipType,
     relationshipProperty?: string
   ): Graph;
   getGraph(
-    relationshipTypes: Array<RelationshipType>,
+    relationshipTypes: Set<RelationshipType>,
     relationshipProperty?: string
   ): Graph;
   getGraph(
@@ -241,7 +241,7 @@ export abstract class GraphStoreAdapter implements GraphStore {
     relationshipProperty?: string
   ): Graph;
   getGraph(
-    nodeLabels: Array<NodeLabel>,
+    nodeLabels: Set<NodeLabel>,
     relationshipTypes: Array<RelationshipType>,
     relationshipProperty?: string
   ): Graph;
@@ -255,7 +255,7 @@ export abstract class GraphStoreAdapter implements GraphStore {
 
   getCompositeRelationshipIterator(
     relationshipType: RelationshipType,
-    propertyKeys: Array<string>
+    propertyKeys: Set<string>
   ): CompositeRelationshipIterator {
     return this.graphStore.getCompositeRelationshipIterator(
       relationshipType,

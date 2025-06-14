@@ -1,7 +1,6 @@
 import { IdMap } from '@/api';
 import { Concurrency } from '@/concurrency';
 import { IdMapAllocator } from './IdMapAllocator';
-import { LabelInformation } from './LabelInformation';
 
 /**
  * Interface for building ID maps during graph loading.

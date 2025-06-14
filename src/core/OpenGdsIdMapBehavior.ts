@@ -1,11 +1,11 @@
-import { Concurrency } from "@/concurrency/Concurrency"; // Adjust path as needed
-import { ArrayIdMap } from "./loading/ArrayIdMap"; // Adjust path as needed
-import { ArrayIdMapBuilder } from "@/core/loading/ArrayIdMapBuilder"; // Adjust path as needed
-import { GrowingArrayIdMapBuilder } from "./loading/GrowingArrayIdMapBuilder"; // Adjust path as needed
-import { HighLimitIdMap } from "./loading/HighLimitIdMap"; // Adjust path as needed
-import { HighLimitIdMapBuilder } from "./loading/HighLimitIdMapBuilder"; // Adjust path as needed
-import { IdMapBuilder } from "./loading/IdMapBuilder"; // Adjust path as needed
-import { MemoryEstimation } from "../mem/MemoryEstimation"; // Adjust path as needed
+import { MemoryEstimation } from "@/mem";
+import { Concurrency } from "@/concurrency";
+import { ArrayIdMap } from "@/core/loading";
+import { ArrayIdMapBuilder } from "@/core/loading";
+import { GrowingArrayIdMapBuilder } from "@/core/loading";
+import { HighLimitIdMap } from "@/core/loading";
+import { HighLimitIdMapBuilder } from "@/core/loading";
+import { IdMapBuilder } from "@/core/loading";
 import { IdMapBehavior } from "./IdMapBehavior";
 
 export class OpenGdsIdMapBehavior implements IdMapBehavior {
@@ -39,7 +39,7 @@ export class OpenGdsIdMapBehavior implements IdMapBehavior {
     maxOriginalIdOrNodeCount?: number,
     optionalNodeCount?: number
   ): IdMapBuilder {
-    if (typeof idOrConcurrency === 'string') {
+    if (typeof idOrConcurrency === "string") {
       // Signature: create(id: string, concurrency: Concurrency, maxOriginalId?: number, nodeCount?: number)
       const id = idOrConcurrency;
       const concurrency = concurrencyOrMaxOriginalId as Concurrency;
@@ -59,13 +59,19 @@ export class OpenGdsIdMapBehavior implements IdMapBehavior {
         // external ids may exceed the storage capabilities of the nested id map.
         // Instead, we _know_ that the highest original id for the nested id map
         // will be nodeCount - 1 as this is what the HighLimitIdMap guarantees.
-        const maxIntermediateId = nodeCount !== undefined ? nodeCount - 1 : undefined;
+        const maxIntermediateId =
+          nodeCount !== undefined ? nodeCount - 1 : undefined;
 
         let innerBuilder: IdMapBuilder;
         const innerTypeId = HighLimitIdMap.innerTypeId(idLowerCase);
 
         if (innerTypeId) {
-          innerBuilder = this.create(innerTypeId, concurrency, maxIntermediateId, nodeCount);
+          innerBuilder = this.create(
+            innerTypeId,
+            concurrency,
+            maxIntermediateId,
+            nodeCount
+          );
         } else {
           innerBuilder = this.create(concurrency, maxIntermediateId, nodeCount);
         }
@@ -73,7 +79,6 @@ export class OpenGdsIdMapBehavior implements IdMapBehavior {
       }
       // Fallback for unrecognized ID
       return this.create(concurrency, maxOriginalId, nodeCount);
-
     } else {
       // Signature: create(concurrency: Concurrency, maxOriginalId?: number, nodeCount?: number)
       // const concurrency = idOrConcurrency as Concurrency; // Concurrency not used here

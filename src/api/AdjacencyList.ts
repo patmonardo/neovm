@@ -1,5 +1,5 @@
-import { EMPTY_MEMORY_INFO, MemoryInfo } from '@/core/compression';
-import { AdjacencyCursor } from './AdjacencyCursor';
+import { EMPTY_MEMORY_INFO, MemoryInfo } from "@/core/compression";
+import { AdjacencyCursor } from "./AdjacencyCursor";
 
 /**
  * The adjacency list for a mono-partite graph with an optional single relationship property.
@@ -109,8 +109,15 @@ export namespace AdjacencyList {
 /**
  * Extension methods for AdjacencyList.
  */
-export function createAdjacencyCursor(list: AdjacencyList, node: number): AdjacencyCursor;
-export function createAdjacencyCursor(list: AdjacencyList, reuse: AdjacencyCursor | null, node: number): AdjacencyCursor;
+export function createAdjacencyCursor(
+  list: AdjacencyList,
+  node: number
+): AdjacencyCursor;
+export function createAdjacencyCursor(
+  list: AdjacencyList,
+  reuse: AdjacencyCursor | null,
+  node: number
+): AdjacencyCursor;
 
 /**
  * Implementation of the extension methods.
@@ -120,7 +127,7 @@ export function createAdjacencyCursor(
   nodeOrReuse: number | AdjacencyCursor | null,
   node?: number
 ): AdjacencyCursor {
-  if (typeof nodeOrReuse === 'number') {
+  if (typeof nodeOrReuse === "number") {
     return list.adjacencyCursor(nodeOrReuse, Number.NaN);
   } else {
     return list.adjacencyCursor(nodeOrReuse, node!, Number.NaN);
