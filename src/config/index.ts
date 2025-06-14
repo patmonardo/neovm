@@ -25,11 +25,18 @@ export type { BaseConfig } from "./BaseTypes";
 export type { DeduplicationConfig } from "./BaseTypes";
 export type { BuilderConfig } from "./BaseTypes";
 export type { AlgoBaseConfig } from "./BaseTypes";
+export type { ConcurrencyConfig } from "./BaseTypes";
+export type { IterationsConfig } from "./BaseTypes";
+export type { MutateConfig } from "./BaseTypes";
+export type { EmbeddingDimensionConfig } from "./BaseTypes";
+export type { FeaturePropertiesConfig } from "./BaseTypes";
 export type { WriteConfig } from "./BaseTypes";
+
 // === INTERFACE EXPORTS ===
-export type { GraphCatalogConfig } from "./GraphConfigs";
 export type { GraphCreateConfig } from "./GraphConfigs";
 export type { GraphProjectConfig } from "./GraphConfigs";
+//export type { GraphStoreConfig } from "./GraphStoreConfigs";
+export type { GraphCatalogConfig } from "./GraphCatalogConfigs";
 export type { PropertyConfig } from "./GraphConfigs";
 export type { NodesBuilderConfig } from "./GraphConfigs";
 export type { RelationshipsBuilderConfig } from "./GraphConfigs";

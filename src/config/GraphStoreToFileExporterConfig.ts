@@ -173,7 +173,7 @@ export class GraphStoreToFileExporterConfigBuilder {
     configMap.set('defaultRelationshipType', this._defaultRelationshipType);
     configMap.set('exportName', this._exportName);
 
-    const cypherMapWrapper = new CypherMapWrapper(configMap);
+    const cypherMapWrapper = CypherMapWrapper.create(configMap);
     return new GraphStoreToFileExporterConfigImpl(this._username, cypherMapWrapper);
   }
 }

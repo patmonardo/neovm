@@ -25,7 +25,6 @@ import { LongPredicate } from "@/collections";
 import { AdjacencySpliterator } from "./AdjacencySpliterator";
 
 /**
- * PATH DHARMA ANALYSIS - HugeGraph 🏗️
  *
  * CSR GRAPH IMPLEMENTATION - High-performance compressed sparse row graph storage
  *

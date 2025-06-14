@@ -1,7 +1,7 @@
-import { GraphDimensions } from '../core/GraphDimensions';
-import { MemoryTree } from '../mem/MemoryTree';
-import { MemoryRange } from '../mem/MemoryRange';
-import { Estimate } from '../mem/Estimate';
+import { GraphDimensions } from '../../core/GraphDimensions';
+import { MemoryTree } from '../MemoryTree';
+import { MemoryRange } from '../MemoryRange';
+import { Estimate } from '../Estimate';
 
 /**
  * Result of a memory estimation containing a hierarchical breakdown

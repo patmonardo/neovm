@@ -1,10 +1,10 @@
-import { GraphName } from '../api/GraphName';
+import { GraphName } from '../../api/GraphName';
 import { GraphStoreCatalog } from '../api/GraphStoreCatalog';
-import { User } from '../api/User';
+import { User } from '../../api/User';
 import { GraphProjectConfig } from '../config/GraphProjectConfig';
-import { GraphDimensions } from '../core/GraphDimensions';
-import { MemoryEstimation } from '../mem/MemoryEstimation';
-import { MemoryEstimations } from '../mem/MemoryEstimations';
+import { GraphDimensions } from '../../core/GraphDimensions';
+import { MemoryEstimation } from '../MemoryEstimation';
+import { MemoryEstimations } from '../MemoryEstimations';
 import { GraphMemoryEstimation } from './GraphMemoryEstimation';
 
 /**
@@ -13,7 +13,7 @@ import { GraphMemoryEstimation } from './GraphMemoryEstimation';
 export class GraphMemoryEstimationService {
   /**
    * Estimates memory usage for an algorithm on an existing graph.
-   * 
+   *
    * @param graphName Name of the graph in the catalog
    * @param memoryEstimation Memory estimation for the algorithm
    * @param user User requesting the estimation
@@ -25,18 +25,18 @@ export class GraphMemoryEstimationService {
     user: User
   ): GraphMemoryEstimation {
     const graphStore = GraphStoreCatalog.get(user.getUsername(), graphName).graphStore();
-    
+
     const estimationTree = memoryEstimation.estimate(
       graphStore.dimensions(),
       graphStore.concurrency()
     );
-    
+
     return new GraphMemoryEstimation(graphStore.dimensions(), estimationTree);
   }
 
   /**
    * Estimates memory usage for a new graph projection.
-   * 
+   *
    * @param graphProjectConfig Configuration for the graph projection
    * @param estimationService Service for estimating database graph memory
    * @returns Memory estimation for the graph projection
@@ -50,7 +50,7 @@ export class GraphMemoryEstimationService {
 
   /**
    * Creates a composite memory estimation for multiple algorithms.
-   * 
+   *
    * @param estimations List of algorithm estimations
    * @returns Combined memory estimation
    */

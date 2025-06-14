@@ -1,7 +1,6 @@
-import { GraphProjectConfig } from '../config/GraphProjectConfig';
-import { CypherMapWrapper } from '../core/CypherMapWrapper';
-import { GraphProjectFromCypherConfig } from '../legacycypherprojection/GraphProjectFromCypherConfig';
-import { GraphProjectFromStoreConfig } from '../projection/GraphProjectFromStoreConfig';
+import { GraphProjectConfig } from '@/config';
+import { CypherMapWrapper } from '@/core';
+import { GraphProjectFromStoreConfig } from '@/projection/GraphProjectFromStoreConfig';
 
 /**
  * Parser for graph configuration objects to create appropriate GraphProjectConfig instances.
@@ -21,7 +20,7 @@ export class MemoryEstimationGraphConfigParser {
 
   /**
    * Creates a new MemoryEstimationGraphConfigParser.
-   * 
+   *
    * @param username The username of the user creating the graph
    */
   constructor(username: string) {
@@ -30,13 +29,13 @@ export class MemoryEstimationGraphConfigParser {
 
   /**
    * Parses a graph configuration and returns the appropriate GraphProjectConfig implementation.
-   * 
+   *
    * @param graphConfig The graph configuration object
    * @returns A GraphProjectConfig instance based on the configuration
    */
   public parse(graphConfig: Record<string, any>): GraphProjectConfig {
     const createConfigMapWrapper = CypherMapWrapper.create(graphConfig);
-    
+
     const result = createConfigMapWrapper.verifyMutuallyExclusivePairs(
       MemoryEstimationGraphConfigParser.NODE_PROJECTION_KEY,
       MemoryEstimationGraphConfigParser.RELATIONSHIP_PROJECTION_KEY,
@@ -44,7 +43,7 @@ export class MemoryEstimationGraphConfigParser {
       MemoryEstimationGraphConfigParser.RELATIONSHIP_QUERY_KEY,
       "Missing information for implicit graph creation."
     );
-    
+
     if (result === CypherMapWrapper.PairResult.FIRST_PAIR) {
       return GraphProjectFromStoreConfig.fromProcedureConfig(this.username, createConfigMapWrapper);
     } else {

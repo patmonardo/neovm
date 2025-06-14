@@ -6,7 +6,6 @@ import { RelationshipType } from '@/projection';
  */
 
 export interface BaseConfig {
-  // Common validation methods can be added here
 }
 
 export interface ConcurrencyConfig extends BaseConfig {
@@ -15,6 +14,22 @@ export interface ConcurrencyConfig extends BaseConfig {
 
 export interface WriteConfig extends BaseConfig {
   writeConcurrency: number;
+}
+
+export interface RelationshipWeightConfig extends BaseConfig {
+  relationshipWeightProperty?: string;
+}
+
+export interface WritePropertyConfig extends WriteConfig {
+  writeProperty: string;
+}
+
+export interface MutateNodePropertyConfig extends WriteConfig {
+  mutateNodeProperty: string;
+  mutateNodePropertyType: string;
+  mutateNodePropertyValue: string;
+  mutateNodePropertyValueType: string;
+  mutateNodePropertyValueDefault: string;
 }
 
 export interface AlgoBaseConfig extends ConcurrencyConfig {

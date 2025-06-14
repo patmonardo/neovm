@@ -1,2 +1,0 @@
-name:string,description:string,version:string,created:string,lastModified:string,nodeCount:long,relationshipCount:long
-Social Network Demo Graph,A complete social network graph for testing CSV import functionality with realistic data including users posts companies and relationships,1.2.0,2024-01-01T00:00:00Z,2024-01-20T15:30:00Z,29,49

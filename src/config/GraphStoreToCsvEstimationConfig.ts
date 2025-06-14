@@ -1,11 +1,12 @@
-import { CypherMapWrapper } from '@/core/CypherMapWrapper';
-import { GraphStoreToFileExporterConfig } from './GraphStoreToFileExporterConfig';
+import { CypherMapWrapper } from "@/core/CypherMapWrapper";
+import { GraphStoreToFileExporterConfig } from "./GraphStoreToFileExporterConfig";
 
 /**
  * Configuration interface for CSV export estimation operations.
  * Extends the base file exporter configuration with sampling-specific options.
  */
-export interface GraphStoreToCsvEstimationConfig extends GraphStoreToFileExporterConfig {
+export interface GraphStoreToCsvEstimationConfig
+  extends GraphStoreToFileExporterConfig {
   /**
    * The sampling factor for estimation (between 0.0 and 1.0).
    * Used to estimate export size by sampling a fraction of the data.
@@ -19,7 +20,9 @@ export interface GraphStoreToCsvEstimationConfig extends GraphStoreToFileExporte
 /**
  * Implementation of GraphStoreToCsvEstimationConfig.
  */
-class GraphStoreToCsvEstimationConfigImpl implements GraphStoreToCsvEstimationConfig {
+class GraphStoreToCsvEstimationConfigImpl
+  implements GraphStoreToCsvEstimationConfig
+{
   private readonly username: string;
   private readonly config: CypherMapWrapper;
 
@@ -29,11 +32,13 @@ class GraphStoreToCsvEstimationConfigImpl implements GraphStoreToCsvEstimationCo
   }
 
   samplingFactor(): number {
-    const factor = this.config.getDouble('samplingFactor', 0.001);
+    const factor = this.config.getDouble("samplingFactor", 0.001);
 
     // Validate range (0.0 to 1.0)
     if (factor < 0.0 || factor > 1.0) {
-      throw new Error(`samplingFactor must be between 0.0 and 1.0, got ${factor}`);
+      throw new Error(
+        `samplingFactor must be between 0.0 and 1.0, got ${factor}`
+      );
     }
 
     return factor;
@@ -41,7 +46,7 @@ class GraphStoreToCsvEstimationConfigImpl implements GraphStoreToCsvEstimationCo
 
   // Delegated methods from GraphStoreToFileExporterConfig
   includeMetaData(): boolean {
-    return this.config.getBool('includeMetaData', false);
+    return this.config.getBool("includeMetaData", false);
   }
 
   username(): string {
@@ -49,23 +54,23 @@ class GraphStoreToCsvEstimationConfigImpl implements GraphStoreToCsvEstimationCo
   }
 
   exportName(): string {
-    return this.config.requireString('exportName');
+    return this.config.requireString("exportName");
   }
 
   useLabelMapping(): boolean {
-    return this.config.getBool('useLabelMapping', false);
+    return this.config.getBool("useLabelMapping", false);
   }
 
   concurrency(): number {
-    return this.config.getInt('concurrency', 4);
+    return this.config.getInt("concurrency", 4);
   }
 
   batchSize(): number {
-    return this.config.getInt('batchSize', 10000);
+    return this.config.getInt("batchSize", 10000);
   }
 
   defaultRelationshipType(): string {
-    return this.config.getString('defaultRelationshipType', 'REL');
+    return this.config.getString("defaultRelationshipType", "REL");
   }
 }
 
@@ -80,7 +85,10 @@ export class GraphStoreToCsvEstimationConfig {
    * @param config The configuration parameters wrapped in CypherMapWrapper
    * @returns A new GraphStoreToCsvEstimationConfig instance
    */
-  static of(username: string, config: CypherMapWrapper): GraphStoreToCsvEstimationConfig {
+  static of(
+    username: string,
+    config: CypherMapWrapper
+  ): GraphStoreToCsvEstimationConfig {
     return new GraphStoreToCsvEstimationConfigImpl(username, config);
   }
 }

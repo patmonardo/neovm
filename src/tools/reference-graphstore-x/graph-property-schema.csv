@@ -1,8 +1,0 @@
-propertyKey,valueType,defaultValue,state
-name,STRING,,PERSISTENT
-description,STRING,,PERSISTENT
-version,STRING,"DefaultValue(1.0)",PERSISTENT
-created,STRING,,PERSISTENT
-lastModified,STRING,,PERSISTENT
-nodeCount,LONG,"DefaultValue(0)",PERSISTENT
-relationshipCount,LONG,"DefaultValue(0)",PERSISTENT

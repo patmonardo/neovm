@@ -1,7 +1,5 @@
-import { UserEntityMemory } from "./UserEntityMemory"; // Adjust path as needed
+import { UserEntityMemory } from "./UserEntityMemory";
 
-// Assuming definitions for these event types.
-// They would likely come from a different module, e.g., 'api/graph/store/catalog'
 export interface GraphStoreAddedEvent {
   user(): string;
   graphName(): string;
@@ -11,7 +9,6 @@ export interface GraphStoreAddedEvent {
 export interface GraphStoreRemovedEvent {
   user(): string;
   graphName(): string;
-  // memoryInBytes(): number; // This seems to be commented out or unused in the removeGraph logic for fetching the value
 }
 
 export class GraphStoreMemoryContainer {

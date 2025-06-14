@@ -54,33 +54,6 @@ export class GraphConfigFactory {
   }
 
   /**
-   * Create PropertyConfig with defaults.
-   */
-  static propertyConfig(
-    propertyKey: string,
-    params: Partial<Omit<PropertyConfig, "propertyKey">> = {}
-  ): PropertyConfig {
-    const defaults = {
-      aggregation: Aggregation.NONE,
-      defaultValue: DefaultValue.forDouble(),
-      propertyState: PropertyState.TRANSIENT,
-    };
-
-    const config = {
-      propertyKey,
-      ...defaults,
-      ...params,
-    };
-
-    // Validation
-    if (!propertyKey || propertyKey.trim().length === 0) {
-      throw new Error("Property key cannot be empty");
-    }
-
-    return config;
-  }
-
-  /**
    * Create RelationshipsBuilder configuration.
    */
   static relationshipsBuilder(
@@ -116,6 +89,33 @@ export class GraphConfigFactory {
 
     // Validation
     ConfigValidation.validatePositive(config.concurrency, "concurrency");
+
+    return config;
+  }
+
+  /**
+   * Create PropertyConfig with defaults.
+   */
+  static propertyConfig(
+    propertyKey: string,
+    params: Partial<Omit<PropertyConfig, "propertyKey">> = {}
+  ): PropertyConfig {
+    const defaults = {
+      aggregation: Aggregation.NONE,
+      defaultValue: DefaultValue.forDouble(),
+      propertyState: PropertyState.TRANSIENT,
+    };
+
+    const config = {
+      propertyKey,
+      ...defaults,
+      ...params,
+    };
+
+    // Validation
+    if (!propertyKey || propertyKey.trim().length === 0) {
+      throw new Error("Property key cannot be empty");
+    }
 
     return config;
   }

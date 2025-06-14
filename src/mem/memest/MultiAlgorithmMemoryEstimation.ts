@@ -1,6 +1,6 @@
-import { MemoryEstimation } from '../mem/MemoryEstimation';
+import { MemoryEstimation } from '../MemoryEstimation';
 import { GraphMemoryEstimationService } from './GraphMemoryEstimationService';
-import { MemoryEstimateDefinition } from '../mem/MemoryEstimateDefinition';
+import { MemoryEstimateDefinition } from '../MemoryEstimateDefinition';
 import { AlgorithmConfiguration } from '../config/AlgorithmConfiguration';
 
 /**
@@ -17,7 +17,7 @@ export class MultiAlgorithmMemoryEstimation {
 
   /**
    * Adds an algorithm to the memory estimation.
-   * 
+   *
    * @param definition The algorithm definition
    * @param config The algorithm configuration
    * @returns This object for method chaining
@@ -32,19 +32,19 @@ export class MultiAlgorithmMemoryEstimation {
 
   /**
    * Creates a combined memory estimation for all algorithms.
-   * 
+   *
    * @returns A memory estimation representing the maximum of all algorithm estimations
    */
   public estimate(): MemoryEstimation {
     const estimations: MemoryEstimation[] = this.definitions
       .map(({ definition }) => definition.memoryEstimation());
-      
+
     return GraphMemoryEstimationService.combinedEstimation(estimations);
   }
 
   /**
    * Returns the list of algorithm definitions with configurations.
-   * 
+   *
    * @returns The list of algorithm definitions
    */
   public getDefinitions(): Array<{

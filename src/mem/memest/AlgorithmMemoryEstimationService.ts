@@ -1,12 +1,12 @@
-import { GraphName } from '../api/GraphName';
-import { User } from '../api/User';
+import { GraphName } from '../../api/GraphName';
+import { User } from '../../api/User';
 import { AlgorithmConfiguration } from '@/config/AlgorithmConfiguration';
 import { Concurrency } from '@/concurrency/Concurrency';
-import { MemoryEstimateDefinition } from '../mem/MemoryEstimateDefinition';
-import { MemoryEstimation } from '../mem/MemoryEstimation';
-import { GraphDimensions } from '../core/GraphDimensions';
+import { MemoryEstimateDefinition } from '../MemoryEstimateDefinition';
+import { MemoryEstimation } from '../MemoryEstimation';
+import { GraphDimensions } from '../../core/GraphDimensions';
 import { GraphMemoryEstimation } from './GraphMemoryEstimation';
-import { MemoryTree } from '../mem/MemoryTree';
+import { MemoryTree } from '../MemoryTree';
 import { GraphMemoryEstimationService } from './GraphMemoryEstimationService';
 
 /**

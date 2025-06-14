@@ -1,13 +1,13 @@
-import { Messenger } from './Messenger';
-import { MessageIterator } from './Messages';
-import { MemoryEstimation } from '../mem/memoryEstimation';
+import { MemoryEstimation } from "@/mem";
+import { Messenger } from "./Messenger";
+import { MessageIterator } from "./Messages";
 
 /**
  * Iterator for asynchronous message queues
  */
 export class PrimitiveAsyncDoubleQueuesIterator implements MessageIterator {
   private readonly queues: PrimitiveAsyncDoubleQueues;
-  private currentNodeId: number = 0;
+  public currentNodeId: number = -1;
   private currentMessages: number[] = [];
   private index: number = 0;
 
@@ -67,7 +67,7 @@ export class PrimitiveAsyncDoubleQueuesIterator implements MessageIterator {
 export class PrimitiveAsyncDoubleQueues {
   // Message queues for all nodes
   private readonly queues: number[][];
-  
+
   /**
    * Create a new set of queues for the specified number of nodes
    */
@@ -86,14 +86,13 @@ export class PrimitiveAsyncDoubleQueues {
    * Estimate memory usage
    */
   static memoryEstimation(): MemoryEstimation {
-    // Simplified memory estimation
     return {
-      name: 'PrimitiveAsyncDoubleQueues',
+      name: "PrimitiveAsyncDoubleQueues",
       memoryUsage: {
         base: 16, // Object overhead
         perNode: 8, // One array reference per node
-        perMessage: 8  // 8 bytes per message
-      }
+        perMessage: 8, // 8 bytes per message
+      },
     };
   }
 
@@ -138,7 +137,9 @@ export class PrimitiveAsyncDoubleQueues {
  * Implements the asynchronous message passing model of Pregel where messages sent
  * in the current iteration are immediately available to other nodes.
  */
-export class AsyncQueueMessenger implements Messenger<PrimitiveAsyncDoubleQueuesIterator> {
+export class AsyncQueueMessenger
+  implements Messenger<PrimitiveAsyncDoubleQueuesIterator>
+{
   private readonly queues: PrimitiveAsyncDoubleQueues;
 
   /**
@@ -185,8 +186,8 @@ export class AsyncQueueMessenger implements Messenger<PrimitiveAsyncDoubleQueues
    * Initialize a message iterator for a specific node
    */
   initMessageIterator(
-    messageIterator: PrimitiveAsyncDoubleQueuesIterator, 
-    nodeId: number, 
+    messageIterator: PrimitiveAsyncDoubleQueuesIterator,
+    nodeId: number,
     isFirstIteration: boolean
   ): void {
     // In async mode, initialize iterator regardless of iteration

@@ -3,7 +3,7 @@ import { IdMap } from '@/api';
 import { BitSet } from '@/collections';
 
 /**
- * PATH DHARMA ANALYSIS - LabelInformation 🏷️
+ * LabelInformation 🏷️
  *
  * LABEL MANAGEMENT SYSTEM - Efficient node-to-label mapping with BitSet optimization
  *

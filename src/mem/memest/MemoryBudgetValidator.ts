@@ -1,4 +1,4 @@
-import { MemoryRange } from '../mem/MemoryRange';
+import { MemoryRange } from '../MemoryRange';
 import { MemoryEstimationResult } from './MemoryEstimationResultBuilder';
 
 /**

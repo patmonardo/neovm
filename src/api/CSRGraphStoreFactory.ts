@@ -47,7 +47,7 @@ export abstract class CSRGraphStoreFactory<
   ): CSRGraphStore {
     const schema = MutableGraphSchema.of(
       nodes.schema(),
-      relationshipImportResult.relationshipSchema(),
+      relationshipImportResult.relationshipSchema,
       new Map()
     );
 
@@ -62,8 +62,8 @@ export abstract class CSRGraphStoreFactory<
       .schema(schema)
       .nodes(nodes)
       .relationshipImportResult(relationshipImportResult)
-      .concurrency(this.graphProjectConfig.readConcurrency())
-      .build() as CSRGraphStore;
+      .concurrency(Concurrency.of(this.graphProjectConfig.readConcurrency))
+      .build();
   }
 
   protected logLoadingSummary(graphStore: CSRGraphStore): void {

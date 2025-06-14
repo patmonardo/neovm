@@ -4,40 +4,56 @@
  * Static catalog for managing graph stores across users and databases.
  */
 
-import { DatabaseId, GraphStore } from '@/api';
-import { EphemeralResultStore } from '@/api';
-import { GraphProjectConfig } from '@/config';
-import { GraphStoreCatalogEntry } from './GraphStoreCatalogEntry';
-import { MemoryUsage } from '@/mem';
-import { join } from '@/utils';
-import { ExceptionUtil } from '@/utils/ExceptionUtil';
-import { GraphStoreAddedEvent, GraphStoreAddedEventListener } from '@/api/graph';
-import { GraphStoreRemovedEvent, GraphStoreRemovedEventListener } from '@/api/graph';
-import { GraphNotFoundException } from './GraphNotFoundException';
-import { CatalogRequest } from './CatalogRequest';
-import { Log } from '@/utils';
+import { DatabaseId, GraphStore } from "@/api";
+import { EphemeralResultStore } from "@/api";
+import { GraphProjectConfig } from "@/config";
+import { GraphStoreCatalogEntry } from "./GraphStoreCatalogEntry";
+import { MemoryUsage } from "@/mem";
+import { join } from "@/utils";
+import { ExceptionUtil } from "@/utils/ExceptionUtil";
+import {
+  GraphStoreAddedEvent,
+  GraphStoreAddedEventListener,
+} from "@/api/graph";
+import {
+  GraphStoreRemovedEvent,
+  GraphStoreRemovedEventListener,
+} from "@/api/graph";
+import { GraphNotFoundException } from "./GraphNotFoundException";
+import { CatalogRequest } from "./CatalogRequest";
+import { Log } from "@/utils";
 
 export class GraphStoreCatalog {
   private static readonly userCatalogs = new Map<string, UserCatalog>();
-  private static readonly graphStoreAddedEventListeners = new Set<GraphStoreAddedEventListener>();
-  private static readonly graphStoreRemovedEventListeners = new Set<GraphStoreRemovedEventListener>();
+  private static readonly graphStoreAddedEventListeners =
+    new Set<GraphStoreAddedEventListener>();
+  private static readonly graphStoreRemovedEventListeners =
+    new Set<GraphStoreRemovedEventListener>();
   private static log: Log | undefined;
 
   private constructor() {}
 
-  static registerGraphStoreAddedListener(listener: GraphStoreAddedEventListener): void {
+  static registerGraphStoreAddedListener(
+    listener: GraphStoreAddedEventListener
+  ): void {
     this.graphStoreAddedEventListeners.add(listener);
   }
 
-  static unregisterGraphStoreAddedListener(listener: GraphStoreAddedEventListener): void {
+  static unregisterGraphStoreAddedListener(
+    listener: GraphStoreAddedEventListener
+  ): void {
     this.graphStoreAddedEventListeners.delete(listener);
   }
 
-  static registerGraphStoreRemovedListener(listener: GraphStoreRemovedEventListener): void {
+  static registerGraphStoreRemovedListener(
+    listener: GraphStoreRemovedEventListener
+  ): void {
     this.graphStoreRemovedEventListeners.add(listener);
   }
 
-  static unregisterGraphStoreRemovedListener(listener: GraphStoreRemovedEventListener): void {
+  static unregisterGraphStoreRemovedListener(
+    listener: GraphStoreRemovedEventListener
+  ): void {
     this.graphStoreRemovedEventListeners.delete(listener);
   }
 
@@ -45,16 +61,25 @@ export class GraphStoreCatalog {
     this.log = logger;
   }
 
-  static get(request: CatalogRequest, graphName: string): GraphStoreCatalogEntry {
+  static get(
+    request: CatalogRequest,
+    graphName: string
+  ): GraphStoreCatalogEntry {
     const userCatalogKey = UserCatalogKey.of(request.databaseName(), graphName);
     const ownCatalog = this.getUserCatalog(request.username());
 
-    const maybeGraph = ownCatalog.get(userCatalogKey, request.restrictSearchToUsernameCatalog());
+    const maybeGraph = ownCatalog.get(
+      userCatalogKey,
+      request.restrictSearchToUsernameCatalog()
+    );
     if (maybeGraph !== null) {
       return maybeGraph;
     }
 
-    const usersWithMatchingGraphs: Array<{ username: string; entry: GraphStoreCatalogEntry }> = [];
+    const usersWithMatchingGraphs: Array<{
+      username: string;
+      entry: GraphStoreCatalogEntry;
+    }> = [];
 
     for (const [username, userCatalog] of this.userCatalogs) {
       const graph = userCatalog.get(userCatalogKey, false);
@@ -72,7 +97,7 @@ export class GraphStoreCatalog {
     }
 
     const usernames = join(
-      new Set(usersWithMatchingGraphs.map(entry => entry.username))
+      new Set(usersWithMatchingGraphs.map((entry) => entry.username))
     );
 
     throw new Error(
@@ -121,7 +146,11 @@ export class GraphStoreCatalog {
 
     if (usersWithMatchingGraphs.size === 1) {
       const username = usersWithMatchingGraphs.values().next().value;
-      this.getUserCatalog(username).remove(userCatalogKey, removedGraphConsumer, failOnMissing);
+      this.getUserCatalog(username).remove(
+        userCatalogKey,
+        removedGraphConsumer,
+        failOnMissing
+      );
     }
   }
 
@@ -133,7 +162,10 @@ export class GraphStoreCatalog {
     }
 
     userCatalog.set(
-      UserCatalogKey.of(graphStore.databaseInfo().databaseId(), config.graphName()),
+      UserCatalogKey.of(
+        graphStore.databaseInfo().databaseId(),
+        config.graphName()
+      ),
       config,
       graphStore
     );
@@ -141,26 +173,40 @@ export class GraphStoreCatalog {
     // Fire addition events
     for (const listener of this.graphStoreAddedEventListeners) {
       ExceptionUtil.safeRunWithLogException(
-        () => `Could not call listener ${listener} on setting the graph ${config.graphName()}`,
-        () => listener.onGraphStoreAdded(
-          new GraphStoreAddedEvent(
-            config.username(),
-            graphStore.databaseInfo().databaseId().databaseName(),
-            config.graphName(),
-            MemoryUsage.sizeOf(graphStore)
-          )
-        ),
+        () =>
+          `Could not call listener ${listener} on setting the graph ${config.graphName()}`,
+        () =>
+          listener.onGraphStoreAdded(
+            new GraphStoreAddedEvent(
+              config.username(),
+              graphStore.databaseInfo().databaseId().databaseName(),
+              config.graphName(),
+              MemoryUsage.sizeOf(graphStore)
+            )
+          ),
         this.log?.warn || (() => {})
       );
     }
   }
 
-  static exists(username: string, databaseName: string, graphName: string): boolean {
-    return this.getUserCatalog(username).exists(UserCatalogKey.of(databaseName, graphName));
+  static exists(
+    username: string,
+    databaseName: string,
+    graphName: string
+  ): boolean {
+    return this.getUserCatalog(username).exists(
+      UserCatalogKey.of(databaseName, graphName)
+    );
   }
 
-  static existsWithDatabaseId(username: string, databaseId: DatabaseId, graphName: string): boolean {
-    return this.getUserCatalog(username).exists(UserCatalogKey.of(databaseId, graphName));
+  static existsWithDatabaseId(
+    username: string,
+    databaseId: DatabaseId,
+    graphName: string
+  ): boolean {
+    return this.getUserCatalog(username).exists(
+      UserCatalogKey.of(databaseId, graphName)
+    );
   }
 
   static graphStoreCount(): number {
@@ -227,7 +273,10 @@ export class GraphStoreCatalog {
     return this.getUserCatalog(username).getGraphStores();
   }
 
-  static getGraphStoresForUserAndDatabase(username: string, databaseId: DatabaseId): GraphStoreCatalogEntry[] {
+  static getGraphStoresForUserAndDatabase(
+    username: string,
+    databaseId: DatabaseId
+  ): GraphStoreCatalogEntry[] {
     return this.getUserCatalog(username).getGraphStores(databaseId);
   }
 
@@ -247,11 +296,19 @@ export class GraphStoreCatalog {
   }
 
   // Test-only methods
-  static getTestOnly(username: string, databaseId: DatabaseId, graphName: string): GraphStoreCatalogEntry {
+  static getTestOnly(
+    username: string,
+    databaseId: DatabaseId,
+    graphName: string
+  ): GraphStoreCatalogEntry {
     return this.get(CatalogRequest.of(username, databaseId), graphName);
   }
 
-  static getTestOnlyWithDatabaseName(username: string, databaseName: string, graphName: string): GraphStoreCatalogEntry {
+  static getTestOnlyWithDatabaseName(
+    username: string,
+    databaseName: string,
+    graphName: string
+  ): GraphStoreCatalogEntry {
     return this.get(CatalogRequest.of(username, databaseName), graphName);
   }
 }
@@ -260,11 +317,18 @@ class UserCatalog {
   static readonly EMPTY = new UserCatalog();
 
   readonly graphsByName = new Map<UserCatalogKey, GraphStoreCatalogEntry>();
-  private readonly degreeDistributionByName = new Map<UserCatalogKey, Map<string, any>>();
+  private readonly degreeDistributionByName = new Map<
+    UserCatalogKey,
+    Map<string, any>
+  >();
 
-  set(userCatalogKey: UserCatalogKey, config: GraphProjectConfig, graphStore: GraphStore): void {
+  set(
+    userCatalogKey: UserCatalogKey,
+    config: GraphProjectConfig,
+    graphStore: GraphStore
+  ): void {
     if (!config.graphName() || !graphStore) {
-      throw new Error('Both name and graph store must be not null');
+      throw new Error("Both name and graph store must be not null");
     }
 
     if (this.graphsByName.has(userCatalogKey)) {
@@ -280,7 +344,10 @@ class UserCatalog {
     this.graphsByName.set(userCatalogKey, graphStoreCatalogEntry);
   }
 
-  get(userCatalogKey: UserCatalogKey, failOnMissing: boolean): GraphStoreCatalogEntry | null {
+  get(
+    userCatalogKey: UserCatalogKey,
+    failOnMissing: boolean
+  ): GraphStoreCatalogEntry | null {
     const graphStoreWithConfig = this.graphsByName.get(userCatalogKey);
 
     if (!graphStoreWithConfig && failOnMissing) {
@@ -311,18 +378,28 @@ class UserCatalog {
 
     if (removed) {
       // Fire removal events
-      for (const listener of GraphStoreCatalog['graphStoreRemovedEventListeners']) {
+      for (const listener of GraphStoreCatalog[
+        "graphStoreRemovedEventListeners"
+      ]) {
         ExceptionUtil.safeRunWithLogException(
-          () => `Could not call listener ${listener} on removing the graph ${graphStoreWithConfig.config().graphName()}`,
-          () => listener.onGraphStoreRemoved(
-            new GraphStoreRemovedEvent(
-              graphStoreWithConfig.config().username(),
-              graphStoreWithConfig.graphStore().databaseInfo().databaseId().databaseName(),
-              graphStoreWithConfig.config().graphName(),
-              MemoryUsage.sizeOf(graphStoreWithConfig.graphStore())
-            )
-          ),
-          GraphStoreCatalog['log']?.warn || (() => {})
+          () =>
+            `Could not call listener ${listener} on removing the graph ${graphStoreWithConfig
+              .config()
+              .graphName()}`,
+          () =>
+            listener.onGraphStoreRemoved(
+              new GraphStoreRemovedEvent(
+                graphStoreWithConfig.config().username(),
+                graphStoreWithConfig
+                  .graphStore()
+                  .databaseInfo()
+                  .databaseId()
+                  .databaseName(),
+                graphStoreWithConfig.config().graphName(),
+                MemoryUsage.sizeOf(graphStoreWithConfig.graphStore())
+              )
+            ),
+          GraphStoreCatalog["log"]?.warn || (() => {})
         );
       }
     }
@@ -330,9 +407,12 @@ class UserCatalog {
     return removed;
   }
 
-  setDegreeDistribution(userCatalogKey: UserCatalogKey, degreeDistribution: Map<string, any>): void {
+  setDegreeDistribution(
+    userCatalogKey: UserCatalogKey,
+    degreeDistribution: Map<string, any>
+  ): void {
     if (!userCatalogKey || !degreeDistribution) {
-      throw new Error('Both name and degreeDistribution must be not null');
+      throw new Error("Both name and degreeDistribution must be not null");
     }
 
     if (!this.graphsByName.has(userCatalogKey)) {
@@ -344,7 +424,9 @@ class UserCatalog {
     this.degreeDistributionByName.set(userCatalogKey, degreeDistribution);
   }
 
-  getDegreeDistribution(userCatalogKey: UserCatalogKey): Map<string, any> | undefined {
+  getDegreeDistribution(
+    userCatalogKey: UserCatalogKey
+  ): Map<string, any> | undefined {
     if (!this.graphsByName.has(userCatalogKey)) {
       return undefined;
     }
@@ -366,8 +448,10 @@ class UserCatalog {
   }
 
   streamGraphStores(username: string): GraphStoreCatalogEntryWithUsername[] {
-    return Array.from(this.graphsByName.values())
-      .map(catalogEntry => new GraphStoreCatalogEntryWithUsername(catalogEntry, username));
+    return Array.from(this.graphsByName.values()).map(
+      (catalogEntry) =>
+        new GraphStoreCatalogEntryWithUsername(catalogEntry, username)
+    );
   }
 }
 

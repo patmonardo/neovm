@@ -1,6 +1,0 @@
-user_001,alice_dev,alice@example.com,28,true,1250,Full-stack developer passionate about graph databases,User
-user_002,bob_data,bob@company.com,34,true,890,Data scientist working on ML and graph analytics,User
-user_003,charlie_design,charlie@design.com,26,false,340,UX designer creating beautiful interfaces,User
-user_004,diana_pm,diana@startup.com,31,true,675,Product manager building the future of social networks,User
-user_005,eve_researcher,eve@university.edu,29,true,2100,PhD researcher in distributed systems and graph theory,User
-user_006,frank_junior,frank@newbie.com,22,false,45,Junior developer learning TypeScript and graph databases,User

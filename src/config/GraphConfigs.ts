@@ -44,12 +44,6 @@ export interface RandomGraphGeneratorConfig {
   inverseIndex: boolean;
 }
 
-export interface GraphCatalogConfig {
-  graphName: string;
-  nodeProjection: string | string[];
-  relationshipProjection: string | string[];
-}
-
 // Add your PropertyConfig interface
 export interface PropertyConfig extends BaseConfig {
   propertyKey: string;
@@ -78,8 +72,8 @@ export interface NodesBuilderConfig
 export interface RelationshipsBuilderConfig
   extends AlgoBaseConfig,
     BuilderConfig {
-  nodes: PartialIdMap;
-  relationshipType: RelationshipType;
+  nodes?: PartialIdMap;
+  relationshipType?: RelationshipType;
   orientation: Orientation;
   propertyConfigs: PropertyConfig[];
   aggregation: Aggregation;

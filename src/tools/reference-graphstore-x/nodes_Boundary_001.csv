@@ -1,1 +1,0 @@
-boundary_001,"This is a very long text value that tests the system's ability to handle lengthy string content without truncation or parsing errors. It includes special characters: @#$%^&*()_+-={}[]|\:;""'<>?,./ and unicode: 测试 🚀 💯 ⚡",9223372036854775807,1.7976931348623157e+308,Boundary

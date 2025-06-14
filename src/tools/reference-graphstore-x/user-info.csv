@@ -1,5 +1,0 @@
-userName,email,role,permissions,lastLogin,preferences
-test_user_social_network,test@example.com,admin,read_write,2024-01-01,theme=dark
-alice_developer,alice@dev.com,developer,read_write,2024-01-02,theme=light
-bob_analyst,bob@analytics.com,analyst,read_only,2024-01-03,theme=auto
-charlie_viewer,charlie@view.com,viewer,read_only,2024-01-04,theme=light

@@ -1,7 +1,7 @@
-import { GraphLoaderContext } from '../api/GraphLoaderContext';
-import { User } from '../api/User';
+import { GraphLoaderContext } from '../../api/GraphLoaderContext';
+import { User } from '../../api/User';
 import { GraphProjectConfig } from '../config/GraphProjectConfig';
-import { GraphStoreFactorySupplier } from '../core/GraphStoreFactorySupplier';
+import { GraphStoreFactorySupplier } from '../../core/GraphStoreFactorySupplier';
 import { GraphMemoryEstimation } from './GraphMemoryEstimation';
 
 /**
@@ -12,7 +12,7 @@ export class DatabaseGraphStoreEstimationService {
    * Context for loading graphs from the database.
    */
   private readonly graphLoaderContext: GraphLoaderContext;
-  
+
   /**
    * User requesting the estimation.
    */
@@ -20,7 +20,7 @@ export class DatabaseGraphStoreEstimationService {
 
   /**
    * Creates a new DatabaseGraphStoreEstimationService.
-   * 
+   *
    * @param graphLoaderContext The graph loader context
    * @param user The user requesting the estimation
    */
@@ -31,7 +31,7 @@ export class DatabaseGraphStoreEstimationService {
 
   /**
    * Estimates memory usage for a graph projection.
-   * 
+   *
    * @param graphProjectConfig The graph projection configuration
    * @returns Memory estimation for the graph
    */
