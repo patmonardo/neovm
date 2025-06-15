@@ -58,7 +58,7 @@ export interface NodePropertyValues extends PropertyValues {
    * @param nodeId The node ID
    * @returns The object value, or null if the node has no value
    */
-  getObject(nodeId: number): any | undefined;
+  getObject(nodeId: number): any | null;
 
   /**
    * Returns the number of nodes that have property values.

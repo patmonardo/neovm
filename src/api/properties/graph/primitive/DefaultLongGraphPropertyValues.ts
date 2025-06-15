@@ -6,7 +6,7 @@ import { LongGraphPropertyValues } from "../abstract/LongGraphPropertyValues";
 /**
  * Implementation of LongGraphPropertyValues.
  */
-export class DefLongGraphPropertyValues implements LongGraphPropertyValues {
+export class DefaultLongGraphPropertyValues implements LongGraphPropertyValues {
   private readonly values: number[];
 
   /**

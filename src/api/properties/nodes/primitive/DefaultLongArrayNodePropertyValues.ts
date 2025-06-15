@@ -6,12 +6,15 @@ import { LongArrayNodePropertyValues } from "../abstract/LongArrayNodePropertyVa
 /**
  * Default implementation of LongArrayNodePropertyValues backed by a Map.
  */
-export class DefaultLongArrayNodePropertyValues implements LongArrayNodePropertyValues {
+export class DefaultLongArrayNodePropertyValues
+  implements LongArrayNodePropertyValues
+{
   private readonly data: Map<number, number[]>;
   private readonly defaultValue: number[];
-  private readonly defaults: Omit<
+  // 'dimension' is correctly omitted here as this class provides the specific implementation.
+  public readonly defaults: Omit<
     NodePropertyValues,
-    "nodeCount" | "release" | "hasValue" | "valueType"
+    "nodeCount" | "release" | "hasValue" | "valueType" | "dimension"
   >;
 
   /**
@@ -44,10 +47,7 @@ export class DefaultLongArrayNodePropertyValues implements LongArrayNodeProperty
    * @returns The array value or default if not present
    */
   longArrayValue(nodeId: number): number[] {
-    if (this.data.has(nodeId)) {
-      return this.data.get(nodeId)!;
-    }
-    return this.defaultValue;
+    return this.data.get(nodeId) ?? this.defaultValue;
   }
 
   /**
@@ -98,13 +98,26 @@ export class DefaultLongArrayNodePropertyValues implements LongArrayNodeProperty
     if (this.data.size === 0) {
       return undefined;
     }
-    let max = -Infinity; // Or Number.MIN_SAFE_INTEGER if only positive longs are expected
-    for (const value of this.data.values()) {
-      if (value > max) {
-        max = value;
+    const result = new Array(this.data.size).fill(-Infinity);
+    for (const array of this.data.values()) {
+      for (let i = 0; i < array.length; i++) {
+        result[i] = Math.max(result[i], array[i]);
       }
     }
-    return max;
+    return Math.max(...result);
+  }
+
+  getMaxDoublePropertyValue(): number | undefined {
+    if (this.data.size === 0) {
+      return undefined;
+    }
+    const result = new Array(this.data.size).fill(-Infinity);
+    for (const array of this.data.values()) {
+      for (let i = 0; i < array.length; i++) {
+        result[i] = Math.max(result[i], array[i]);
+      }
+    }
+    return Math.max(...result);
   }
 
   /**

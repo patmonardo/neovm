@@ -1,14 +1,19 @@
-import { NodeLabel, RelationshipType } from "@/projection";
-import { GraphStore, Graph } from "@/api";
-import { User, DatabaseId, GraphName } from "@/api";
+import { NodeLabel } from "@/projection";
+import { RelationshipType } from "@/projection";
+import { GraphStore } from "@/api";
+import { Graph } from "@/api";
+import { User } from "@/api";
+import { DatabaseId } from "@/api";
+import { GraphName } from "@/api";
 import { GraphProjectConfig } from "@/config";
-import { AlgoBaseConfig, BaseConfig } from "@/config";
+import { AlgoBaseConfig } from "@/config";
+import { BaseConfig } from "@/config";
 import { CatalogRequest } from "./CatalogRequest";
 import { PostLoadValidationHook } from "./PostLoadValidationHook";
 import { PostLoadETLHook } from "./PostLoadETLHook";
 import { GraphResources } from "./GraphResources";
-import { GraphStoreCatalogEntry } from "./GraphStoreCatalogEntry";
 import { GraphStoreCatalog } from "./GraphStoreCatalog";
+import { GraphStoreCatalogEntry } from "./GraphStoreCatalogEntry";
 
 /**
  * GRAPH STORE CATALOG SERVICE - COMPLETE IMPLEMENTATION

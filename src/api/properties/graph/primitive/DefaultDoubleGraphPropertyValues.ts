@@ -5,7 +5,7 @@ import { DoubleGraphPropertyValues } from '../abstract/DoubleGraphPropertyValues
 /**
  * Implementation of DoubleGraphPropertyValues.
  */
-export class DefDoubleGraphPropertyValues implements DoubleGraphPropertyValues {
+export class DefaultDoubleGraphPropertyValues implements DoubleGraphPropertyValues {
   private readonly values: number[];
 
   /**

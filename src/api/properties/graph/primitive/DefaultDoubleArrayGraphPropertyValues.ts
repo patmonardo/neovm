@@ -6,7 +6,7 @@ import { DoubleArrayGraphPropertyValues } from "../abstract/DoubleArrayGraphProp
 /**
  * Implementation of DoubleArrayGraphPropertyValues.
  */
-export class DefDoubleArrayGraphPropertyValues
+export class DefaultDoubleArrayGraphPropertyValues
   implements DoubleArrayGraphPropertyValues
 {
   private readonly values: number[][];

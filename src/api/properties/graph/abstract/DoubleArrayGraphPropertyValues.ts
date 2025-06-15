@@ -1,6 +1,6 @@
 import { ValueType } from "@/api/ValueType";
 import { GraphPropertyValues } from "../GraphPropertyValues";
-import { DefDoubleArrayGraphPropertyValues } from "../primitive/DefDoubleArrayGraphPropertyValues";
+import { DefaultDoubleArrayGraphPropertyValues } from "../primitive/DefaultDoubleArrayGraphPropertyValues";
 
 /**
  * Graph property values specifically for arrays of double values.
@@ -66,10 +66,10 @@ export namespace DoubleArrayGraphPropertyValues {
     // Check if we're dealing with a single array or array of arrays
     if (param.length === 0 || !Array.isArray(param[0])) {
       // It's a single array (or empty array), wrap it in another array
-      return new DefDoubleArrayGraphPropertyValues([param as number[]]);
+      return new DefaultDoubleArrayGraphPropertyValues([param as number[]]);
     } else {
       // It's already a 2D array
-      return new DefDoubleArrayGraphPropertyValues(param as number[][]);
+      return new DefaultDoubleArrayGraphPropertyValues(param as number[][]);
     }
   }
 }

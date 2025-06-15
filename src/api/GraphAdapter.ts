@@ -4,15 +4,15 @@ import { PrimitiveLongIterable } from "@/collections";
 import { PrimitiveIterator } from "@/collections";
 import { LongPredicate } from "@/collections";
 import { Concurrency } from "@/concurrency";
-import { GraphSchema } from "./schema";
+import { GraphSchema } from "@/api/schema";
+import { NodePropertyValues } from "@/api/properties";
+import { RelationshipCursor } from "@/api/properties";
+import { RelationshipConsumer } from "@/api/properties";
+import { RelationshipWithPropertyConsumer } from "@/api/properties";
+import { Graph } from "./Graph";
+import { GraphCharacteristics } from "./GraphCharacteristics";
 import { IdMap } from "./IdMap";
 import { FilteredIdMap } from "./FilteredIdMap";
-import { NodePropertyValues } from "./properties/nodes";
-import { RelationshipCursor } from "./properties/relationships";
-import { RelationshipConsumer } from "./properties/relationships";
-import { RelationshipWithPropertyConsumer } from "./properties/relationships";
-import { GraphCharacteristics } from "./GraphCharacteristics";
-import { Graph } from "./Graph";
 
 export abstract class GraphAdapter implements Graph {
   protected readonly graph: Graph;

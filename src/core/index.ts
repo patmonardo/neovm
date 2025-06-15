@@ -1,5 +1,4 @@
 export * from "./Aggregation";
-export * from "./ConfigKeyValidation";
 export * from "./CypherMapAccess";
 export * from "./CypherMapWrapper";
 export * from "./DimensionsMap";

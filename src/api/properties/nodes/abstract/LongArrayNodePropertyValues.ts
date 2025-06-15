@@ -1,5 +1,6 @@
-import { ValueType } from '@/api/ValueType';
+import { ValueType } from '@/api';
 import { NodePropertyValues } from '../NodePropertyValues';
+
 /**
  * Represents node property values that are arrays of longs (64-bit integers).
  * Extends the base NodePropertyValues interface.

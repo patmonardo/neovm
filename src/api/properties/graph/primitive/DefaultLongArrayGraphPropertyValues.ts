@@ -5,7 +5,7 @@ import { LongArrayGraphPropertyValues } from "../abstract/LongArrayGraphProperty
 /**
  * Implementation of LongArrayGraphPropertyValues.
  */
-export class DefLongArrayGraphPropertyValues
+export class DefaultLongArrayGraphPropertyValues
   implements LongArrayGraphPropertyValues
 {
   private readonly values: number[][];

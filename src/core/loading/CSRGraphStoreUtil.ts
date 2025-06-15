@@ -1,3 +1,28 @@
+import { RelationshipType } from "@/projection";
+import { ValueType } from "@/api";
+import { DatabaseId } from "@/api";
+import { DatabaseInfo } from "@/api";
+import { DatabaseLocation } from "@/api";
+import { Graph } from "@/api";
+import { HugeGraph } from "@/core/huge";
+import { GraphPropertyStore } from "@/api/properties";
+import { NodeProperty } from "@/api/properties";
+import { NodePropertyStore } from "@/api/properties";
+import { RelationshipProperty } from "@/api/properties";
+import { RelationshipPropertyStore } from "@/api/properties";
+import { Properties } from "@/api/properties";
+import { MutableGraphSchema } from "@/api/schema";
+import { Concurrency } from "@/concurrency";
+import { GraphStoreBuilder } from "./GraphStoreBuilder";
+import { CSRGraphStore } from "./CSRGraphStore";
+import { RelationshipImportResult } from "./RelationshipImportResult";
+import { SingleTypeRelationships } from "./SingleTypeRelationships";
+import { Nodes } from "./Nodes";
+import { StaticCapabilities } from "./StaticCapabilities";
+import { WriteMode } from "./Capabilities";
+import { join } from "@/utils";
+import { formatWithLocale } from "@/utils";
+
 /**
  * CSR GRAPH STORE UTIL - GRAPH FORMAT CONVERSION UTILITIES
  *
@@ -10,34 +35,8 @@
  * 📊 PROPERTY MAPPING: Transfers node and relationship properties
  * 🔧 STORE CONSTRUCTION: Builds complete graph store with metadata
  */
-
-import { DatabaseId } from "@/api";
-import { Graph, HugeGraph } from "@/api";
-import { RelationshipType } from "@/projection";
-import { ImmutableDatabaseInfo, DatabaseLocation } from "@/api";
-import { NodeProperty, NodePropertyStore } from "@/api/properties/nodes";
-import {
-  RelationshipProperty,
-  RelationshipPropertyStore,
-  Properties,
-} from "@/api/properties/relationships";
-import { GraphPropertyStore } from "@/api/properties/graph";
-import { MutableGraphSchema } from "@/api/schema";
-import { ValueType } from "@/api";
-import { Concurrency } from "@/core/concurrency";
-import { CSRGraphStore } from "./CSRGraphStore";
-import { GraphStoreBuilder } from "./GraphStoreBuilder";
-import { RelationshipImportResult } from "./RelationshipImportResult";
-import { SingleTypeRelationships } from "./SingleTypeRelationships";
-import { ImmutableNodes } from "./ImmutableNodes";
-import { ImmutableStaticCapabilities } from "./ImmutableStaticCapabilities";
-import { WriteMode } from "./Capabilities";
-import { join } from "@/utils";
-import { formatWithLocale } from "@/utils";
-
 export class CSRGraphStoreUtil {
-  private constructor() {
-  }
+  private constructor() {}
 
   /**
    * Create a CSRGraphStore from an existing HugeGraph.
@@ -105,7 +104,7 @@ export class CSRGraphStoreUtil {
 
     if (relationshipSchema.availableTypes().size === 0) {
       // No relationships - empty import result
-      relationshipImportResult = RelationshipImportResult.builder().build();
+      relationshipImportResult = RelationshipImportResult.of(re);
     } else {
       // Single relationship type - convert properties and topology
       const relationshipType = relationshipSchema
@@ -116,7 +115,7 @@ export class CSRGraphStoreUtil {
       const relationshipProperties =
         CSRGraphStoreUtil.constructRelationshipPropertiesFromGraph(
           graph,
-          relationshipType,
+          relationshipType!,
           relationshipPropertyKey,
           graph.relationshipProperties()
         );
@@ -125,8 +124,8 @@ export class CSRGraphStoreUtil {
         .putImportResult(
           relationshipType,
           SingleTypeRelationships.builder()
-            .relationshipSchemaEntry(relationshipSchema.get(relationshipType))
-            .topology(graph.relationshipTopology())
+            // .relationshipSchemaEntry(relationshipSchema.get(relationshipType!))
+            //   .topology(graph.relationshipTopology())
             .properties(relationshipProperties)
             .build()
         )
@@ -134,19 +133,14 @@ export class CSRGraphStoreUtil {
     }
 
     // Build database metadata
-    const databaseInfo = ImmutableDatabaseInfo.builder()
-      .databaseId(databaseId)
-      .databaseLocation(DatabaseLocation.LOCAL)
-      .build();
+    const databaseInfo = DatabaseInfo.of(databaseId, DatabaseLocation.LOCAL);
 
     // Construct complete CSRGraphStore
     return new GraphStoreBuilder()
       .databaseInfo(databaseInfo)
-      .capabilities(ImmutableStaticCapabilities.of(WriteMode.NONE)) // Read-only for generated graphs
+      .capabilities(StaticCapabilities.of(WriteMode.NONE))
       .schema(schema)
-      .nodes(
-        ImmutableNodes.of(schema.nodeSchema(), graph.idMap(), nodeProperties)
-      )
+      .nodes(Nodes.of(schema.nodeSchema(), graph.idMap(), nodeProperties))
       .relationshipImportResult(relationshipImportResult)
       .graphProperties(GraphPropertyStore.empty())
       .concurrency(concurrency)
@@ -220,9 +214,9 @@ export class CSRGraphStoreUtil {
 
     // Get relationship property schemas for validation
     const relationshipPropertySchemas = graph
-      .schema()
-      .relationshipSchema()
-      .get(relationshipType)
+      .schema()!
+      .relationshipSchema()!
+      .get(relationshipType)!
       .properties();
 
     // Validate exactly one property schema exists
@@ -247,12 +241,12 @@ export class CSRGraphStoreUtil {
         RelationshipProperty.of(
           relationshipPropertyKey,
           ValueType.DOUBLE,
-          relationshipPropertySchema.state(),
+          relationshipPropertySchema!.state(),
           relationshipProperties,
-          relationshipPropertySchema.defaultValue().isUserDefined()
-            ? relationshipPropertySchema.defaultValue()
-            : ValueType.DOUBLE.fallbackValue(),
-          relationshipPropertySchema.aggregation()
+          relationshipPropertySchema!.defaultValue().isUserDefined()
+            ? relationshipPropertySchema!.defaultValue()
+            : ValueType.fallbackValue(ValueType.DOUBLE),
+          relationshipPropertySchema!.aggregation()
         )
       )
       .build();

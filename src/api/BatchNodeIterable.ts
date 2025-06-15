@@ -1,5 +1,5 @@
-import { PrimitiveIterator } from "@/collections";
 import { PrimitiveLongIterable } from "@/collections";
+import { PrimitiveIterator } from "@/collections";
 
 /**
  * Interface for iterating over node IDs in batches.

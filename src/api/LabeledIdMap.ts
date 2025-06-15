@@ -1,7 +1,7 @@
 import { NodeLabel } from "@/projection";
 import { PrimitiveIterator } from "@/collections";
 import { PrimitiveLongIterable } from "@/collections";
-import { LabelInformation } from "@/core/loading/LabelInformation";
+import { LabelInformation } from "@/core/loading";
 import { BatchNodeIterable } from "./BatchNodeIterable";
 import { IdMap } from "./IdMap";
 

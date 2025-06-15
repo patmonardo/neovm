@@ -815,6 +815,7 @@ export class CSRGraphStore implements GraphStore {
     // This should return a graph with all node labels and relationship types
     return this.getGraph(this.nodeLabels(), this.relationshipTypes());
   }
+
   /**
    * Returns a composite relationship iterator.
    * DELEGATION: Creates iterator from relationship type and properties.

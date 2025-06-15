@@ -1,9 +1,7 @@
 import { ValueType } from "@/api";
 import { DefaultValue } from "@/api";
-import {
-  NodePropertyValues,
-  UnsupportedOperationError,
-} from "../NodePropertyValues";
+import { NodePropertyValues } from "../NodePropertyValues";
+import { UnsupportedOperationError } from "../NodePropertyValues";
 import { DoubleNodePropertyValues } from "../abstract/DoubleNodePropertyValues";
 
 export class DefaultDoubleNodePropertyValues implements DoubleNodePropertyValues {

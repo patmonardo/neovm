@@ -1,7 +1,7 @@
-import { ValueType } from '@/api';
-import { DefaultValue } from '@/api';
-import { NodePropertyValues } from '../NodePropertyValues';
-import { LongNodePropertyValues } from '../abstract/LongNodePropertyValues';
+import { ValueType } from "@/api";
+import { DefaultValue } from "@/api";
+import { NodePropertyValues } from "../NodePropertyValues";
+import { LongNodePropertyValues } from "../abstract/LongNodePropertyValues";
 
 export class DefaultLongNodePropertyValues implements LongNodePropertyValues {
   private readonly data: Map<number, number>;

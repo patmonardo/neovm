@@ -5,7 +5,7 @@ import { FloatArrayGraphPropertyValues } from '../abstract/FloatArrayGraphProper
 /**
  * Implementation of FloatArrayGraphPropertyValues.
  */
-export class DefFloatArrayGraphPropertyValues
+export class DefaultFloatArrayGraphPropertyValues
   implements FloatArrayGraphPropertyValues
 {
   private readonly values: number[][];

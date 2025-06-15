@@ -1,28 +1,24 @@
+import { DatabaseId } from "@/api";
+import { GraphStore } from "@/api";
+import { EphemeralResultStore } from "@/api";
+import { GraphProjectConfig } from "@/config";
+import { MemoryUsage } from "@/mem";
+import { ExceptionUtil } from "@/utils";
+import { GraphStoreAddedEvent } from "@/api/graph";
+import { GraphStoreAddedEventListener } from "@/api/graph";
+import { GraphStoreRemovedEvent } from "@/api/graph";
+import { GraphStoreRemovedEventListener } from "@/api/graph";
+import { GraphNotFoundException } from "./GraphNotFoundException";
+import { GraphStoreCatalogEntry } from "./GraphStoreCatalogEntry";
+import { CatalogRequest } from "./CatalogRequest";
+import { join } from "@/utils";
+import { Log } from "@/utils";
+
 /**
  * GRAPH STORE CATALOG - CENTRAL GRAPH REGISTRY
  *
  * Static catalog for managing graph stores across users and databases.
  */
-
-import { DatabaseId, GraphStore } from "@/api";
-import { EphemeralResultStore } from "@/api";
-import { GraphProjectConfig } from "@/config";
-import { GraphStoreCatalogEntry } from "./GraphStoreCatalogEntry";
-import { MemoryUsage } from "@/mem";
-import { join } from "@/utils";
-import { ExceptionUtil } from "@/utils/ExceptionUtil";
-import {
-  GraphStoreAddedEvent,
-  GraphStoreAddedEventListener,
-} from "@/api/graph";
-import {
-  GraphStoreRemovedEvent,
-  GraphStoreRemovedEventListener,
-} from "@/api/graph";
-import { GraphNotFoundException } from "./GraphNotFoundException";
-import { CatalogRequest } from "./CatalogRequest";
-import { Log } from "@/utils";
-
 export class GraphStoreCatalog {
   private static readonly userCatalogs = new Map<string, UserCatalog>();
   private static readonly graphStoreAddedEventListeners =
@@ -155,16 +151,16 @@ export class GraphStoreCatalog {
   }
 
   static set(config: GraphProjectConfig, graphStore: GraphStore): void {
-    let userCatalog = this.userCatalogs.get(config.username());
+    let userCatalog = this.userCatalogs.get(config.username);
     if (!userCatalog) {
       userCatalog = new UserCatalog();
-      this.userCatalogs.set(config.username(), userCatalog);
+      this.userCatalogs.set(config.username, userCatalog);
     }
 
     userCatalog.set(
       UserCatalogKey.of(
         graphStore.databaseInfo().databaseId(),
-        config.graphName()
+        config.graphName
       ),
       config,
       graphStore
@@ -174,13 +170,13 @@ export class GraphStoreCatalog {
     for (const listener of this.graphStoreAddedEventListeners) {
       ExceptionUtil.safeRunWithLogException(
         () =>
-          `Could not call listener ${listener} on setting the graph ${config.graphName()}`,
+          `Could not call listener ${listener} on setting the graph ${config.graphName}`,
         () =>
           listener.onGraphStoreAdded(
             new GraphStoreAddedEvent(
-              config.username(),
+              "User",
               graphStore.databaseInfo().databaseId().databaseName(),
-              config.graphName(),
+              config.graphName,
               MemoryUsage.sizeOf(graphStore)
             )
           ),
@@ -327,12 +323,12 @@ class UserCatalog {
     config: GraphProjectConfig,
     graphStore: GraphStore
   ): void {
-    if (!config.graphName() || !graphStore) {
+    if (!config.graphName || !graphStore) {
       throw new Error("Both name and graph store must be not null");
     }
 
     if (this.graphsByName.has(userCatalogKey)) {
-      throw new Error(`Graph name ${config.graphName()} already loaded`);
+      throw new Error(`Graph name ${config.graphName} already loaded`);
     }
 
     const graphStoreCatalogEntry = new GraphStoreCatalogEntry(
@@ -396,7 +392,7 @@ class UserCatalog {
                   .databaseId()
                   .databaseName(),
                 graphStoreWithConfig.config().graphName(),
-                MemoryUsage.sizeOf(graphStoreWithConfig.graphStore())
+                MemoryUsage.sizeOf(graphStoreWithConfig.graphStore)
               )
             ),
           GraphStoreCatalog["log"]?.warn || (() => {})
@@ -437,11 +433,10 @@ class UserCatalog {
     this.degreeDistributionByName.delete(userCatalogKey);
   }
 
-  getGraphStores(): GraphStoreCatalogEntry[] {
-    return Array.from(this.graphsByName.values());
-  }
-
-  getGraphStores(databaseId: DatabaseId): GraphStoreCatalogEntry[] {
+  getGraphStores(databaseId?: DatabaseId): GraphStoreCatalogEntry[] {
+    if (databaseId === undefined) {
+      return Array.from(this.graphsByName.values());
+    }
     return Array.from(this.graphsByName.entries())
       .filter(([key]) => key.databaseName() === databaseId.databaseName())
       .map(([, entry]) => entry);

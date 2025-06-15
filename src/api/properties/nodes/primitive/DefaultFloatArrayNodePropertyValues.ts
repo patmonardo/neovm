@@ -111,38 +111,6 @@ export class DefaultFloatArrayNodePropertyValues implements FloatArrayNodeProper
   }
 
   /**
-   * Returns the maximum float array value across all nodes.
-   * For arrays, this returns the array with the largest value at any position.
-   */
-  getMaxFloatArrayPropertyValue(): Float32Array | undefined {
-    if (this.data.size === 0) {
-      return undefined;
-    }
-
-    // Find the maximum length of any array
-    let maxLength = 0;
-    for (const array of this.data.values()) {
-      maxLength = Math.max(maxLength, array.length);
-    }
-
-    if (maxLength === 0) {
-      return new Float32Array(0);
-    }
-
-    // For each position, find the maximum value
-    const result = new Float32Array(maxLength);
-    result.fill(-Infinity);
-
-    for (const array of this.data.values()) {
-      for (let i = 0; i < array.length; i++) {
-        result[i] = Math.max(result[i], array[i]);
-      }
-    }
-
-    return result;
-  }
-
-  /**
    * Converts to long array by converting each float element to a long.
    */
   longArrayValue(nodeId: number): number[] {
@@ -163,7 +131,7 @@ export class DefaultFloatArrayNodePropertyValues implements FloatArrayNodeProper
    * Cannot convert array to scalar float.
    */
   floatValue(nodeId: number): number {
-    return this.defaults.floatValue!(nodeId);
+    return this.defaults.doubleValue!(nodeId);
   }
 
   /**
@@ -181,17 +149,10 @@ export class DefaultFloatArrayNodePropertyValues implements FloatArrayNodeProper
   }
 
   /**
-   * Cannot convert array to boolean.
-   */
-  booleanValue(nodeId: number): boolean {
-    return this.defaults.booleanValue!(nodeId);
-  }
-
-  /**
    * Not applicable for float arrays.
    */
   getMaxFloatPropertyValue(): number | undefined {
-    return this.defaults.getMaxFloatPropertyValue?.();
+    return this.defaults.getMaxDoublePropertyValue?.();
   }
 
   /**
@@ -208,22 +169,4 @@ export class DefaultFloatArrayNodePropertyValues implements FloatArrayNodeProper
     return this.defaults.getMaxLongPropertyValue!();
   }
 
-  /**
-   * Not applicable for float arrays.
-   */
-  getMaxBooleanPropertyValue(): boolean | undefined {
-    return this.defaults.getMaxBooleanPropertyValue?.();
-  }
-  /**
-   * Not applicable for float arrays.
-   */
-  getMaxStringPropertyValue(): string | undefined {
-    return this.defaults.getMaxStringPropertyValue?.();
-  }
-  /**
-   * Not applicable for float arrays.
-   */
-  getMaxFloatArrayPropertyValue(): Float32Array | undefined {
-    return this.defaults.getMaxFloatArrayPropertyValue?.();
-  }
 }

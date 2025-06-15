@@ -30,7 +30,7 @@ export class DefaultDoubleArrayNodePropertyValues
       (typeof customDefault === 'number' && typeof customDefault !== 'string')) {
       this.defaultValue = new Float64Array(customDefault as ArrayLike<number>);
     } else {
-      this.defaultValue = customDefaultValue!.doubleArrayValue();
+      this.defaultValue = customDefaultValue!.doubleArrayValue()!;
     }
 
     this.defaults = NodePropertyValues.withDefaultsForType(() => this.valueType());
@@ -47,7 +47,7 @@ export class DefaultDoubleArrayNodePropertyValues
 
   floatArrayValue(nodeId: number): Float32Array {
     const doubleArr = this.doubleArrayValue(nodeId);
-    return doubleArr ? new Float32Array(doubleArr);
+    return doubleArr ? new Float32Array(doubleArr) : new Float32Array(0);
   }
 
   getObject(nodeId: number): Float64Array | undefined {

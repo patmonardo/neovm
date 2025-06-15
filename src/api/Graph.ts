@@ -1,9 +1,9 @@
 import { RelationshipType } from "@/projection";
-import { NodePropertyContainer } from "./properties/nodes";
-import { RelationshipIterator } from "./properties/relationships";
-import { RelationshipProperties } from "./properties/relationships";
-import { RelationshipConsumer } from "./properties/relationships";
-import { GraphSchema } from "./schema";
+import { GraphSchema } from "@/api/schema";
+import { NodePropertyContainer } from "@/api/properties";
+import { RelationshipProperties } from "@/api/properties";
+import { RelationshipIterator } from "@/api/properties";
+import { RelationshipConsumer } from "@/api/properties";
 import { GraphCharacteristics } from "./GraphCharacteristics";
 import { IdMap } from "./IdMap";
 import { FilteredIdMap } from "./FilteredIdMap";
