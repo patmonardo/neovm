@@ -6,5 +6,5 @@ export * from  "./CompositeAdjacencyCursor";
 export * from  "./NodeFilteredAdjacencyCursor";
 export * from  "./FilteredNodePropertyValues";
 export * from  "./HugeGraph";
-export * from  "./NodeFilteredGraph";
+// export * from  "./NodeFilteredGraph";
 export * from  "./UnionGraph";

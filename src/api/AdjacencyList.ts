@@ -80,26 +80,18 @@ export interface AdjacencyList {
  */
 export namespace AdjacencyList {
   /**
-   * An empty adjacency list implementation.
+   * An empty adjacency list implementation - USES EXISTING EMPTY CURSOR!
    */
   export const EMPTY: AdjacencyList = {
     degree(_node: number): number {
       return 0;
     },
-
-    adjacencyCursor(
-      arg1: number | AdjacencyCursor | null,
-      arg2?: number,
-      arg3?: number
-    ): AdjacencyCursor {
-      // Handles all overloads, always returns empty
+    adjacencyCursor(): AdjacencyCursor {
       return AdjacencyCursor.empty();
     },
-
     rawAdjacencyCursor(): AdjacencyCursor {
       return AdjacencyCursor.empty();
     },
-
     memoryInfo(): MemoryInfo {
       return EMPTY_MEMORY_INFO;
     },

@@ -51,7 +51,7 @@ export * from "./RecordsBatchBuffer";
 export * from "./RecordScannerTask";
 export * from "./RelationshipImportResult";
 // export * from "./RelationshipsBatchBuffer";
-export * from "./SingleTypeRelationships";
+// export * from "./SingleTypeRelationships";
 export * from "./SingleTypeRelationshipImporter";
 // export * from "./ThreadLocalSingleTypeRelationshipImporter";
 export * from "./construction";

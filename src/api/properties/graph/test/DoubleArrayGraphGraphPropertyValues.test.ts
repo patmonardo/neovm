@@ -1,5 +1,5 @@
 import { ValueType } from "@/api/ValueType";
-import { DefDoubleArrayGraphPropertyValues } from "../primitive/DefDoubleArrayGraphPropertyValues";
+import { DefaultDoubleArrayGraphPropertyValues } from "../primitive/DefaultDoubleArrayGraphPropertyValues";
 
 describe("DoubleArrayGraphPropertyValuesImpl", () => {
   test("should store and retrieve array values correctly", () => {
@@ -8,7 +8,7 @@ describe("DoubleArrayGraphPropertyValuesImpl", () => {
       [1.1, 2.2, 3.3],
       [4.4, 5.5, 6.6],
     ];
-    const values = new DefDoubleArrayGraphPropertyValues(arrays);
+    const values = new DefaultDoubleArrayGraphPropertyValues(arrays);
 
     // Check value type
     expect(values.valueType()).toBe(ValueType.DOUBLE_ARRAY);
@@ -32,7 +32,7 @@ describe("DoubleArrayGraphPropertyValuesImpl", () => {
   });
 
   test("should throw for unsupported conversions", () => {
-    const values = new DefDoubleArrayGraphPropertyValues([
+    const values = new DefaultDoubleArrayGraphPropertyValues([
       [1.1, 2.2],
       [3.3, 4.4],
     ]);
@@ -44,7 +44,7 @@ describe("DoubleArrayGraphPropertyValuesImpl", () => {
   });
 
   test("should handle empty values", () => {
-    const emptyValues = new DefDoubleArrayGraphPropertyValues([]);
+    const emptyValues = new DefaultDoubleArrayGraphPropertyValues([]);
     expect(emptyValues.valueCount()).toBe(0);
 
     // Check that iteration works with empty arrays

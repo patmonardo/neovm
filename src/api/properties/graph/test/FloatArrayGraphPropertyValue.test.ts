@@ -1,14 +1,14 @@
 import { ValueType } from "@/api";
-import { DefFloatArrayGraphPropertyValues } from "../primitive/DefFloatArrayGraphPropertyValues";
+import { DefaultFloatArrayGraphPropertyValues } from "../primitive/DefaultFloatArrayGraphPropertyValues";
 
-describe("FloatArrayGraphPropertyValuesImpl", () => {
+describe("DefaultFloatArrayGraphPropertyValues", () => {
   test("should store and retrieve array values correctly", () => {
     // Setup test arrays
     const arrays = [
       [1.1, 2.2, 3.3],
       [4.4, 5.5, 6.6],
     ];
-    const values = new DefFloatArrayGraphPropertyValues(arrays);
+    const values = new DefaultFloatArrayGraphPropertyValues(arrays);
 
     // Check value type
     expect(values.valueType()).toBe(ValueType.FLOAT_ARRAY);
@@ -36,7 +36,7 @@ describe("FloatArrayGraphPropertyValuesImpl", () => {
       [1.1, 2.2],
       [3.3, 4.4],
     ];
-    const values = new DefFloatArrayGraphPropertyValues(arrays);
+    const values = new DefaultFloatArrayGraphPropertyValues(arrays);
 
     const doubleArrays: number[][] = [];
     for (const array of values.doubleArrayValues()) {
@@ -48,7 +48,7 @@ describe("FloatArrayGraphPropertyValuesImpl", () => {
   });
 
   test("should throw for unsupported conversions", () => {
-    const values = new DefFloatArrayGraphPropertyValues([
+    const values = new DefaultFloatArrayGraphPropertyValues([
       [1.1, 2.2],
       [3.3, 4.4],
     ]);
@@ -59,7 +59,7 @@ describe("FloatArrayGraphPropertyValuesImpl", () => {
   });
 
   test("should handle empty values", () => {
-    const emptyValues = new DefFloatArrayGraphPropertyValues([]);
+    const emptyValues = new DefaultFloatArrayGraphPropertyValues([]);
     expect(emptyValues.valueCount()).toBe(0);
 
     const values: number[][] = [];

@@ -1,14 +1,14 @@
-import { ValueType } from "@/api/ValueType";
-import { DefLongArrayGraphPropertyValues } from "../primitive/DefLongArrayGraphPropertyValues";
+import { ValueType } from "@/api";
+import { DefaultLongArrayGraphPropertyValues } from "../primitive/DefaultLongArrayGraphPropertyValues";
 
-describe("LongArrayGraphPropertyValuesImpl", () => {
+describe("LongArrayGraphPropertyValues", () => {
   test("should store and retrieve array values correctly", () => {
     // Setup test arrays
     const arrays = [
       [1, 2, 3],
       [4, 5, 6],
     ];
-    const values = new DefLongArrayGraphPropertyValues(arrays);
+    const values = new DefaultLongArrayGraphPropertyValues(arrays);
 
     // Check value type
     expect(values.valueType()).toBe(ValueType.LONG_ARRAY);
@@ -32,7 +32,7 @@ describe("LongArrayGraphPropertyValuesImpl", () => {
   });
 
   test("should throw for unsupported conversions", () => {
-    const values = new DefLongArrayGraphPropertyValues([
+    const values = new DefaultLongArrayGraphPropertyValues([
       [1, 2],
       [3, 4],
     ]);
@@ -53,7 +53,7 @@ describe("LongArrayGraphPropertyValuesImpl", () => {
   });
 
   test("should handle empty values", () => {
-    const emptyValues = new DefLongArrayGraphPropertyValues([]);
+    const emptyValues = new DefaultLongArrayGraphPropertyValues([]);
     expect(emptyValues.valueCount()).toBe(0);
 
     // Check that iteration works with empty arrays
@@ -65,7 +65,7 @@ describe("LongArrayGraphPropertyValuesImpl", () => {
   });
 
   test("should handle arrays with empty elements", () => {
-    const valuesWithEmpty = new DefLongArrayGraphPropertyValues([
+    const valuesWithEmpty = new DefaultLongArrayGraphPropertyValues([
       [1, 2],
       [],
       [3, 4],

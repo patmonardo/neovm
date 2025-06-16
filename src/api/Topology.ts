@@ -32,21 +32,16 @@ export interface Topology {
  * Namespace containing Topology-related constants and factories.
  */
 export namespace Topology {
-  /**
-   * A topology with no relationships.
-   */
   export const EMPTY: Topology = {
     adjacencyList(): AdjacencyList {
       return AdjacencyList.EMPTY;
     },
-
     elementCount(): number {
       return 0;
     },
-
     isMultiGraph(): boolean {
       return false;
-    }
+    },
   };
 
   /**

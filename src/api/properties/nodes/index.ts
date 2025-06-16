@@ -4,7 +4,6 @@ export * from "./NodePropertyStore";
 export * from "./NodeProperty";
 export * from "./NodePropertyValues";
 export * from "./abstract/LongNodePropertyValues";
-export * from "./abstract/LongNodePropertyValuesAdapter";
 export * from "./abstract/LongArrayNodePropertyValues";
 export * from "./abstract/FilteredNodePropertyValuesMarker";
 export * from "./abstract/DoubleNodePropertyValues";

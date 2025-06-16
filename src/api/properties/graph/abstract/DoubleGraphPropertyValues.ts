@@ -1,6 +1,6 @@
 import { ValueType } from "@/api";
 import { GraphPropertyValues } from "../GraphPropertyValues";
-import { DefDoubleGraphPropertyValues } from "../primitive/DefDoubleGraphPropertyValues";
+import { DefaultDoubleGraphPropertyValues } from "../primitive/DefaultDoubleGraphPropertyValues";
 
 /**
  * Graph property values specifically for Double (floating point) values.
@@ -54,10 +54,10 @@ export namespace DoubleGraphPropertyValues {
   export function of(param: number | number[]): DoubleGraphPropertyValues {
     if (Array.isArray(param)) {
       // It's an array of numbers
-      return new DefDoubleGraphPropertyValues(param);
+      return new DefaultDoubleGraphPropertyValues(param);
     } else {
       // It's a single number
-      return new DefDoubleGraphPropertyValues([param]);
+      return new DefaultDoubleGraphPropertyValues([param]);
     }
   }
 }

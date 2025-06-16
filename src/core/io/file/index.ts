@@ -9,8 +9,6 @@ export * from "./GraphPropertyStoreFromVisitorHelper";
 export * from "./GraphPropertyVisitor";
 export * from "./GraphStoreExporterUtil";
 export * from "./GraphStoreNodeVisitor";
-export * from "./GraphStoreToCsvEstimationConfig";
-export * from "./GraphStoreToFileExporterConfig";
 export * from "./GraphStoreToFileExporterParameters";
 export * from "./GraphStoreToFileExporter";
 export * from "./HeaderProperty";

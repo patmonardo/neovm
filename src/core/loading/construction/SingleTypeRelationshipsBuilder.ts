@@ -1,146 +1,120 @@
-/**
- * SINGLE TYPE RELATIONSHIPS BUILDER - COORDINATION HUB FOR RELATIONSHIP CONSTRUCTION
- *
- * This is the coordination hub that manages the construction of relationships for a single
- * relationship type (e.g., "FRIENDS", "FOLLOWS", "CONNECTED_TO").
- *
- * KEY RESPONSIBILITIES:
- * 🏗️ COORDINATION: Manages the overall relationship building process
- * 🔄 DIRECTION HANDLING: Supports directed (NonIndexed) and undirected (Indexed) relationships
- * 🧵 CONCURRENCY: Orchestrates parallel adjacency list construction
- * 📊 PROPERTY MANAGEMENT: Handles relationship properties and schema building
- * ⚡ COMPRESSION: Optional value compression for memory efficiency
- *
- * TWO STRATEGIES (same as LocalRelationshipsBuilder):
- *
- * 1. NON-INDEXED (Directed): Single importer, one direction only
- *    - Memory efficient: ~50% of indexed
- *    - Use case: Social media follows, web links, dependencies
- *
- * 2. INDEXED (Undirected): Two importers, both directions
- *    - Bidirectional traversal: A↔B stored as both A→B and B→A
- *    - Use case: Friendships, road networks, physical connections
- *
- * SIZE ANALYSIS - WHY TYPESCRIPT IS LARGER:
- * - Java: Immutables library generates builder code automatically
- * - TypeScript: We write all builder interfaces/classes manually
- * - Java: Static inner classes are more compact
- * - TypeScript: More explicit type definitions and interfaces
- * - Java: Less documentation (assumes familiarity)
- * - TypeScript: More comprehensive documentation for clarity
- */
-
-import { RelationshipType } from '@/projection';
-import { PartialIdMap } from '@/api';
-import { Direction } from '@/api/schema';
-import { Concurrency, RunWithConcurrency } from '@/concurrency';
-import {
-  SingleTypeRelationshipImporter,
-  SingleTypeRelationships
-} from '@/core/loading';
-import { LocalRelationshipsBuilder } from './LocalRelationshipsBuilder';
+import { RelationshipType } from "@/projection";
+import { PartialIdMap } from "@/api";
+import { DefaultValue } from "@/api";
+import { ImmutableTopology } from "@/api";
+import { AdjacencyListsWithProperties } from "@/api/compress";
+import { ValueType } from "@/api";
+import { ImmutableProperties } from "@/api/properties/relationships";
+import { ImmutableRelationshipProperty } from "@/api/properties/relationships";
+import { RelationshipPropertyStore } from "@/api/properties/relationships";
+import { Direction } from "@/api/schema";
+import { ImmutableRelationshipPropertySchema } from "@/api/schema";
+import { MutableRelationshipSchemaEntry } from "@/api/schema";
+import { RelationshipPropertySchema } from "@/api/schema";
+import { Concurrency } from "@/concurrency";
+import { RunWithConcurrency } from "@/concurrency";
+import { AdjacencyBuffer } from "@/core/loading";
+import { SingleTypeRelationshipImporter } from "@/core/loading";
+import { SingleTypeRelationships } from "@/core/loading";
+import { LocalRelationshipsBuilder } from "./LocalRelationshipsBuilder";
 
 /**
- * Configuration for relationship property handling.
- * Simplified from complex GraphFactory.PropertyConfig to focus on essentials.
- */
-export interface PropertyConfig {
-  propertyKey: string;
-  defaultValue: number;
-  aggregation: PropertyAggregation;
-  propertyState: PropertyState;
-}
-
-export enum PropertyAggregation {
-  DEFAULT = 'DEFAULT',
-  SUM = 'SUM',
-  MIN = 'MIN',
-  MAX = 'MAX'
-}
-
-export enum PropertyState {
-  PERSISTENT = 'PERSISTENT',
-  TRANSIENT = 'TRANSIENT'
-}
-
-/**
- * Abstract coordinator for single relationship type construction.
+ * SINGLE TYPE RELATIONSHIPS BUILDER - DIRECT JAVA TRANSLATION
  *
- * DESIGN PATTERNS:
- * - Template Method: Abstract class with concrete implementations
- * - Strategy Pattern: NonIndexed vs Indexed strategies
- * - Factory Pattern: Static factory method chooses correct implementation
- * - Builder Pattern: Flexible configuration and assembly
+ * Abstract builder for constructing relationships of a single type.
+ * Uses factory pattern to create either NonIndexed or Indexed implementations.
  */
 export abstract class SingleTypeRelationshipsBuilder {
   protected readonly idMap: PartialIdMap;
   protected readonly bufferSize: number;
   protected readonly relationshipType: RelationshipType;
-  protected readonly propertyConfigs: PropertyConfig[];
+  protected readonly propertyConfigs: GraphFactory.PropertyConfig[];
   protected readonly isMultiGraph: boolean;
   protected readonly loadRelationshipProperty: boolean;
   protected readonly direction: Direction;
-  protected readonly executorService: ExecutorService;
-  protected readonly concurrency: Concurrency;
+  private readonly executorService: ExecutorService;
+  private readonly concurrency: Concurrency;
 
   /**
-   * Factory method that chooses the correct implementation strategy.
-   *
-   * STRATEGY SELECTION:
-   * - If inverse importer provided → Indexed (undirected)
-   * - If no inverse importer → NonIndexed (directed)
+   * Factory method - direct translation of Java @Builder.Factory
    */
-  static create(config: SingleTypeRelationshipsBuilderConfig): SingleTypeRelationshipsBuilder {
-    return config.inverseImporter
-      ? new IndexedSingleTypeRelationshipsBuilder(config)
-      : new NonIndexedSingleTypeRelationshipsBuilder(config);
+  static singleTypeRelationshipsBuilder(
+    idMap: PartialIdMap,
+    importer: SingleTypeRelationshipImporter,
+    inverseImporter?: SingleTypeRelationshipImporter,
+    bufferSize: number = 8192,
+    relationshipType: RelationshipType,
+    propertyConfigs: GraphFactory.PropertyConfig[],
+    isMultiGraph: boolean,
+    loadRelationshipProperty: boolean,
+    direction: Direction,
+    executorService: ExecutorService,
+    concurrency: Concurrency
+  ): SingleTypeRelationshipsBuilder {
+    return inverseImporter
+      ? new Indexed(
+          idMap,
+          importer,
+          inverseImporter,
+          bufferSize,
+          relationshipType,
+          propertyConfigs,
+          isMultiGraph,
+          loadRelationshipProperty,
+          direction,
+          executorService,
+          concurrency
+        )
+      : new NonIndexed(
+          idMap,
+          importer,
+          bufferSize,
+          relationshipType,
+          propertyConfigs,
+          isMultiGraph,
+          loadRelationshipProperty,
+          direction,
+          executorService,
+          concurrency
+        );
   }
 
-  protected constructor(config: SingleTypeRelationshipsBuilderConfig) {
-    this.idMap = config.idMap;
-    this.bufferSize = config.bufferSize;
-    this.relationshipType = config.relationshipType;
-    this.propertyConfigs = config.propertyConfigs;
-    this.isMultiGraph = config.isMultiGraph;
-    this.loadRelationshipProperty = config.loadRelationshipProperty;
-    this.direction = config.direction;
-    this.executorService = config.executorService;
-    this.concurrency = config.concurrency;
+  protected constructor(
+    idMap: PartialIdMap,
+    bufferSize: number,
+    relationshipType: RelationshipType,
+    propertyConfigs: GraphFactory.PropertyConfig[],
+    isMultiGraph: boolean,
+    loadRelationshipProperty: boolean,
+    direction: Direction,
+    executorService: ExecutorService,
+    concurrency: Concurrency
+  ) {
+    this.idMap = idMap;
+    this.bufferSize = bufferSize;
+    this.relationshipType = relationshipType;
+    this.propertyConfigs = propertyConfigs;
+    this.isMultiGraph = isMultiGraph;
+    this.loadRelationshipProperty = loadRelationshipProperty;
+    this.direction = direction;
+    this.executorService = executorService;
+    this.concurrency = concurrency;
   }
 
-  // =============================================================================
-  // ABSTRACT METHODS - IMPLEMENTED BY STRATEGIES
-  // =============================================================================
-
-  /** Create thread-local builder for concurrent relationship processing */
+  // Abstract methods - implemented by subclasses
   abstract threadLocalRelationshipsBuilder(): LocalRelationshipsBuilder;
 
-  /** Get tasks for parallel adjacency list construction */
   abstract adjacencyListBuilderTasks(
     mapper?: AdjacencyCompressor.ValueMapper,
     drainCountConsumer?: (count: number) => void
   ): AdjacencyBuffer.AdjacencyListBuilderTask[];
 
-  /** Build final SingleTypeRelationships from accumulated data */
   abstract singleTypeRelationshipImportResult(): SingleTypeRelationships;
 
-  // =============================================================================
-  // PUBLIC API
-  // =============================================================================
-
-  /** Get the partial ID map for node ID resolution */
   partialIdMap(): PartialIdMap {
     return this.idMap;
   }
 
-  /**
-   * Build the final SingleTypeRelationships with optional compression and progress tracking.
-   *
-   * BUILD PROCESS:
-   * 1. Get adjacency list builder tasks from strategy
-   * 2. Run tasks in parallel using configured concurrency
-   * 3. Assemble final result from completed import data
-   */
   build(
     mapper?: AdjacencyCompressor.ValueMapper,
     drainCountConsumer?: (count: number) => void
@@ -155,26 +129,100 @@ export abstract class SingleTypeRelationshipsBuilder {
 
     return this.singleTypeRelationshipImportResult();
   }
+
+  protected relationshipSchemaEntry(properties?: RelationshipPropertyStore): MutableRelationshipSchemaEntry {
+    const entry = new MutableRelationshipSchemaEntry(
+      this.relationshipType,
+      this.direction
+    );
+
+    if (properties) {
+      properties.relationshipProperties().forEach((relationshipProperty, propertyKey) => {
+        entry.addProperty(
+          propertyKey,
+          RelationshipPropertySchema.of(
+            propertyKey,
+            relationshipProperty.valueType(),
+            relationshipProperty.defaultValue(),
+            relationshipProperty.propertyState(),
+            relationshipProperty.aggregation()
+          )
+        );
+      });
+    }
+
+    return entry;
+  }
+
+  protected relationshipPropertyStore(adjacencyListsWithProperties: AdjacencyListsWithProperties): RelationshipPropertyStore {
+    const propertyStoreBuilder = RelationshipPropertyStore.builder();
+
+    const properties = adjacencyListsWithProperties.properties();
+    const relationshipCount = adjacencyListsWithProperties.relationshipCount();
+
+    for (let propertyKeyId = 0; propertyKeyId < this.propertyConfigs.length; propertyKeyId++) {
+      const propertyConfig = this.propertyConfigs[propertyKeyId];
+
+      const propertyValues = ImmutableProperties.builder()
+        .propertiesList(properties.get(propertyKeyId))
+        .defaultPropertyValue(DefaultValue.DOUBLE_DEFAULT_FALLBACK)
+        .elementCount(relationshipCount)
+        .build();
+
+      const relationshipPropertySchema = ImmutableRelationshipPropertySchema.builder()
+        .key(propertyConfig.propertyKey())
+        .aggregation(propertyConfig.aggregation())
+        .valueType(ValueType.DOUBLE)
+        .defaultValue(propertyConfig.defaultValue())
+        .state(propertyConfig.propertyState())
+        .build();
+
+      const relationshipProperty = ImmutableRelationshipProperty.builder()
+        .values(propertyValues)
+        .propertySchema(relationshipPropertySchema)
+        .build();
+
+      propertyStoreBuilder.putRelationshipProperty(propertyConfig.propertyKey(), relationshipProperty);
+    }
+
+    return propertyStoreBuilder.build();
+  }
 }
 
 /**
- * NON-INDEXED STRATEGY (Directed Relationships)
- * Uses single importer for one-direction relationships.
+ * NON-INDEXED IMPLEMENTATION - Direct translation of Java NonIndexed static class
  */
-class NonIndexedSingleTypeRelationshipsBuilder extends SingleTypeRelationshipsBuilder {
+class NonIndexed extends SingleTypeRelationshipsBuilder {
   private readonly importer: SingleTypeRelationshipImporter;
 
-  constructor(config: SingleTypeRelationshipsBuilderConfig) {
-    super(config);
-    this.importer = config.importer;
+  constructor(
+    idMap: PartialIdMap,
+    importer: SingleTypeRelationshipImporter,
+    bufferSize: number,
+    relationshipType: RelationshipType,
+    propertyConfigs: GraphFactory.PropertyConfig[],
+    isMultiGraph: boolean,
+    loadRelationshipProperty: boolean,
+    direction: Direction,
+    executorService: ExecutorService,
+    concurrency: Concurrency
+  ) {
+    super(
+      idMap,
+      bufferSize,
+      relationshipType,
+      propertyConfigs,
+      isMultiGraph,
+      loadRelationshipProperty,
+      direction,
+      executorService,
+      concurrency
+    );
+    this.importer = importer;
   }
 
   threadLocalRelationshipsBuilder(): LocalRelationshipsBuilder {
-    return LocalRelationshipsBuilderFactory.createNonIndexed(
-      this.importer,
-      this.bufferSize,
-      this.propertyConfigs.length
-    );
+    return LocalRelationshipsBuilder.createNonIndexed(this.importer, this.bufferSize, this.propertyConfigs.length);
   }
 
   adjacencyListBuilderTasks(
@@ -186,59 +234,70 @@ class NonIndexedSingleTypeRelationshipsBuilder extends SingleTypeRelationshipsBu
 
   singleTypeRelationshipImportResult(): SingleTypeRelationships {
     const adjacencyListsWithProperties = this.importer.build();
+    const adjacencyList = adjacencyListsWithProperties.adjacency();
+    const relationshipCount = adjacencyListsWithProperties.relationshipCount();
 
-    const topology = {
-      isMultiGraph: this.isMultiGraph,
-      adjacencyList: adjacencyListsWithProperties.adjacency(),
-      elementCount: adjacencyListsWithProperties.relationshipCount()
-    };
+    const topology = ImmutableTopology.builder()
+      .isMultiGraph(this.isMultiGraph)
+      .adjacencyList(adjacencyList)
+      .elementCount(relationshipCount)
+      .build();
 
-    const builder = SingleTypeRelationships.builder().topology(topology);
+    const singleRelationshipTypeImportResultBuilder = SingleTypeRelationships.builder()
+      .topology(topology);
 
-    // Add properties if configured
+    let properties: RelationshipPropertyStore | undefined = undefined;
     if (this.loadRelationshipProperty) {
-      const properties = this.buildRelationshipPropertyStore(adjacencyListsWithProperties);
-      builder.properties(properties);
-      builder.relationshipSchemaEntry(this.buildRelationshipSchemaEntry(properties));
-    } else {
-      builder.relationshipSchemaEntry(this.buildRelationshipSchemaEntry());
+      properties = this.relationshipPropertyStore(adjacencyListsWithProperties);
+      singleRelationshipTypeImportResultBuilder.properties(properties);
     }
 
-    return builder.build();
-  }
+    singleRelationshipTypeImportResultBuilder
+      .relationshipSchemaEntry(this.relationshipSchemaEntry(properties));
 
-  private buildRelationshipPropertyStore(adjacencyListsWithProperties: any) {
-    // Implementation details for property store building
-    // Simplified from complex Java implementation
-    return null; // Placeholder
-  }
-
-  private buildRelationshipSchemaEntry(properties?: any) {
-    // Implementation details for schema entry building
-    return null; // Placeholder
+    return singleRelationshipTypeImportResultBuilder.build();
   }
 }
 
 /**
- * INDEXED STRATEGY (Undirected Relationships)
- * Uses two importers for bidirectional relationships.
+ * INDEXED IMPLEMENTATION - Direct translation of Java Indexed static class
  */
-class IndexedSingleTypeRelationshipsBuilder extends SingleTypeRelationshipsBuilder {
+class Indexed extends SingleTypeRelationshipsBuilder {
   private readonly forwardImporter: SingleTypeRelationshipImporter;
   private readonly inverseImporter: SingleTypeRelationshipImporter;
 
-  constructor(config: SingleTypeRelationshipsBuilderConfig) {
-    super(config);
-    this.forwardImporter = config.importer;
-    this.inverseImporter = config.inverseImporter!; // Guaranteed to exist for Indexed
+  constructor(
+    idMap: PartialIdMap,
+    forwardImporter: SingleTypeRelationshipImporter,
+    inverseImporter: SingleTypeRelationshipImporter,
+    bufferSize: number,
+    relationshipType: RelationshipType,
+    propertyConfigs: GraphFactory.PropertyConfig[],
+    isMultiGraph: boolean,
+    loadRelationshipProperty: boolean,
+    direction: Direction,
+    executorService: ExecutorService,
+    concurrency: Concurrency
+  ) {
+    super(
+      idMap,
+      bufferSize,
+      relationshipType,
+      propertyConfigs,
+      isMultiGraph,
+      loadRelationshipProperty,
+      direction,
+      executorService,
+      concurrency
+    );
+    this.forwardImporter = forwardImporter;
+    this.inverseImporter = inverseImporter;
   }
 
   threadLocalRelationshipsBuilder(): LocalRelationshipsBuilder {
-    return LocalRelationshipsBuilderFactory.createIndexed(
-      this.forwardImporter,
-      this.inverseImporter,
-      this.bufferSize,
-      this.propertyConfigs.length
+    return LocalRelationshipsBuilder.createIndexed(
+      LocalRelationshipsBuilder.createNonIndexed(this.forwardImporter, this.bufferSize, this.propertyConfigs.length),
+      LocalRelationshipsBuilder.createNonIndexed(this.inverseImporter, this.bufferSize, this.propertyConfigs.length)
     );
   }
 
@@ -255,75 +314,42 @@ class IndexedSingleTypeRelationshipsBuilder extends SingleTypeRelationshipsBuild
   singleTypeRelationshipImportResult(): SingleTypeRelationships {
     const forwardListWithProperties = this.forwardImporter.build();
     const inverseListWithProperties = this.inverseImporter.build();
+    const forwardAdjacencyList = forwardListWithProperties.adjacency();
+    const inverseAdjacencyList = inverseListWithProperties.adjacency();
 
     const relationshipCount = forwardListWithProperties.relationshipCount();
 
-    const forwardTopology = {
-      isMultiGraph: this.isMultiGraph,
-      adjacencyList: forwardListWithProperties.adjacency(),
-      elementCount: relationshipCount
-    };
+    const forwardTopology = ImmutableTopology.builder()
+      .isMultiGraph(this.isMultiGraph)
+      .adjacencyList(forwardAdjacencyList)
+      .elementCount(relationshipCount)
+      .build();
 
-    const inverseTopology = {
-      ...forwardTopology,
-      adjacencyList: inverseListWithProperties.adjacency()
-    };
+    const inverseTopology = ImmutableTopology.builder()
+      .from(forwardTopology)
+      .adjacencyList(inverseAdjacencyList)
+      .build();
 
-    const builder = SingleTypeRelationships.builder()
+    const singleRelationshipTypeImportResultBuilder = SingleTypeRelationships.builder()
       .topology(forwardTopology)
       .inverseTopology(inverseTopology);
 
-    // Add properties if configured
+    let forwardProperties: RelationshipPropertyStore | undefined = undefined;
     if (this.loadRelationshipProperty) {
-      const forwardProperties = this.buildRelationshipPropertyStore(forwardListWithProperties);
-      const inverseProperties = this.buildRelationshipPropertyStore(inverseListWithProperties);
-
-      builder.properties(forwardProperties)
-             .inverseProperties(inverseProperties)
-             .relationshipSchemaEntry(this.buildRelationshipSchemaEntry(forwardProperties));
-    } else {
-      builder.relationshipSchemaEntry(this.buildRelationshipSchemaEntry());
+      forwardProperties = this.relationshipPropertyStore(forwardListWithProperties);
+      const inverseProperties = this.relationshipPropertyStore(inverseListWithProperties);
+      singleRelationshipTypeImportResultBuilder.properties(forwardProperties).inverseProperties(inverseProperties);
     }
 
-    return builder.build();
-  }
+    singleRelationshipTypeImportResultBuilder
+      .relationshipSchemaEntry(this.relationshipSchemaEntry(forwardProperties));
 
-  private buildRelationshipPropertyStore(adjacencyListsWithProperties: any) {
-    // Implementation details for property store building
-    return null; // Placeholder
-  }
-
-  private buildRelationshipSchemaEntry(properties?: any) {
-    // Implementation details for schema entry building
-    return null; // Placeholder
+    return singleRelationshipTypeImportResultBuilder.build();
   }
 }
 
-// =============================================================================
-// CONFIGURATION AND INTERFACES
-// =============================================================================
-
 /**
- * Configuration for SingleTypeRelationshipsBuilder construction.
- * Simplified interface focusing on essential parameters.
- */
-export interface SingleTypeRelationshipsBuilderConfig {
-  idMap: PartialIdMap;
-  importer: SingleTypeRelationshipImporter;
-  inverseImporter?: SingleTypeRelationshipImporter; // Optional for directed graphs
-  bufferSize: number;
-  relationshipType: RelationshipType;
-  propertyConfigs: PropertyConfig[];
-  isMultiGraph: boolean;
-  loadRelationshipProperty: boolean;
-  direction: Direction;
-  executorService: ExecutorService;
-  concurrency: Concurrency;
-}
-
-/**
- * Simplified executor service interface.
- * In production, would use Node.js worker threads or browser Web Workers.
+ * EXECUTOR SERVICE INTERFACE - Simplified for TypeScript
  */
 export interface ExecutorService {
   execute(task: () => void): void;

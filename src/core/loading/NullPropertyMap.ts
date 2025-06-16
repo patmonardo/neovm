@@ -22,7 +22,7 @@ export abstract class NullPropertyMap implements NodePropertyValues {
     throw new Error('longValue not supported by this property map');
   }
 
-  doubleArrayValue(nodeId: number): number[] {
+  doubleArrayValue(nodeId: number): Float64Array {
     throw new Error('doubleArrayValue not supported by this property map');
   }
 
